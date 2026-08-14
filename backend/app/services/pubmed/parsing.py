@@ -85,7 +85,9 @@ def _parse_publication_date(article: ElementTree.Element) -> str:
 def _parse_identifiers(entry: ElementTree.Element) -> tuple[str | None, str | None]:
     doi: str | None = None
     pmcid: str | None = None
-    for node in entry.findall(".//ArticleId"):
+    # Anchored rather than descendant: every <Reference> carries its own ArticleIdList, so
+    # a wildcard search picks up the PMC id of a cited paper.
+    for node in entry.findall("PubmedData/ArticleIdList/ArticleId"):
         id_type = node.get("IdType")
         value = _text(node)
         if not value:
@@ -95,7 +97,7 @@ def _parse_identifiers(entry: ElementTree.Element) -> tuple[str | None, str | No
         elif id_type == "pmc":
             pmcid = value
     if doi is None:
-        doi = _text(entry.find(".//ELocationID[@EIdType='doi']")) or None
+        doi = _text(entry.find("MedlineCitation/Article/ELocationID[@EIdType='doi']")) or None
     return doi, pmcid
 
 

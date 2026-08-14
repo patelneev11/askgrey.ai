@@ -53,6 +53,12 @@ def test_falls_back_to_medline_date_and_elocation_doi(articles: list) -> None:
     assert article.full_text_url is None
 
 
+def test_ignores_identifiers_belonging_to_cited_references(articles: list) -> None:
+    article = articles[0]
+    assert article.pmcid == "PMC10685891"
+    assert article.doi == "10.1056/NEJMoa2306963"
+
+
 @pytest.mark.parametrize("xml", ["", "   ", "<PubmedArticleSet></PubmedArticleSet>"])
 def test_empty_documents_yield_no_articles(xml: str) -> None:
     assert parse_article_set(xml) == []

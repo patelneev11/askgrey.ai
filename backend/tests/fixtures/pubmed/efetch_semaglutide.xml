@@ -51,6 +51,16 @@
         <ArticleId IdType="doi">10.1056/NEJMoa2306963</ArticleId>
         <ArticleId IdType="pmc">PMC10685891</ArticleId>
       </ArticleIdList>
+      <ReferenceList>
+        <Reference>
+          <Citation>Wilding JPH, et al. Once-weekly semaglutide. N Engl J Med. 2021;384:989-1002.</Citation>
+          <ArticleIdList>
+            <ArticleId IdType="pmc">PMC4955927</ArticleId>
+            <ArticleId IdType="doi">10.1056/NEJMoa2032183</ArticleId>
+            <ArticleId IdType="pubmed">33567185</ArticleId>
+          </ArticleIdList>
+        </Reference>
+      </ReferenceList>
     </PubmedData>
   </PubmedArticle>
   <PubmedArticle>

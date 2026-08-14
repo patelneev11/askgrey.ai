@@ -9,8 +9,8 @@ import pytest
 from app.services.pubmed.errors import InvalidQueryError, TranslationError
 from app.services.pubmed.translation import (
     MAX_QUERY_LENGTH,
+    ClaudeQueryTranslator,
     FallbackQueryTranslator,
-    LLMQueryTranslator,
     RuleBasedQueryTranslator,
     normalize_query,
 )
@@ -18,14 +18,19 @@ from app.services.pubmed.translation import (
 TODAY = date(2024, 6, 1)
 
 
-def llm_transport(payload: object, status_code: int = 200) -> httpx.MockTransport:
-    body = payload if isinstance(payload, str) else json.dumps(payload)
+def claude_transport(
+    payload: object,
+    status_code: int = 200,
+    requests: list[httpx.Request] | None = None,
+) -> httpx.MockTransport:
+    """Replay a Messages API response. Dict payloads lose their leading `{`, as Claude's
+    completion does when the assistant turn is prefilled with an opening brace."""
+    body = payload if isinstance(payload, str) else json.dumps(payload).lstrip("{")
 
-    def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            status_code,
-            json={"choices": [{"message": {"content": body}}]},
-        )
+    def handler(request: httpx.Request) -> httpx.Response:
+        if requests is not None:
+            requests.append(request)
+        return httpx.Response(status_code, json={"content": [{"type": "text", "text": body}]})
 
     return httpx.MockTransport(handler)
 
@@ -111,13 +116,14 @@ class TestRuleBasedTranslator:
             await translator.translate("what are these about")
 
 
-class TestLLMTranslator:
+class TestClaudeTranslator:
     @pytest.mark.asyncio
-    async def test_uses_structured_llm_output(self) -> None:
-        translator = LLMQueryTranslator(
+    async def test_uses_structured_claude_output(self) -> None:
+        requests: list[httpx.Request] = []
+        translator = ClaudeQueryTranslator(
             api_key="test-key",
-            model="gpt-4o-mini",
-            transport=llm_transport(
+            model="claude-sonnet-4-5",
+            transport=claude_transport(
                 {
                     "term": '("Semaglutide"[MeSH Terms] OR "semaglutide"[tiab])'
                     ' AND "Review"[Publication Type]',
@@ -127,17 +133,28 @@ class TestLLMTranslator:
                     "date_start": "2020-01-01",
                     "date_end": None,
                     "rationale": "One drug concept, restricted to reviews.",
-                }
+                },
+                requests=requests,
             ),
         )
         result = await translator.translate("reviews of semaglutide since 2020")
 
-        assert result.translator == "llm"
+        assert result.translator == "claude"
         assert result.mesh_terms == ["Semaglutide"]
         assert result.publication_types.values == ["Review"]
         assert result.date_range.start == date(2020, 1, 1)
         assert result.date_range.end is None
         assert '"Semaglutide"[MeSH Terms]' in result.term
+
+        request = requests[0]
+        assert request.url.path.endswith("/messages")
+        assert request.headers["x-api-key"] == "test-key"
+        assert request.headers["anthropic-version"] == "2023-06-01"
+        sent = json.loads(request.content)
+        assert sent["model"] == "claude-sonnet-4-5"
+        assert sent["system"].startswith("You translate")
+        # The prefilled assistant turn is what keeps the reply to bare JSON.
+        assert sent["messages"][-1] == {"role": "assistant", "content": "{"}
         await translator.aclose()
 
     @pytest.mark.asyncio
@@ -145,8 +162,8 @@ class TestLLMTranslator:
         fenced = (
             '```json\n{"mesh_terms": ["Obesity"], "keywords": [], "publication_types": []}\n```'
         )
-        translator = LLMQueryTranslator(
-            api_key="test-key", model="m", transport=llm_transport(fenced)
+        translator = ClaudeQueryTranslator(
+            api_key="test-key", model="m", transport=claude_transport(fenced)
         )
         result = await translator.translate("obesity")
 
@@ -155,8 +172,8 @@ class TestLLMTranslator:
 
     @pytest.mark.asyncio
     async def test_invalid_json_raises_translation_error(self) -> None:
-        translator = LLMQueryTranslator(
-            api_key="test-key", model="m", transport=llm_transport("not json at all")
+        translator = ClaudeQueryTranslator(
+            api_key="test-key", model="m", transport=claude_transport("not json at all")
         )
         with pytest.raises(TranslationError):
             await translator.translate("obesity")
@@ -164,24 +181,32 @@ class TestLLMTranslator:
 
     @pytest.mark.asyncio
     async def test_http_error_raises_translation_error(self) -> None:
-        translator = LLMQueryTranslator(
-            api_key="test-key", model="m", transport=llm_transport({}, status_code=500)
+        translator = ClaudeQueryTranslator(
+            api_key="test-key", model="m", transport=claude_transport({}, status_code=500)
         )
         with pytest.raises(TranslationError):
             await translator.translate("obesity")
         await translator.aclose()
 
     @pytest.mark.asyncio
-    async def test_requires_api_key(self) -> None:
+    async def test_empty_content_raises_translation_error(self) -> None:
+        translator = ClaudeQueryTranslator(
+            api_key="test-key", model="m", transport=claude_transport("   ")
+        )
+        with pytest.raises(TranslationError):
+            await translator.translate("obesity")
+        await translator.aclose()
+
+    def test_requires_api_key(self) -> None:
         with pytest.raises(ValueError):
-            LLMQueryTranslator(api_key="", model="m")
+            ClaudeQueryTranslator(api_key="", model="m")
 
 
 class TestFallbackTranslator:
     @pytest.mark.asyncio
-    async def test_falls_back_when_llm_fails(self) -> None:
-        primary = LLMQueryTranslator(
-            api_key="test-key", model="m", transport=llm_transport("garbage")
+    async def test_falls_back_when_claude_fails(self) -> None:
+        primary = ClaudeQueryTranslator(
+            api_key="test-key", model="m", transport=claude_transport("garbage")
         )
         translator = FallbackQueryTranslator(primary, RuleBasedQueryTranslator(today=TODAY))
         result = await translator.translate("semaglutide obesity")
@@ -192,7 +217,9 @@ class TestFallbackTranslator:
 
     @pytest.mark.asyncio
     async def test_invalid_input_is_not_retried(self) -> None:
-        primary = LLMQueryTranslator(api_key="k", model="m", transport=llm_transport("garbage"))
+        primary = ClaudeQueryTranslator(
+            api_key="k", model="m", transport=claude_transport("garbage")
+        )
         translator = FallbackQueryTranslator(primary, RuleBasedQueryTranslator(today=TODAY))
         with pytest.raises(InvalidQueryError):
             await translator.translate("")

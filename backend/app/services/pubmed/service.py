@@ -8,8 +8,8 @@ from .models import Article, SearchResult
 from .parsing import parse_article_set
 from .rate_limit import RateLimiter
 from .translation import (
+    ClaudeQueryTranslator,
     FallbackQueryTranslator,
-    LLMQueryTranslator,
     QueryTranslator,
     RuleBasedQueryTranslator,
 )
@@ -43,10 +43,12 @@ class PubMedService:
         translator: QueryTranslator = rule_based
         if settings.llm_translation_enabled:
             translator = FallbackQueryTranslator(
-                LLMQueryTranslator(
-                    api_key=settings.llm_api_key,
+                ClaudeQueryTranslator(
+                    api_key=settings.anthropic_api_key,
                     model=settings.llm_model,
-                    base_url=settings.llm_base_url,
+                    base_url=settings.anthropic_base_url,
+                    anthropic_version=settings.anthropic_version,
+                    max_tokens=settings.llm_max_tokens,
                     timeout=settings.llm_timeout_seconds,
                 ),
                 rule_based,

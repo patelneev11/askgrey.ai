@@ -18,8 +18,8 @@ from .parsing import parse_article_set
 from .rate_limit import RateLimiter, retry_with_backoff
 from .service import PubMedService
 from .translation import (
+    ClaudeQueryTranslator,
     FallbackQueryTranslator,
-    LLMQueryTranslator,
     QueryTranslator,
     RuleBasedQueryTranslator,
     normalize_query,
@@ -28,13 +28,13 @@ from .translation import (
 __all__ = [
     "Article",
     "Author",
+    "ClaudeQueryTranslator",
     "DateRangeFilter",
     "EntrezClient",
     "EntrezRequestError",
     "EntrezResponseError",
     "FallbackQueryTranslator",
     "InvalidQueryError",
-    "LLMQueryTranslator",
     "PubMedError",
     "PubMedService",
     "PublicationTypeFilter",

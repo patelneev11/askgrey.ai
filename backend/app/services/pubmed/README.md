@@ -1,8 +1,8 @@
 # PubMed service (`app.services.pubmed`)
 
 Natural-language question in, normalized PubMed records out. Wraps the NCBI Entrez
-E-utilities (`esearch`, `efetch`, `esummary`) with rate limiting, retry/backoff, and an
-LLM-backed natural-language → Entrez query translator.
+E-utilities (`esearch`, `efetch`, `esummary`) with rate limiting, retry/backoff, and a
+Claude-backed natural-language → Entrez query translator.
 
 Nothing in this module touches the network at import time, and the whole test suite runs
 against recorded fixtures — CI never calls NCBI.
@@ -64,13 +64,14 @@ All implement `QueryTranslator`: `await translate(query) -> TranslatedQuery`.
   phrasing (`last 5 years`, `since 2021`, `between 2018 and 2020`, `before 2015`), keeps
   quoted phrases intact, drops stopwords, and emits `[tiab]` clauses. It cannot infer MeSH
   descriptors.
-- `LLMQueryTranslator` — OpenAI-compatible chat completions. The system prompt requires a
-  JSON object (`term`, `mesh_terms`, `keywords`, `publication_types`, `date_start`,
-  `date_end`, `rationale`) so the structured filters stay inspectable and a missing `term`
-  can be rebuilt locally.
-- `FallbackQueryTranslator(primary, fallback)` — what `from_settings` wires up when an LLM
-  key is present: any `TranslationError` retranslates through the rule-based path, so a
-  provider outage degrades instead of failing.
+- `ClaudeQueryTranslator` — Anthropic Messages API. The system prompt requires a JSON object
+  (`term`, `mesh_terms`, `keywords`, `publication_types`, `date_start`, `date_end`,
+  `rationale`) so the structured filters stay inspectable and a missing `term` can be
+  rebuilt locally. The Messages API has no JSON response mode, so the assistant turn is
+  prefilled with `{` to suppress any prose preamble; the brace is re-attached before parsing.
+- `FallbackQueryTranslator(primary, fallback)` — what `from_settings` wires up when
+  `ANTHROPIC_API_KEY` is present: any `TranslationError` retranslates through the rule-based
+  path, so a provider outage degrades instead of failing.
 
 `normalize_query(query)` validates raw input up front and raises `InvalidQueryError` for
 empty, whitespace-only, punctuation-only, non-string, or >1000-character queries.
@@ -113,9 +114,11 @@ responses other than 429 fail immediately.
 | `NCBI_TOOL_NAME` | `askgrey` | `tool` parameter NCBI requires for identification. |
 | `NCBI_CONTACT_EMAIL` | *(empty)* | `email` parameter NCBI uses to contact heavy users. |
 | `NCBI_TIMEOUT_SECONDS` | `20` | Per-request HTTP timeout. |
-| `LLM_API_KEY` | *(empty)* | When empty, translation is rule-based only. |
-| `LLM_BASE_URL` | `https://api.openai.com/v1` | Any OpenAI-compatible endpoint. |
-| `LLM_MODEL` | `gpt-4o-mini` | Translation model. |
+| `ANTHROPIC_API_KEY` | *(empty)* | When empty, translation is rule-based only. |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` | Messages API base URL. |
+| `ANTHROPIC_VERSION` | `2023-06-01` | `anthropic-version` header. |
+| `LLM_MODEL` | `claude-sonnet-4-5` | Translation model. |
+| `LLM_MAX_TOKENS` | `1024` | `max_tokens` for the translation response. |
 | `LLM_TIMEOUT_SECONDS` | `30` | Per-request timeout for translation. |
 
 ## Testing

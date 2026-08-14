@@ -29,11 +29,13 @@ class Settings(BaseSettings):
     ncbi_contact_email: str = ""
     ncbi_timeout_seconds: float = 20.0
 
-    # LLM used for natural-language -> Entrez query translation. Without a key the
+    # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
-    llm_api_key: str = ""
-    llm_base_url: str = "https://api.openai.com/v1"
-    llm_model: str = "gpt-4o-mini"
+    anthropic_api_key: str = ""
+    anthropic_base_url: str = "https://api.anthropic.com/v1"
+    anthropic_version: str = "2023-06-01"
+    llm_model: str = "claude-sonnet-4-5"
+    llm_max_tokens: int = 1024
     llm_timeout_seconds: float = 30.0
 
     @property
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
 
     @property
     def llm_translation_enabled(self) -> bool:
-        return bool(self.llm_api_key)
+        return bool(self.anthropic_api_key)
 
     @property
     def cors_origin_list(self) -> list[str]:

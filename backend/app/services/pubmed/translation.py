@@ -220,32 +220,36 @@ def _strip_code_fence(content: str) -> str:
     return stripped.strip()
 
 
-class LLMQueryTranslator:
+class ClaudeQueryTranslator:
     """
-    Translates through an OpenAI-compatible chat-completions endpoint.
+    Translates through Anthropic's Messages API.
 
-    The model is asked for JSON rather than a bare query string so the structured filters
-    stay inspectable in the UI, and so a malformed `term` can be rebuilt from its parts.
+    Claude is asked for JSON rather than a bare query string so the structured filters stay
+    inspectable in the UI, and so a malformed `term` can be rebuilt from its parts. The
+    assistant turn is prefilled with `{` — the Messages API has no JSON response mode, and
+    the prefill is what reliably suppresses a prose preamble.
     """
 
-    name = "llm"
+    name = "claude"
 
     def __init__(
         self,
         *,
         api_key: str,
         model: str,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str = "https://api.anthropic.com/v1",
+        anthropic_version: str = "2023-06-01",
+        max_tokens: int = 1024,
         timeout: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
-        fallback: QueryTranslator | None = None,
     ) -> None:
         if not api_key:
             raise ValueError("api_key is required")
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        self.fallback = fallback or RuleBasedQueryTranslator()
+        self.anthropic_version = anthropic_version
+        self.max_tokens = max_tokens
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
 
     async def aclose(self) -> None:
@@ -253,42 +257,55 @@ class LLMQueryTranslator:
 
     async def _complete(self, query: str) -> str:
         response = await self._client.post(
-            f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            f"{self.base_url}/messages",
+            headers={
+                "x-api-key": self.api_key,
+                "anthropic-version": self.anthropic_version,
+                "content-type": "application/json",
+            },
             json={
                 "model": self.model,
+                "max_tokens": self.max_tokens,
                 "temperature": 0,
-                "response_format": {"type": "json_object"},
+                "system": SYSTEM_PROMPT,
                 "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": query},
+                    {"role": "assistant", "content": "{"},
                 ],
             },
         )
         if response.status_code >= 400:
-            raise TranslationError(f"LLM returned HTTP {response.status_code}")
+            raise TranslationError(f"Claude returned HTTP {response.status_code}")
         try:
-            payload = response.json()
-            content = payload["choices"][0]["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise TranslationError("LLM response had an unexpected shape") from exc
-        if not isinstance(content, str):
-            raise TranslationError("LLM response content was not text")
-        return content
+            blocks = response.json()["content"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise TranslationError("Claude response had an unexpected shape") from exc
+        text = "".join(
+            block["text"]
+            for block in blocks
+            if isinstance(block, dict) and isinstance(block.get("text"), str)
+        )
+        if not text.strip():
+            raise TranslationError("Claude returned no text content")
+        return text
 
     async def translate(self, query: str) -> TranslatedQuery:
         normalized = normalize_query(query)
         try:
             raw = await self._complete(normalized)
         except httpx.HTTPError as exc:
-            raise TranslationError(f"LLM request failed: {exc}") from exc
+            raise TranslationError(f"Claude request failed: {exc}") from exc
 
+        body = _strip_code_fence(raw)
+        if not body.startswith("{"):
+            # Re-attach the prefilled brace that Claude's completion continues from.
+            body = "{" + body
         try:
-            data = json.loads(_strip_code_fence(raw))
+            data = json.loads(body)
         except ValueError as exc:
-            raise TranslationError("LLM did not return valid JSON") from exc
+            raise TranslationError("Claude did not return valid JSON") from exc
         if not isinstance(data, dict):
-            raise TranslationError("LLM did not return a JSON object")
+            raise TranslationError("Claude did not return a JSON object")
 
         mesh_terms = [str(item) for item in data.get("mesh_terms", []) if str(item).strip()]
         keywords = [str(item) for item in data.get("keywords", []) if str(item).strip()]
@@ -305,7 +322,7 @@ class LLMQueryTranslator:
             # The model gave us the parts but not the assembled query; assemble it ourselves.
             term = build_term(keywords, mesh_terms, publication_types, date_range)
         if not term:
-            raise TranslationError("LLM produced an empty query")
+            raise TranslationError("Claude produced an empty query")
 
         return TranslatedQuery(
             original=normalized,

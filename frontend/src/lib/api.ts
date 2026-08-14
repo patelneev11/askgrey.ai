@@ -33,6 +33,13 @@ export interface SSOConfig {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+/**
+ * A hung backend is indistinguishable from a slow one without a bound, so every request gets
+ * one. Extraction runs a full LLM pass per paper, hence the far longer allowance there.
+ */
+const DEFAULT_TIMEOUT_MS = 30_000;
+const EXTRACTION_TIMEOUT_MS = 180_000;
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -64,7 +71,19 @@ export function formatErrorDetail(detail: unknown): string | undefined {
   return undefined;
 }
 
-async function send(path: string, init: RequestInit, token?: string): Promise<Response> {
+export class TimeoutError extends ApiError {
+  constructor(seconds: number) {
+    super(`The server did not respond within ${seconds}s. It may be busy — try again.`, 408);
+    this.name = 'TimeoutError';
+  }
+}
+
+async function send(
+  path: string,
+  init: RequestInit,
+  token?: string,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<Response> {
   const headers = new Headers(init.headers);
   // FormData bodies must keep the boundary the browser generates for them.
   if (!(init.body instanceof FormData)) {
@@ -74,7 +93,19 @@ async function send(path: string, init: RequestInit, token?: string): Promise<Re
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE}/api${path}`, { ...init, headers });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api${path}`, { ...init, headers, signal: controller.signal });
+  } catch (cause) {
+    if (controller.signal.aborted) {
+      throw new TimeoutError(Math.round(timeoutMs / 1000));
+    }
+    throw cause;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) {
     const detail = await response
       .json()
@@ -85,8 +116,13 @@ async function send(path: string, init: RequestInit, token?: string): Promise<Re
   return response;
 }
 
-async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
-  const response = await send(path, init, token);
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  token?: string,
+  timeoutMs?: number,
+): Promise<T> {
+  const response = await send(path, init, token, timeoutMs);
   return (await response.json()) as T;
 }
 
@@ -151,7 +187,12 @@ export const api = {
     const body = new FormData();
     body.append('file', file);
     body.append('goal', goal);
-    return request<ExtractionTable>('/pdf-extraction/upload', { method: 'POST', body }, token);
+    return request<ExtractionTable>(
+      '/pdf-extraction/upload',
+      { method: 'POST', body },
+      token,
+      EXTRACTION_TIMEOUT_MS,
+    );
   },
 
   /** Extract from a PMC article or direct PDF link (Ticket 1.4). */
@@ -160,6 +201,7 @@ export const api = {
       '/pdf-extraction/url',
       { method: 'POST', body: JSON.stringify({ url, goal }) },
       token,
+      EXTRACTION_TIMEOUT_MS,
     ),
 
   /** Render the review table as a workbook or CSV and hand back the file (Ticket 1.5). */

@@ -51,7 +51,12 @@ export function ProtocolPage() {
       left={
         <Panel
           title="Outline"
-          actions={<span className={styles.totalTime}>26 h 40 m</span>}
+          actions={
+            <div className={styles.docActions}>
+              <StatusPill tone="idle">Sample data</StatusPill>
+              <span className={styles.totalTime}>26 h 40 m</span>
+            </div>
+          }
           className={styles.fill}
         >
           <ol className={styles.outline}>
@@ -96,8 +101,7 @@ export function ProtocolPage() {
                 48-hour cytotoxicity screen of AG-0412 in HepG2 cells
               </h1>
               <p className={styles.docMeta}>
-                Drafted by the protocol agent from the STEP analog series brief · last edited 2
-                hours ago
+                Sample draft in the protocol agent's output shape
               </p>
             </header>
 

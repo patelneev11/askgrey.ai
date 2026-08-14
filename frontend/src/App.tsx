@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AppShell } from '@/layouts/AppShell';
 import { AuthProvider } from '@/lib/auth';
 import { useAuth } from '@/lib/auth-context';
+import { WorkspaceProvider } from '@/lib/workspace';
 import { AuditPage } from '@/pages/AuditPage';
 import { GrantsPage } from '@/pages/GrantsPage';
 import { LiteraturePage } from '@/pages/LiteraturePage';
@@ -34,7 +35,9 @@ export function AppRoutes() {
       <Route
         element={
           <RequireAuth>
-            <AppShell />
+            <WorkspaceProvider>
+              <AppShell />
+            </WorkspaceProvider>
           </RequireAuth>
         }
       >

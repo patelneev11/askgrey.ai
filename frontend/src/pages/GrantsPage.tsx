@@ -140,10 +140,8 @@ export function GrantsPage() {
           <h1 className={styles.title}>Grants</h1>
         </div>
         <div className={styles.headerMeta}>
-          <StatusPill tone="running" pulse>
-            Mock review running
-          </StatusPill>
-          <span className={styles.headerStat}>3 opportunities matched</span>
+          <StatusPill tone="idle">Sample data · /api/grants not wired up yet</StatusPill>
+          <span className={styles.headerStat}>3 opportunities shown</span>
         </div>
       </header>
 

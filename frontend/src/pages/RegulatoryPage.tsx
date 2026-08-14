@@ -91,7 +91,12 @@ export function RegulatoryPage() {
       left={
         <Panel
           title="IND · eCTD structure"
-          actions={<span className={styles.overall}>68% complete</span>}
+          actions={
+            <div className={styles.docActions}>
+              <StatusPill tone="idle">Sample data</StatusPill>
+              <span className={styles.overall}>68% complete</span>
+            </div>
+          }
           className={styles.fill}
         >
           <ul className={styles.tree}>

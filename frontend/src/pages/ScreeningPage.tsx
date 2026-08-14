@@ -92,7 +92,7 @@ const FLAGS = [
   },
   {
     title: 'Rotatable bonds exceed Veber criterion',
-    body: '11 rotatable bonds may depress oral bioavailability; the extended linker in AG-0421 is the likely cause.',
+    body: '11 rotatable bonds may depress oral bioavailability; the extended linker on the pyrazolone core is the likely cause.',
   },
 ];
 
@@ -107,9 +107,7 @@ export function ScreeningPage() {
         <Panel
           title="Screening queue"
           actions={
-            <StatusPill tone="running" pulse>
-              Profiling
-            </StatusPill>
+            <StatusPill tone="idle">Sample data</StatusPill>
           }
           className={styles.fill}
           flush
@@ -117,8 +115,7 @@ export function ScreeningPage() {
           <ul className={styles.queue}>
             {QUEUE.map((candidate) => (
               <li key={candidate.id}>
-                <button
-                  type="button"
+                <div
                   className={[styles.card, candidate.selected ? styles.cardSelected : '']
                     .filter(Boolean)
                     .join(' ')}
@@ -134,7 +131,7 @@ export function ScreeningPage() {
                   </span>
                   <span className={styles.cardName}>{candidate.name}</span>
                   <code className={styles.smiles}>{candidate.smiles}</code>
-                </button>
+                </div>
               </li>
             ))}
           </ul>

@@ -24,14 +24,9 @@
   border: 1px solid var(--color-border-subtle);
   border-left: 2px solid transparent;
   border-radius: var(--radius-sm);
-  cursor: pointer;
   transition:
     background var(--duration-fast) var(--easing-standard),
     border-color var(--duration-fast) var(--easing-standard);
-}
-
-.card:hover {
-  background: var(--color-surface-overlay);
 }
 
 .cardSelected {

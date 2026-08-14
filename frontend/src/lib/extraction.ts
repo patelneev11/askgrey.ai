@@ -73,6 +73,14 @@ export function cellKey(documentId: string, columnKey: string): string {
   return `${documentId}::${columnKey}`;
 }
 
+/** Split the goal the same way the backend does, so pending headers match real columns. */
+export function goalLabels(goal: string): string[] {
+  return goal
+    .split(/[,;\n]| and (?=[a-z])/)
+    .map((part) => part.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+}
+
 export function rowLabel(row: PaperRow): string {
   return row.title || row.filename || row.document_id;
 }

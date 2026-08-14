@@ -8,6 +8,13 @@ from typing import Any, NamedTuple, Protocol
 
 import httpx
 
+from ..llm import (
+    DEFAULT_ANTHROPIC_VERSION,
+    DEFAULT_BASE_URL,
+    AnthropicError,
+    AnthropicMessagesClient,
+    strip_code_fence,
+)
 from .errors import InvalidQueryError, MatchingError
 from .models import GrantOpportunity, OpportunityMatch
 
@@ -140,14 +147,6 @@ class LexicalMatchRanker:
         return RankedMatches(self.name, matches)
 
 
-def _strip_code_fence(content: str) -> str:
-    stripped = content.strip()
-    if stripped.startswith("```"):
-        stripped = re.sub(r"^```[a-zA-Z]*\n", "", stripped)
-        stripped = re.sub(r"\n?```$", "", stripped)
-    return stripped.strip()
-
-
 def render_candidates(candidates: list[GrantOpportunity]) -> str:
     """The numbered candidate list the model ranks; indices are positions in `candidates`."""
     blocks: list[str] = []
@@ -182,57 +181,24 @@ class ClaudeMatchRanker:
         *,
         api_key: str,
         model: str,
-        base_url: str = "https://api.anthropic.com/v1",
-        anthropic_version: str = "2023-06-01",
+        base_url: str = DEFAULT_BASE_URL,
+        anthropic_version: str = DEFAULT_ANTHROPIC_VERSION,
         max_tokens: int = 2048,
         timeout: float = 45.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        if not api_key:
-            raise ValueError("api_key is required")
-        self.model = model
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self.anthropic_version = anthropic_version
-        self.max_tokens = max_tokens
-        self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        self._client = AnthropicMessagesClient(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            anthropic_version=anthropic_version,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            transport=transport,
+        )
 
     async def aclose(self) -> None:
         await self._client.aclose()
-
-    async def _complete(self, prompt: str) -> str:
-        response = await self._client.post(
-            f"{self.base_url}/messages",
-            headers={
-                "x-api-key": self.api_key,
-                "anthropic-version": self.anthropic_version,
-                "content-type": "application/json",
-            },
-            json={
-                "model": self.model,
-                "max_tokens": self.max_tokens,
-                "temperature": 0,
-                "system": SYSTEM_PROMPT,
-                "messages": [
-                    {"role": "user", "content": prompt},
-                    {"role": "assistant", "content": "["},
-                ],
-            },
-        )
-        if response.status_code >= 400:
-            raise MatchingError(f"Claude returned HTTP {response.status_code}")
-        try:
-            blocks = response.json()["content"]
-        except (ValueError, KeyError, TypeError) as exc:
-            raise MatchingError("Claude response had an unexpected shape") from exc
-        text = "".join(
-            block["text"]
-            for block in blocks
-            if isinstance(block, dict) and isinstance(block.get("text"), str)
-        )
-        if not text.strip():
-            raise MatchingError("Claude returned no text content")
-        return text
 
     async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> RankedMatches:
         normalized = normalize_focus(focus)
@@ -244,11 +210,11 @@ class ClaudeMatchRanker:
             f"Open opportunities:\n\n{render_candidates(candidates)}"
         )
         try:
-            raw = await self._complete(prompt)
-        except httpx.HTTPError as exc:
-            raise MatchingError(f"Claude request failed: {exc}") from exc
+            raw = await self._client.complete(system=SYSTEM_PROMPT, prompt=prompt, prefill="[")
+        except AnthropicError as exc:
+            raise MatchingError(str(exc)) from exc
 
-        body = _strip_code_fence(raw)
+        body = strip_code_fence(raw)
         if not body.startswith("["):
             # Re-attach the prefilled bracket that Claude's completion continues from.
             body = "[" + body

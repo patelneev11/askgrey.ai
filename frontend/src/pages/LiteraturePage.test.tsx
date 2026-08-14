@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api';
+import { WorkspaceProvider } from '@/lib/workspace';
 import { grounded, paperRow, table } from '@/test/fixtures';
 
 import { LiteraturePage } from './LiteraturePage';
@@ -22,6 +23,14 @@ vi.mock('@/lib/api', async () => {
     },
   };
 });
+
+function renderPage() {
+  return render(
+    <WorkspaceProvider>
+      <LiteraturePage />
+    </WorkspaceProvider>,
+  );
+}
 
 const PAPER_URL = 'https://pmc.ncbi.nlm.nih.gov/articles/PMC123/pdf';
 
@@ -55,7 +64,7 @@ afterEach(() => {
 describe('LiteraturePage — dynamic column generation', () => {
   it('turns an extraction goal into columns of extracted values', async () => {
     const user = userEvent.setup();
-    render(<LiteraturePage />);
+    renderPage();
 
     expect(screen.getByText('No columns yet')).toBeInTheDocument();
     await addUrlSource(user);
@@ -80,7 +89,7 @@ describe('LiteraturePage — dynamic column generation', () => {
         ],
       }),
     );
-    render(<LiteraturePage />);
+    renderPage();
 
     await addUrlSource(user);
     await user.upload(
@@ -96,7 +105,7 @@ describe('LiteraturePage — dynamic column generation', () => {
 
   it('keeps an uploaded file as a source even though the input is reset straight away', async () => {
     const user = userEvent.setup();
-    render(<LiteraturePage />);
+    renderPage();
 
     const input = screen.getByLabelText('Upload PDFs');
     await user.upload(input, new File(['%PDF-1.4'], 'uploaded.pdf', { type: 'application/pdf' }));
@@ -108,7 +117,7 @@ describe('LiteraturePage — dynamic column generation', () => {
 
   it('needs both a paper and a goal before it will run', async () => {
     const user = userEvent.setup();
-    render(<LiteraturePage />);
+    renderPage();
 
     expect(screen.getByRole('button', { name: 'Generate columns' })).toBeDisabled();
     await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
@@ -126,7 +135,7 @@ describe('LiteraturePage — dynamic column generation', () => {
         release = resolve;
       }),
     );
-    render(<LiteraturePage />);
+    renderPage();
 
     await addUrlSource(user);
     await generate(user);
@@ -141,7 +150,7 @@ describe('LiteraturePage — dynamic column generation', () => {
   it('reports a failed paper without losing the rest of the run', async () => {
     const user = userEvent.setup();
     extractFromUrl.mockRejectedValue(new ApiError('PDF has no extractable text layer', 415));
-    render(<LiteraturePage />);
+    renderPage();
 
     await addUrlSource(user);
     await generate(user);
@@ -155,7 +164,7 @@ describe('LiteraturePage — dynamic column generation', () => {
 describe('LiteraturePage — citation click-through', () => {
   it('opens the cited passage in the right pane and marks the cell', async () => {
     const user = userEvent.setup();
-    render(<LiteraturePage />);
+    renderPage();
 
     await addUrlSource(user);
     await generate(user);
@@ -175,14 +184,14 @@ describe('LiteraturePage — citation click-through', () => {
 
 describe('LiteraturePage — export', () => {
   it('is unavailable until there is a table to export', async () => {
-    render(<LiteraturePage />);
+    renderPage();
     expect(screen.getByRole('button', { name: 'Export Excel' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'CSV' })).toBeDisabled();
   });
 
   it('downloads the rendered file the export endpoint returns', async () => {
     const user = userEvent.setup();
-    render(<LiteraturePage />);
+    renderPage();
     await addUrlSource(user);
     await generate(user);
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
@@ -202,7 +211,7 @@ describe('LiteraturePage — export', () => {
   it('surfaces an export failure instead of downloading an empty file', async () => {
     const user = userEvent.setup();
     exportTable.mockRejectedValue(new ApiError('table has no columns', 422));
-    render(<LiteraturePage />);
+    renderPage();
     await addUrlSource(user);
     await generate(user);
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
@@ -216,7 +225,7 @@ describe('LiteraturePage — export', () => {
 
   it('lists each added paper as a removable source', async () => {
     const user = userEvent.setup();
-    render(<LiteraturePage />);
+    renderPage();
     await addUrlSource(user);
 
     const chip = screen.getByRole('listitem');

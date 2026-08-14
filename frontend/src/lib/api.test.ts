@@ -1,6 +1,33 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { formatErrorDetail } from './api';
+import { api, formatErrorDetail } from './api';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe('request timeouts', () => {
+  it('aborts and reports a timeout instead of hanging when the backend never answers', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('aborted', 'AbortError')),
+            );
+          }),
+      ),
+    );
+
+    const pending = api.login('user@example.org', 'password-1234');
+    const assertion = expect(pending).rejects.toThrow(/did not respond within/);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await assertion;
+  });
+});
 
 describe('formatErrorDetail', () => {
   it('passes through the string detail of a raised HTTPException', () => {

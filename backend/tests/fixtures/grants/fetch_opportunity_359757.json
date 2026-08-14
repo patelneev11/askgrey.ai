@@ -1,0 +1,367 @@
+{
+  "errorcode": 0,
+  "msg": "Webservice Succeeds",
+  "token": "redacted",
+  "data": {
+    "id": 359757,
+    "revision": 6,
+    "opportunityNumber": "PA-27-102",
+    "opportunityTitle": "NIH Small Business Technology Transfer Grant (Parent STTR [R41/R42] Clinical Trial Optional)",
+    "owningAgencyCode": "HHS-NIH11",
+    "listed": "L",
+    "publisherUid": "85078824959489933389587371192040018034",
+    "modifiedComments": "Updated FON and NOFO Title. Changed to CT Optional, updated Key Dates and IC Participation, and removed Phase IIB application type.",
+    "flag2006": "N",
+    "opportunityCategory": {
+      "category": "D",
+      "description": "Discretionary"
+    },
+    "synopsis": {
+      "opportunityId": 359757,
+      "version": 2,
+      "agencyCode": "HHS-NIH11",
+      "agencyName": "National Institutes of Health",
+      "agencyPhone": "301-402-2541",
+      "agencyAddressDesc": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "agencyDetails": {
+        "code": "NIH",
+        "seed": "HHS-NIH11",
+        "agencyName": "National Institutes of Health",
+        "agencyCode": "HHS-NIH11",
+        "topAgencyCode": "HHS"
+      },
+      "topAgencyDetails": {
+        "code": "HHS",
+        "seed": "HHS",
+        "agencyName": "Department of Health and Human Services",
+        "agencyCode": "HHS",
+        "topAgencyCode": "HHS"
+      },
+      "agencyContactPhone": "301-402-2541",
+      "agencyContactName": "National Institutes of Health",
+      "agencyContactDesc": "NIH SEED (Small business Education and Entrepreneurial Development)\nSEEDinfo@nih.gov",
+      "agencyContactEmail": "SEEDinfo@nih.gov",
+      "agencyContactEmailDesc": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "synopsisDesc": "The Small Business Technology Transfer (STTR) grant program helps United States small business concerns (SBCs) that partner with a nonprofit research institution bring scientific innovations to the marketplace. The STTR program supports feasibility studies to later stage research and development (R&D) needed to develop a commercial product.",
+      "responseDate": "Apr 05, 2027 12:00:00 AM EDT",
+      "postingDate": "May 28, 2026 12:00:00 AM EDT",
+      "archiveDate": "Jun 04, 2027 12:00:00 AM EDT",
+      "costSharing": false,
+      "awardCeiling": "none",
+      "awardFloor": "none",
+      "applicantEligibilityDesc": "Only United States small business concerns (SBCs), as defined by the Small Business Administration (SBA)(sbir.gov/apply) are eligible to submit applications for this opportunity.Refer to Section III. Eligibility Information in the NOFO for additional information on eligibility.Foreign Organizations/International Collaborations:Non-domestic (non-U.S.) Entities (Foreign Organizations) are not eligible to apply.Non-domestic (non-U.S.) components of U.S. Organizations are not eligible to apply.Unfunded international collaborations or unfunded foreign components, as defined in the NIH Grants Policy Statement, may be allowed.",
+      "sendEmail": "N",
+      "createTimeStamp": "Jun 01, 2026 12:56:42 PM EDT",
+      "modComments": "Modification to update reference links in Section I.",
+      "createdDate": "May 28, 2026 03:02:30 PM EDT",
+      "lastUpdatedDate": "Jun 01, 2026 12:56:31 PM EDT",
+      "applicantTypes": [
+        {
+          "id": "23",
+          "description": "Small businesses"
+        }
+      ],
+      "fundingInstruments": [
+        {
+          "id": "G",
+          "description": "Grant"
+        }
+      ],
+      "fundingActivityCategories": [
+        {
+          "id": "HL",
+          "description": "Health"
+        }
+      ],
+      "responseDateStr": "2027-04-05-00-00-00",
+      "postingDateStr": "2026-05-28-00-00-00",
+      "archiveDateStr": "2027-06-04-00-00-00",
+      "createTimeStampStr": "2026-06-01-12-56-42"
+    },
+    "agencyDetails": {
+      "code": "NIH",
+      "seed": "HHS-NIH11",
+      "agencyName": "National Institutes of Health",
+      "agencyCode": "HHS-NIH11",
+      "topAgencyCode": "HHS"
+    },
+    "topAgencyDetails": {
+      "code": "HHS",
+      "seed": "HHS",
+      "agencyName": "Department of Health and Human Services",
+      "agencyCode": "HHS",
+      "topAgencyCode": "HHS"
+    },
+    "forecast": {
+      "opportunityId": 359757,
+      "version": 5,
+      "postingDate": "Jun 18, 2025 12:00:00 AM EDT",
+      "archiveDate": "May 27, 2026 12:00:00 AM EDT",
+      "forecastDesc": "<p>The National Institutes of Health (NIH), including the following NIH Institutes and Centers (ICs): NEI, NHLBI, NHGRI, NIA, NIAAA, NIAID, NIAMS, NIBIB, NICHD, NIDCD, NIDCR, NIDDK, NIDA, NIEHS, NIGMS, NIMH, NINDS, NINR, NIMHD, NLM, NCCIH, NCATS, ORIP, NCI and ORWH, intends to publish a Notice of Funding Opportunity (NOFO) to invite eligible United States small business concerns (SBCs) to submit Small Business Technology Transfer (STTR) Phase I, Phase II, Direct to Phase II (NIH only) and Fast-Track (NIH only) applications. Applications are not being solicited at this time. Notice is being provided to allow potential applicants sufficient time to develop meaningful collaborations and responsive projects.&nbsp;This NOFO will utilize the R41/R42 activity code. United States small businesses that have the research capabilities and technological expertise to contribute to the R&amp;D mission(s) of the NIH awarding components identified in this NOFO are encouraged to begin to consider applying for this new NOFO. In addition, collaborative investigations combining expertise will be encouraged and these investigators should also begin considering applying for this application.</p>",
+      "costSharing": false,
+      "agencyContactName": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "agencyContactPhone": "301-827-8595",
+      "agencyContactEmail": "SEEDinfo@nih.gov",
+      "agencyContactEmailDesc": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "agencyCode": "HHS-NIH11",
+      "applicantEligibilityDesc": "Only United States small business concerns (SBCs), as defined by the Small Business Administration (SBA)(sbir.gov/apply) are eligible to submit applications for this opportunity.",
+      "estSynopsisPostingDate": "Jun 01, 2026 12:00:00 AM EDT",
+      "estApplicationResponseDate": "Sep 05, 2026 12:00:00 AM EDT",
+      "estAwardDate": "Mar 01, 2027 12:00:00 AM EST",
+      "estProjectStartDate": "Apr 01, 2027 12:00:00 AM EDT",
+      "fiscalYear": 2027,
+      "modComments": "Updated Archive Date",
+      "createTimeStamp": "Jun 01, 2026 12:56:42 PM EDT",
+      "createdDate": "Jun 18, 2025 02:09:22 PM EDT",
+      "lastUpdatedDate": "Jun 01, 2026 12:56:42 PM EDT",
+      "agencyDetails": {
+        "code": "NIH",
+        "seed": "HHS-NIH11",
+        "agencyName": "National Institutes of Health",
+        "agencyCode": "HHS-NIH11",
+        "topAgencyCode": "HHS"
+      },
+      "applicantTypes": [
+        {
+          "id": "23",
+          "description": "Small businesses"
+        }
+      ],
+      "fundingInstruments": [
+        {
+          "id": "G",
+          "description": "Grant"
+        }
+      ],
+      "fundingActivityCategories": [
+        {
+          "id": "HL",
+          "description": "Health"
+        }
+      ],
+      "postingDateStr": "2025-06-18-00-00-00",
+      "archiveDateStr": "2026-05-27-00-00-00",
+      "estSynopsisPostingDateStr": "2026-06-01-00-00-00",
+      "estApplicationResponseDateStr": "2026-09-05-00-00-00",
+      "estAwardDateStr": "2027-03-01-00-00-00",
+      "estProjectStartDateStr": "2027-04-01-00-00-00",
+      "createTimeStampStr": "2026-06-01-12-56-42"
+    },
+    "synAttChangeComments": [],
+    "cfdas": [
+      {
+        "id": 429858,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.113",
+        "programTitle": "Environmental Health"
+      },
+      {
+        "id": 429854,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.121",
+        "programTitle": "Oral Diseases and Disorders Research"
+      },
+      {
+        "id": 429838,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.172",
+        "programTitle": "Human Genome Research"
+      },
+      {
+        "id": 429851,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.173",
+        "programTitle": "Research Related to Deafness and Communication Disorders"
+      },
+      {
+        "id": 429861,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.213",
+        "programTitle": "Research and Training in Complementary and Integrative Health"
+      },
+      {
+        "id": 429847,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.233",
+        "programTitle": "National Center on Sleep Disorders Research"
+      },
+      {
+        "id": 429850,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.242",
+        "programTitle": "Mental Health Research Grants"
+      },
+      {
+        "id": 429862,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.273",
+        "programTitle": "Alcohol Research Programs"
+      },
+      {
+        "id": 429856,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.279",
+        "programTitle": "Drug Use and Addiction Research Programs"
+      },
+      {
+        "id": 429835,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.286",
+        "programTitle": "Discovery and Applied Research for Technological Innovations to Improve Human Health"
+      },
+      {
+        "id": 429855,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.307",
+        "programTitle": "Minority Health and Health Disparities Research"
+      },
+      {
+        "id": 432678,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.313",
+        "programTitle": "NIH Office of Research on Women's Health"
+      },
+      {
+        "id": 429860,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.350",
+        "programTitle": "National Center for Advancing Translational Sciences"
+      },
+      {
+        "id": 429846,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.351",
+        "programTitle": "Research Infrastructure Programs"
+      },
+      {
+        "id": 429843,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.361",
+        "programTitle": "Nursing Research"
+      },
+      {
+        "id": 429837,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.393",
+        "programTitle": "Cancer Cause and Prevention Research"
+      },
+      {
+        "id": 429839,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.394",
+        "programTitle": "Cancer Detection and Diagnosis Research"
+      },
+      {
+        "id": 429841,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.395",
+        "programTitle": "Cancer Treatment Research"
+      },
+      {
+        "id": 429853,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.837",
+        "programTitle": "Cardiovascular Diseases Research"
+      },
+      {
+        "id": 429840,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.838",
+        "programTitle": "Lung Diseases Research"
+      },
+      {
+        "id": 429852,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.839",
+        "programTitle": "Blood Diseases and Resources Research"
+      },
+      {
+        "id": 429844,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.840",
+        "programTitle": "Translation and Implementation Science Research for Heart, Lung, Blood Diseases, and Sleep Disorders"
+      },
+      {
+        "id": 429859,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.846",
+        "programTitle": "Arthritis, Musculoskeletal and Skin Diseases Research"
+      },
+      {
+        "id": 429857,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.847",
+        "programTitle": "Diabetes, Digestive, and Kidney Diseases Extramural Research"
+      },
+      {
+        "id": 429833,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.853",
+        "programTitle": "Extramural Research Programs in the Neurosciences and Neurological Disorders"
+      },
+      {
+        "id": 429842,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.855",
+        "programTitle": "Allergy and Infectious Diseases Research"
+      },
+      {
+        "id": 429834,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.859",
+        "programTitle": "Biomedical Research and Research Training"
+      },
+      {
+        "id": 429845,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.865",
+        "programTitle": "Child Health and Human Development Extramural Research"
+      },
+      {
+        "id": 429849,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.866",
+        "programTitle": "Aging Research"
+      },
+      {
+        "id": 429848,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.867",
+        "programTitle": "Vision Research"
+      },
+      {
+        "id": 429836,
+        "opportunityId": 359757,
+        "cfdaNumber": "93.879",
+        "programTitle": "Medical Library Assistance"
+      },
+      {
+        "id": 433704,
+        "opportunityId": 359757
+      }
+    ],
+    "originalDueDate": "Apr 05, 2027 12:00:00 AM EDT",
+    "synopsisModifiedFields": [
+      "revision",
+      "version",
+      "createTimeStamp"
+    ],
+    "forecastModifiedFields": [
+      "revision",
+      "version",
+      "sendEmail",
+      "archiveDate",
+      "modComments",
+      "createTimeStamp"
+    ],
+    "errorMessages": [],
+    "synPostDateInPast": true,
+    "docType": "synopsis",
+    "forecastHistCount": 4,
+    "synopsisHistCount": 1,
+    "assistCompatible": false,
+    "assistURL": "",
+    "draftMode": "N",
+    "ost": "POSTED"
+  }
+}

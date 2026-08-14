@@ -11,6 +11,7 @@ class RecordSource(str, Enum):
     PUBMED = "pubmed"
     PUBCHEM = "pubchem"
     CLINICALTRIALS = "clinicaltrials"
+    GRANTS = "grants"
     PDF = "pdf"
 
 

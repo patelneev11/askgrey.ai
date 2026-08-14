@@ -1,0 +1,81 @@
+[
+  {
+    "solicitation_title": "HHS SBIR Contract Solicitation PHS 2027-1",
+    "solicitation_number": "PHS-2027-1",
+    "program": "SBIR",
+    "phase": "Phase I",
+    "agency": "Department of Health and Human Services",
+    "branch": "NIH",
+    "solicitation_year": "2027",
+    "release_date": "2026-08-01",
+    "open_date": "2026-09-01",
+    "close_date": "2026-11-03",
+    "application_due_date": ["2026-10-27"],
+    "occurrence_number": "1",
+    "solicitation_agency_url": "https://www.sbir.gov/node/2400001",
+    "current_status": "open",
+    "solicitation_topics": [
+      {
+        "topic_title": "Immunotherapy manufacturing platforms",
+        "topic_number": "NCI-101",
+        "topic_description": "Scalable manufacturing of cell and mRNA immunotherapies for solid tumors, including closed-system bioreactors and potency assays.",
+        "sbir_topic_link": "https://www.sbir.gov/topics/nci-101",
+        "subtopics": [
+          {
+            "subtopic_title": "Potency assay automation",
+            "subtopic_description": "Automated potency assays that shorten lot release for autologous cell therapy products."
+          }
+        ]
+      },
+      {
+        "topic_title": "Digital pathology decision support",
+        "topic_number": "NCI-102",
+        "topic_description": "Machine learning tools that quantify tumor infiltrating lymphocytes from whole slide images.",
+        "sbir_topic_link": "https://www.sbir.gov/topics/nci-102",
+        "subtopics": []
+      }
+    ]
+  },
+  {
+    "solicitation_title": "DoW STTR 27.A Broad Agency Announcement",
+    "solicitation_number": "27.A",
+    "program": "STTR",
+    "phase": "Phase I",
+    "agency": "Department of War",
+    "branch": "DARPA",
+    "solicitation_year": "2027",
+    "release_date": "2026-07-15",
+    "open_date": "2026-08-15",
+    "close_date": "2026-09-30",
+    "application_due_date": [],
+    "occurrence_number": "1",
+    "solicitation_agency_url": "https://www.sbir.gov/node/2400002",
+    "current_status": "open",
+    "solicitation_topics": [
+      {
+        "topic_title": "Field-deployable biothreat detection",
+        "topic_number": "DARPA-BT1",
+        "topic_description": "Ruggedized nucleic acid detection of biological threat agents at the point of need without cold chain reagents.",
+        "sbir_topic_link": "https://www.sbir.gov/topics/darpa-bt1",
+        "subtopics": []
+      }
+    ]
+  },
+  {
+    "solicitation_title": "NASA SBIR 2025 Phase I (archived)",
+    "solicitation_number": "SBIR-2025-P1",
+    "program": "SBIR",
+    "phase": "Phase I",
+    "agency": "National Aeronautics and Space Administration",
+    "branch": "",
+    "solicitation_year": "2025",
+    "release_date": "2025-01-06",
+    "open_date": "2025-01-06",
+    "close_date": "2025-03-12",
+    "application_due_date": ["2025-03-12"],
+    "occurrence_number": "1",
+    "solicitation_agency_url": "https://www.sbir.gov/node/2300003",
+    "current_status": "closed",
+    "solicitation_topics": []
+  }
+]

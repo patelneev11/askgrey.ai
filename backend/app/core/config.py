@@ -41,6 +41,20 @@ class Settings(BaseSettings):
     clinicaltrials_rate_limit: float = 5.0
     clinicaltrials_page_size: int = 25
 
+    # Federal funding. grants.gov search2/fetchOpportunity and the SBIR.gov solicitations
+    # API are both public and need no key or registration.
+    grants_gov_base_url: str = "https://api.grants.gov/v1/api"
+    grants_gov_timeout_seconds: float = 20.0
+    grants_gov_rate_limit: float = 5.0
+    # search2 omits the synopsis, so each hit needs a fetchOpportunity call to become
+    # matchable; this caps how many of them one page pays for.
+    grants_enrich_limit: int = 25
+    sbir_base_url: str = "https://api.www.sbir.gov/public/api"
+    sbir_timeout_seconds: float = 20.0
+    sbir_rate_limit: float = 2.0
+    grants_match_max_tokens: int = 2048
+    grants_match_timeout_seconds: float = 45.0
+
     # PDF extraction. Documents are parsed locally; only the extracted text reaches the LLM.
     pdf_fetch_timeout_seconds: float = 30.0
     pdf_extraction_timeout_seconds: float = 60.0

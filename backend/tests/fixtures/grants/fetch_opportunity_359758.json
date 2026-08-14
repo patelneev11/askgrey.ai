@@ -1,0 +1,307 @@
+{
+  "errorcode": 0,
+  "msg": "Webservice Succeeds",
+  "token": "redacted",
+  "data": {
+    "id": 359758,
+    "revision": 6,
+    "opportunityNumber": "PA-27-101",
+    "opportunityTitle": "NIH Small Business Innovation Research (SBIR) Phase IIB Strategic Breakthrough Award (Parent [R44] Clinical Trial Optional)",
+    "owningAgencyCode": "HHS-NIH11",
+    "listed": "L",
+    "publisherUid": "85078824959489933389587371192040018034",
+    "modifiedComments": "The forecast has been modified to change the due date to September 5, 2026, the first fiscal year of funding to 2027, remove references to Phase I, Direct Phase II, and Phase II.",
+    "flag2006": "N",
+    "opportunityCategory": {
+      "category": "D",
+      "description": "Discretionary"
+    },
+    "synopsis": {
+      "opportunityId": 359758,
+      "version": 2,
+      "agencyCode": "HHS-NIH11",
+      "agencyName": "National Institutes of Health",
+      "agencyPhone": "301-402-2541",
+      "agencyAddressDesc": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "agencyDetails": {
+        "code": "NIH",
+        "seed": "HHS-NIH11",
+        "agencyName": "National Institutes of Health",
+        "agencyCode": "HHS-NIH11",
+        "topAgencyCode": "HHS"
+      },
+      "topAgencyDetails": {
+        "code": "HHS",
+        "seed": "HHS",
+        "agencyName": "Department of Health and Human Services",
+        "agencyCode": "HHS",
+        "topAgencyCode": "HHS"
+      },
+      "agencyContactPhone": "301-402-2541",
+      "agencyContactName": "National Institutes of Health",
+      "agencyContactDesc": "NIH SEED (Small business Education and Entrepreneurial Development)\nSEEDinfo@nih.gov",
+      "agencyContactEmail": "SEEDinfo@nih.gov",
+      "agencyContactEmailDesc": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "synopsisDesc": "The NIH Phase IIB Strategic Breakthrough award bridges the funding gap between the end of a Small Business Innovation Research (SBIR) and Small Business Technology Transfer (STTR) Phase II award and commercialization. The Phase IIB Strategic Breakthrough provides previously funded NIH SBIR or STTR projects additional support for later-stage research and development (R&D).",
+      "responseDate": "Apr 05, 2029 12:00:00 AM EDT",
+      "postingDate": "May 28, 2026 12:00:00 AM EDT",
+      "archiveDate": "Jun 04, 2029 12:00:00 AM EDT",
+      "costSharing": true,
+      "awardCeiling": "none",
+      "awardFloor": "none",
+      "applicantEligibilityDesc": "Only United States small business concerns (SBCs) that have previously received an NIH SBIR or STTR Phase II award are eligible to submit applications for this opportunity. Only one NIH Phase IIB Strategic Breakthrough award is allowed per project. This NOFO supports Renewal/Resubmission &quot;Type 2&quot; Applications from recipients with NIH Phase II SBIR/STTR awards that are submitted within the first six due dates following the expiration of their budget period. Refer to Section III. Eligibility Information in the NOFO for additional information on eligibility.Foreign Organizations/International Collaborations:Non-domestic (non-U.S.) Entities (Foreign Organizations) are not eligible to apply.Non-domestic (non-U.S.) components of U.S. Organizations are not eligible to apply.Unfunded international collaborations or unfunded foreign components, as defined in the NIH Grants Policy Statement, may be allowed.",
+      "sendEmail": "N",
+      "createTimeStamp": "Jun 01, 2026 12:56:57 PM EDT",
+      "modComments": "Modification to update reference links in Section I.",
+      "createdDate": "May 28, 2026 03:02:27 PM EDT",
+      "lastUpdatedDate": "Jun 01, 2026 12:56:46 PM EDT",
+      "applicantTypes": [
+        {
+          "id": "23",
+          "description": "Small businesses"
+        }
+      ],
+      "fundingInstruments": [
+        {
+          "id": "G",
+          "description": "Grant"
+        }
+      ],
+      "fundingActivityCategories": [
+        {
+          "id": "HL",
+          "description": "Health"
+        }
+      ],
+      "responseDateStr": "2029-04-05-00-00-00",
+      "postingDateStr": "2026-05-28-00-00-00",
+      "archiveDateStr": "2029-06-04-00-00-00",
+      "createTimeStampStr": "2026-06-01-12-56-57"
+    },
+    "agencyDetails": {
+      "code": "NIH",
+      "seed": "HHS-NIH11",
+      "agencyName": "National Institutes of Health",
+      "agencyCode": "HHS-NIH11",
+      "topAgencyCode": "HHS"
+    },
+    "topAgencyDetails": {
+      "code": "HHS",
+      "seed": "HHS",
+      "agencyName": "Department of Health and Human Services",
+      "agencyCode": "HHS",
+      "topAgencyCode": "HHS"
+    },
+    "forecast": {
+      "opportunityId": 359758,
+      "version": 5,
+      "postingDate": "Jun 18, 2025 12:00:00 AM EDT",
+      "archiveDate": "May 27, 2026 12:00:00 AM EDT",
+      "forecastDesc": "<p>The National Institutes of Health (NIH), including the following NIH Institutes and Centers (ICs): NCI, NEI, NHLBI, NIA, NIAAA, NIAID, NICHD, NIDDK, NIGMS, NIMH, NIMHD, NINDS, NCATS, ORIP, and ORWH, intends to publish a Notice of Funding Opportunity (NOFO) to invite eligible United States small business concerns (SBCs) to submit Small Business Innovation Research (SBIR) Phase IIB Strategic Breakthrough grant applications. The main&nbsp;objective&nbsp;of a SBIR/STTR Phase II award is to continue R&amp;D efforts to advance a technology toward commercialization. If the technology is not available for sale or use by the end of the SBIR/STTR Phase II award, the SBC must use non-SBIR/STTR funds to reach market access. This funding gap, between the end of the SBIR/STTR Phase II award and customer access, which affects most medical biotechnology products, is known as the \u201cValley of Death.\u201d The&nbsp;NIH&nbsp;Phase IIB&nbsp;Strategic Breakthrough&nbsp;award&nbsp;provides&nbsp;additional&nbsp;support to mitigate this funding gap for projects that require extraordinary time and effort, including those&nbsp;requiring&nbsp;regulatory approval or are developing complex instrumentation, clinical research tools, or behavioral interventions.</p><p>Applications are not being solicited at this time. Notice is being provided to allow potential applicants sufficient time to develop meaningful collaborations and responsive projects.&nbsp;This NOFO will utilize the R44 activity code. United States small businesses that have the research capabilities and technological expertise to contribute to the R&amp;D mission(s) of the NIH awarding components identified in this NOFO are encouraged to begin to consider applying for this new NOFO. In addition, collaborative investigations combining expertise will be encouraged and these investigators should also begin considering applying for this application. Prospective applicants should keep in mind that they must demonstrate not less than 100 percent matching funds to be considered for a Phase IIB Strategic Breakthrough award.</p>",
+      "costSharing": true,
+      "agencyContactName": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "agencyContactPhone": "301-827-8595",
+      "agencyContactEmail": "SEEDinfo@nih.gov",
+      "agencyContactEmailDesc": "NIH SEED (Small business Education and Entrepreneurial Development)",
+      "agencyCode": "HHS-NIH11",
+      "applicantEligibilityDesc": "Only United States small business concerns (SBCs) that have previously received an NIH SBIR or STTR Phase II award are eligible to submit applications for this opportunity. Only one NIH Phase IIB Strategic Breakthrough award is allowed per project. This NOFO supports Renewal/Resubmission &quot;Type 2&quot; Applications from recipients with NIH Phase II SBIR/STTR awards that are submitted within the first six due dates following the expiration of their budget period.",
+      "estSynopsisPostingDate": "Jun 01, 2026 12:00:00 AM EDT",
+      "estApplicationResponseDate": "Sep 05, 2026 12:00:00 AM EDT",
+      "estAwardDate": "Mar 01, 2027 12:00:00 AM EST",
+      "estProjectStartDate": "Apr 01, 2027 12:00:00 AM EDT",
+      "fiscalYear": 2027,
+      "modComments": "Updated Archive Date",
+      "createTimeStamp": "Jun 01, 2026 12:56:57 PM EDT",
+      "createdDate": "Jun 18, 2025 02:15:27 PM EDT",
+      "lastUpdatedDate": "Jun 01, 2026 12:56:57 PM EDT",
+      "agencyDetails": {
+        "code": "NIH",
+        "seed": "HHS-NIH11",
+        "agencyName": "National Institutes of Health",
+        "agencyCode": "HHS-NIH11",
+        "topAgencyCode": "HHS"
+      },
+      "applicantTypes": [
+        {
+          "id": "23",
+          "description": "Small businesses"
+        }
+      ],
+      "fundingInstruments": [
+        {
+          "id": "G",
+          "description": "Grant"
+        }
+      ],
+      "fundingActivityCategories": [
+        {
+          "id": "HL",
+          "description": "Health"
+        }
+      ],
+      "postingDateStr": "2025-06-18-00-00-00",
+      "archiveDateStr": "2026-05-27-00-00-00",
+      "estSynopsisPostingDateStr": "2026-06-01-00-00-00",
+      "estApplicationResponseDateStr": "2026-09-05-00-00-00",
+      "estAwardDateStr": "2027-03-01-00-00-00",
+      "estProjectStartDateStr": "2027-04-01-00-00-00",
+      "createTimeStampStr": "2026-06-01-12-56-57"
+    },
+    "synAttChangeComments": [],
+    "cfdas": [
+      {
+        "id": 429878,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.233",
+        "programTitle": "National Center on Sleep Disorders Research"
+      },
+      {
+        "id": 429882,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.242",
+        "programTitle": "Mental Health Research Grants"
+      },
+      {
+        "id": 429870,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.273",
+        "programTitle": "Alcohol Research Programs"
+      },
+      {
+        "id": 429887,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.307",
+        "programTitle": "Minority Health and Health Disparities Research"
+      },
+      {
+        "id": 432681,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.313",
+        "programTitle": "NIH Office of Research on Women's Health"
+      },
+      {
+        "id": 432680,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.350",
+        "programTitle": "National Center for Advancing Translational Sciences"
+      },
+      {
+        "id": 432679,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.351",
+        "programTitle": "Research Infrastructure Programs"
+      },
+      {
+        "id": 429879,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.393",
+        "programTitle": "Cancer Cause and Prevention Research"
+      },
+      {
+        "id": 429875,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.394",
+        "programTitle": "Cancer Detection and Diagnosis Research"
+      },
+      {
+        "id": 429885,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.395",
+        "programTitle": "Cancer Treatment Research"
+      },
+      {
+        "id": 429863,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.837",
+        "programTitle": "Cardiovascular Diseases Research"
+      },
+      {
+        "id": 429884,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.838",
+        "programTitle": "Lung Diseases Research"
+      },
+      {
+        "id": 429877,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.839",
+        "programTitle": "Blood Diseases and Resources Research"
+      },
+      {
+        "id": 429873,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.840",
+        "programTitle": "Translation and Implementation Science Research for Heart, Lung, Blood Diseases, and Sleep Disorders"
+      },
+      {
+        "id": 429881,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.847",
+        "programTitle": "Diabetes, Digestive, and Kidney Diseases Extramural Research"
+      },
+      {
+        "id": 432683,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.853",
+        "programTitle": "Extramural Research Programs in the Neurosciences and Neurological Disorders"
+      },
+      {
+        "id": 432682,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.855",
+        "programTitle": "Allergy and Infectious Diseases Research"
+      },
+      {
+        "id": 432684,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.859",
+        "programTitle": "Biomedical Research and Research Training"
+      },
+      {
+        "id": 429872,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.865",
+        "programTitle": "Child Health and Human Development Extramural Research"
+      },
+      {
+        "id": 429865,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.866",
+        "programTitle": "Aging Research"
+      },
+      {
+        "id": 429883,
+        "opportunityId": 359758,
+        "cfdaNumber": "93.867",
+        "programTitle": "Vision Research"
+      },
+      {
+        "id": 433703,
+        "opportunityId": 359758
+      }
+    ],
+    "originalDueDate": "Apr 05, 2029 12:00:00 AM EDT",
+    "synopsisModifiedFields": [
+      "revision",
+      "version",
+      "createTimeStamp"
+    ],
+    "forecastModifiedFields": [
+      "revision",
+      "version",
+      "sendEmail",
+      "archiveDate",
+      "modComments",
+      "createTimeStamp"
+    ],
+    "errorMessages": [],
+    "synPostDateInPast": true,
+    "docType": "synopsis",
+    "forecastHistCount": 4,
+    "synopsisHistCount": 1,
+    "assistCompatible": false,
+    "assistURL": "",
+    "draftMode": "N",
+    "ost": "POSTED"
+  }
+}

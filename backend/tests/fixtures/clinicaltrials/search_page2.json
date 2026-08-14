@@ -1,0 +1,230 @@
+{
+  "studies": [
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT02752074",
+          "briefTitle": "A Phase 3 Study of Pembrolizumab + Epacadostat or Placebo in Subjects With Unresectable or Metastatic Melanoma (Keynote-252 / ECHO-301)",
+          "officialTitle": "A Phase 3 Randomized, Double-Blind, Placebo-Controlled Study of Pembrolizumab (MK-3475) in Combination With Epacadostat or Placebo in Subjects With Unresectable or Metastatic Melanoma (Keynote-252 / ECHO-301)"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2025-08",
+          "overallStatus": "COMPLETED",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2016-06-21",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2018-01-08",
+            "type": "ACTUAL"
+          },
+          "completionDateStruct": {
+            "date": "2019-08-16",
+            "type": "ACTUAL"
+          },
+          "studyFirstSubmitDate": "2016-04-22",
+          "studyFirstSubmitQcDate": "2016-04-22",
+          "studyFirstPostDateStruct": {
+            "date": "2016-04-26",
+            "type": "ESTIMATED"
+          },
+          "resultsFirstSubmitDate": "2019-02-26",
+          "resultsFirstSubmitQcDate": "2019-05-13",
+          "resultsFirstPostDateStruct": {
+            "date": "2019-05-15",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2025-08-21",
+          "lastUpdatePostDateStruct": {
+            "date": "2025-08-24",
+            "type": "ACTUAL"
+          }
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "SPONSOR"
+          },
+          "leadSponsor": {
+            "name": "Incyte Corporation",
+            "class": "INDUSTRY"
+          },
+          "collaborators": [
+            {
+              "name": "Merck Sharp & Dohme LLC",
+              "class": "INDUSTRY"
+            }
+          ]
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Melanoma"
+          ]
+        },
+        "designModule": {
+          "studyType": "INTERVENTIONAL",
+          "phases": [
+            "PHASE3"
+          ],
+          "designInfo": {
+            "allocation": "RANDOMIZED",
+            "interventionModel": "PARALLEL",
+            "primaryPurpose": "TREATMENT",
+            "maskingInfo": {
+              "masking": "QUADRUPLE",
+              "whoMasked": [
+                "PARTICIPANT",
+                "CARE_PROVIDER",
+                "INVESTIGATOR",
+                "OUTCOMES_ASSESSOR"
+              ]
+            }
+          },
+          "enrollmentInfo": {
+            "count": 706,
+            "type": "ACTUAL"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "DRUG",
+              "name": "pembrolizumab + epacadostat",
+              "description": "* Pembrolizumab will be administered intravenously every 3 weeks starting at Day 1 (Week 1)\n* Epacadostat will be administered orally daily starting at Day 1 (Week 1)",
+              "armGroupLabels": [
+                "Pembrolizumab + Epacadostat"
+              ]
+            },
+            {
+              "type": "DRUG",
+              "name": "pembrolizumab + placebo",
+              "description": "* Pembrolizumab will be administered intravenously every 3 weeks starting at Day 1 (Week 1)\n* Placebo will be administered orally daily starting at Day 1 (Week 1)",
+              "armGroupLabels": [
+                "Pembrolizumab + Placebo"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT06320353",
+          "briefTitle": "Study \u0441omparing the Efficacy and Safety of RPH-075 and Keytruda\u00ae in Patients With Unresectable or Metastatic Skin Melanoma",
+          "officialTitle": "International, Multicenter, Double-blind, Randomized, Comparative Study of Efficacy and Safety of RPH-075 and Keytruda\u00ae in Patients With Unresectable or Metastatic Skin Melanoma"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2026-07",
+          "overallStatus": "COMPLETED",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2023-09-27",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2024-08-07",
+            "type": "ACTUAL"
+          },
+          "completionDateStruct": {
+            "date": "2026-03-02",
+            "type": "ACTUAL"
+          },
+          "studyFirstSubmitDate": "2024-03-13",
+          "studyFirstSubmitQcDate": "2024-03-13",
+          "studyFirstPostDateStruct": {
+            "date": "2024-03-20",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2026-07-13",
+          "lastUpdatePostDateStruct": {
+            "date": "2026-07-15",
+            "type": "ACTUAL"
+          }
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "SPONSOR"
+          },
+          "leadSponsor": {
+            "name": "R-Pharm",
+            "class": "INDUSTRY"
+          },
+          "collaborators": [
+            {
+              "name": "Data Management 365",
+              "class": "INDUSTRY"
+            },
+            {
+              "name": "Exacte Labs LLC",
+              "class": "INDUSTRY"
+            },
+            {
+              "name": "Federal State Budgetary Institution of the Central Research Institute of Epidemiology of Rospotrebnadzor",
+              "class": "UNKNOWN"
+            }
+          ]
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Skin Melanoma"
+          ]
+        },
+        "designModule": {
+          "studyType": "INTERVENTIONAL",
+          "phases": [
+            "PHASE3"
+          ],
+          "designInfo": {
+            "allocation": "RANDOMIZED",
+            "interventionModel": "PARALLEL",
+            "primaryPurpose": "TREATMENT",
+            "maskingInfo": {
+              "masking": "DOUBLE",
+              "whoMasked": [
+                "PARTICIPANT",
+                "INVESTIGATOR"
+              ]
+            }
+          },
+          "enrollmentInfo": {
+            "count": 266,
+            "type": "ACTUAL"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "DRUG",
+              "name": "RPH-075",
+              "description": "100 mg/4 mL (25 mg/mL) concentrate for solution for infusions in a single-dose vial\n\nThe required volume (8 ml) of the Drug concentrate solution should be withdrawn from the vials and transferred into an intravenous bag containing 0.9% Sodium Chloride Injection or 5% Dextrose Injection. (The final concentration of the diluted solution should be between 1 mg/mL to 10 mg/mL.)",
+              "armGroupLabels": [
+                "RPH-075"
+              ],
+              "otherNames": [
+                "pembrolizumab",
+                "Arfleyda"
+              ]
+            },
+            {
+              "type": "DRUG",
+              "name": "Keytruda\u00ae",
+              "description": "100 mg/4 mL (25 mg/mL) concentrate for solution for infusions in a single-dose vial\n\nThe required volume (8 ml) of the Drug concentrate solution should be withdrawn from the vials and transferred into an intravenous bag containing 0.9% Sodium Chloride Injection or 5% Dextrose Injection. (The final concentration of the diluted solution should be between 1 mg/mL to 10 mg/mL.)",
+              "armGroupLabels": [
+                "Keytruda\u00ae"
+              ],
+              "otherNames": [
+                "pembrolizumab"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "nextPageToken": "ZVt07cGHkvI2wRk2CJf6_LLqy5DbMtMod7KrgP4SmD2Uv_gw"
+}

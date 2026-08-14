@@ -1,0 +1,83 @@
+{
+  "totalCount": 239,
+  "studies": [
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT06398626",
+          "briefTitle": "An Observational Study of Etrasimod in Adult Patients With Moderate to Severe Ulcerative Colitis",
+          "officialTitle": "A Multi-Center, Prospective, Non-Interventional Study of Real-World Effectiveness of Etrasimod in Patients With Ulcerative Colitis (ENDEAVOUR-UC)"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2026-07",
+          "overallStatus": "RECRUITING",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2024-09-17",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2027-10-01",
+            "type": "ESTIMATED"
+          },
+          "completionDateStruct": {
+            "date": "2028-07-07",
+            "type": "ESTIMATED"
+          },
+          "studyFirstSubmitDate": "2024-04-30",
+          "studyFirstSubmitQcDate": "2024-04-30",
+          "studyFirstPostDateStruct": {
+            "date": "2024-05-03",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2026-07-07",
+          "lastUpdatePostDateStruct": {
+            "date": "2026-07-09",
+            "type": "ACTUAL"
+          }
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "SPONSOR"
+          },
+          "leadSponsor": {
+            "name": "Pfizer",
+            "class": "INDUSTRY"
+          }
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Colitis, Ulcerative"
+          ]
+        },
+        "designModule": {
+          "studyType": "OBSERVATIONAL",
+          "patientRegistry": false,
+          "designInfo": {
+            "observationalModel": "COHORT",
+            "timePerspective": "PROSPECTIVE"
+          },
+          "enrollmentInfo": {
+            "count": 300,
+            "type": "ESTIMATED"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "DRUG",
+              "name": "Etrasimod",
+              "description": "As provided in real world practice",
+              "armGroupLabels": [
+                "Adult patients with ulcerative colitis taking etrasimod"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "nextPageToken": "ZVt07cGHkvI2wRk2CJf6_LLqy5DbMtMod7KrgP4bmDiavvE"
+}

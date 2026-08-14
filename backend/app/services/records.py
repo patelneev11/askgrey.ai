@@ -10,6 +10,7 @@ class RecordSource(str, Enum):
 
     PUBMED = "pubmed"
     PUBCHEM = "pubchem"
+    CLINICALTRIALS = "clinicaltrials"
 
 
 class SourceRecord(BaseModel):
@@ -17,9 +18,10 @@ class SourceRecord(BaseModel):
     The provider-agnostic row every service normalizes into.
 
     Review tables mix literature and chemistry rows, so each provider keeps its own rich model
-    (`Article`, `CompoundRecord`) and additionally projects into this shape: identity plus a
-    flat `fields` map of already-formatted cell values. Columns are therefore driven by the
-    data rather than hardcoded per source, and every cell keeps a link back to its origin.
+    (`Article`, `CompoundRecord`, `TrialRecord`) and additionally projects into this shape:
+    identity plus a flat `fields` map of already-formatted cell values. Columns are therefore
+    driven by the data rather than hardcoded per source, and every cell keeps a link back to
+    its origin.
     """
 
     source: RecordSource

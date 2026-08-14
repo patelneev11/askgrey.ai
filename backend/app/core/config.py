@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     pubchem_rate_limit: float = 5.0
     pubchem_max_candidates: int = 10
 
+    # ClinicalTrials.gov v2. Unauthenticated; the rate limit is a politeness measure.
+    clinicaltrials_base_url: str = "https://clinicaltrials.gov/api/v2"
+    clinicaltrials_timeout_seconds: float = 20.0
+    clinicaltrials_rate_limit: float = 5.0
+    clinicaltrials_page_size: int = 25
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

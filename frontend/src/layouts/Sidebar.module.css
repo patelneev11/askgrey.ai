@@ -96,9 +96,6 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  border-radius: var(--radius-xs);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-2xs);
   color: inherit;
 }
 

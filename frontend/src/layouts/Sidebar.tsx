@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
+import { Icon } from '@/components/icons';
+
 import { OPERATIONAL_TABS, WORKSPACE_LINKS, type NavItem } from './navigation';
 import styles from './Sidebar.module.css';
 
@@ -15,8 +17,8 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
       title={collapsed ? item.label : undefined}
       className={({ isActive }) => [styles.link, isActive ? styles.linkActive : ''].join(' ')}
     >
-      <span className={styles.glyph} aria-hidden="true">
-        {item.glyph}
+      <span className={styles.glyph}>
+        <Icon name={item.icon} />
       </span>
       <span className={styles.linkLabel}>{item.label}</span>
     </NavLink>
@@ -58,8 +60,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         aria-expanded={!collapsed}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
-        <span className={styles.glyph} aria-hidden="true">
-          {collapsed ? '»' : '«'}
+        <span className={styles.glyph}>
+          <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} />
         </span>
         <span className={styles.linkLabel}>Collapse</span>
       </button>

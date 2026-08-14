@@ -41,6 +41,16 @@ describe('Sidebar', () => {
     expect(onToggle).toHaveBeenCalledOnce();
   });
 
+  it('renders a decorative icon in every link, leaving the accessible name to the label', () => {
+    renderSidebar();
+    for (const item of [...OPERATIONAL_TABS, ...WORKSPACE_LINKS]) {
+      const link = screen.getByRole('link', { name: item.label });
+      const icon = link.querySelector('svg');
+      expect(icon).not.toBeNull();
+      expect(icon).toHaveAttribute('aria-hidden', 'true');
+    }
+  });
+
   it('exposes labels as tooltips when collapsed', () => {
     renderSidebar(true);
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();

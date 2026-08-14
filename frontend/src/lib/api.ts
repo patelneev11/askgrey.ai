@@ -31,6 +31,27 @@ export class ApiError extends Error {
   }
 }
 
+interface ValidationIssue {
+  msg?: string;
+}
+
+/**
+ * FastAPI sends `detail` as a string for raised HTTPExceptions but as a list of pydantic
+ * issue objects for 422 responses, so both shapes have to survive the trip to the UI.
+ */
+export function formatErrorDetail(detail: unknown): string | undefined {
+  if (typeof detail === 'string') {
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    const messages = (detail as ValidationIssue[])
+      .map((issue) => issue?.msg)
+      .filter((msg): msg is string => typeof msg === 'string' && msg.length > 0);
+    return messages.length > 0 ? messages.join('. ') : undefined;
+  }
+  return undefined;
+}
+
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
@@ -42,7 +63,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
   if (!response.ok) {
     const detail = await response
       .json()
-      .then((body: { detail?: string }) => body.detail)
+      .then((body: { detail?: unknown }) => formatErrorDetail(body.detail))
       .catch(() => undefined);
     throw new ApiError(detail ?? `Request failed (${response.status})`, response.status);
   }

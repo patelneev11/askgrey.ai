@@ -55,7 +55,9 @@ def claude_reply(text: str, status_code: int = 200) -> Handler:
 
 
 async def test_lexical_ranks_topical_overlap_above_incidental_overlap() -> None:
-    matches = await LexicalMatchRanker().rank(FOCUS, [ADJACENT, OFF_TOPIC, ON_TOPIC])
+    matcher, matches = await LexicalMatchRanker().rank(FOCUS, [ADJACENT, OFF_TOPIC, ON_TOPIC])
+
+    assert matcher == "lexical"
 
     assert [match.opportunity.opportunity_id for match in matches] == ["on", "adj"]
     assert matches[0].score > matches[1].score
@@ -72,13 +74,13 @@ async def test_lexical_weights_title_hits_above_body_hits() -> None:
         topic_description="Organoid screening of candidate compounds.",
     )
 
-    matches = await LexicalMatchRanker().rank("organoid screening", [in_body, in_title])
+    matches = (await LexicalMatchRanker().rank("organoid screening", [in_body, in_title])).matches
 
     assert [match.opportunity.opportunity_id for match in matches] == ["title", "body"]
 
 
 async def test_lexical_returns_nothing_without_candidates() -> None:
-    assert await LexicalMatchRanker().rank(FOCUS, []) == []
+    assert (await LexicalMatchRanker().rank(FOCUS, [])).matches == []
 
 
 @pytest.mark.parametrize("focus", ["", "   ", "\n\t"])
@@ -95,8 +97,9 @@ async def test_claude_scores_are_normalized_and_ordered() -> None:
         )
     )
 
-    matches = await ranker.rank(FOCUS, [ON_TOPIC, ADJACENT])
+    matcher, matches = await ranker.rank(FOCUS, [ON_TOPIC, ADJACENT])
 
+    assert matcher == "claude"
     assert [match.opportunity.opportunity_id for match in matches] == ["on", "adj"]
     assert [match.score for match in matches] == [0.92, 0.55]
     assert matches[0].rationale == "Direct organoid overlap."
@@ -106,12 +109,12 @@ async def test_claude_scores_are_normalized_and_ordered() -> None:
 async def test_claude_accepts_a_prefill_continuation_and_a_code_fence() -> None:
     # The assistant turn is prefilled with "[", so the completion legitimately starts mid-array.
     ranker = claude_ranker(claude_reply('{"index": 0, "score": 0.8, "rationale": "fit"}]'))
-    matches = await ranker.rank(FOCUS, [ON_TOPIC])
+    matches = (await ranker.rank(FOCUS, [ON_TOPIC])).matches
     assert [match.score for match in matches] == [0.8]
     await ranker.aclose()
 
     fenced = claude_ranker(claude_reply('```json\n[{"index": 0, "score": 70}]\n```'))
-    assert (await fenced.rank(FOCUS, [ON_TOPIC]))[0].score == 0.7
+    assert (await fenced.rank(FOCUS, [ON_TOPIC])).matches[0].score == 0.7
     await fenced.aclose()
 
 
@@ -138,7 +141,7 @@ async def test_claude_keeps_the_valid_half_of_a_partly_invalid_ranking() -> None
         claude_reply('[{"index": 7, "score": 99}, {"index": 1, "score": 60, "rationale": "ok"}]')
     )
 
-    matches = await ranker.rank(FOCUS, [ON_TOPIC, ADJACENT])
+    matches = (await ranker.rank(FOCUS, [ON_TOPIC, ADJACENT])).matches
 
     assert [match.opportunity.opportunity_id for match in matches] == ["adj"]
     await ranker.aclose()
@@ -170,9 +173,10 @@ async def test_claude_transport_failure_raises_matching_error() -> None:
 async def test_fallback_uses_lexical_when_claude_fails() -> None:
     ranker = FallbackMatchRanker(claude_ranker(claude_reply("{}", 503)), LexicalMatchRanker())
 
-    matches = await ranker.rank(FOCUS, [ON_TOPIC, OFF_TOPIC])
+    matcher, matches = await ranker.rank(FOCUS, [ON_TOPIC, OFF_TOPIC])
 
-    assert ranker.name == "claude+lexical"
+    # The composite name is reported only when the fallback actually produced the ranking.
+    assert matcher == "claude+lexical"
     assert [match.opportunity.opportunity_id for match in matches] == ["on"]
 
 
@@ -182,8 +186,10 @@ async def test_fallback_prefers_claude_when_it_answers() -> None:
         LexicalMatchRanker(),
     )
 
-    matches = await ranker.rank(FOCUS, [ON_TOPIC, OFF_TOPIC])
+    matcher, matches = await ranker.rank(FOCUS, [ON_TOPIC, OFF_TOPIC])
 
+    # Claude answered, so the result must not be labelled as a fallback ranking.
+    assert matcher == "claude"
     assert [match.opportunity.opportunity_id for match in matches] == ["off"]
     assert matches[0].rationale == "claude"
 

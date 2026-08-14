@@ -15,6 +15,7 @@ from .matching import (
     FallbackMatchRanker,
     LexicalMatchRanker,
     MatchRanker,
+    RankedMatches,
     normalize_focus,
 )
 from .models import (
@@ -191,12 +192,16 @@ class GrantsService:
             page += 1
 
         candidates = candidates[:candidate_pool]
-        matches = await self.ranker.rank(normalized, candidates) if candidates else []
+        ranked = (
+            await self.ranker.rank(normalized, candidates)
+            if candidates
+            else RankedMatches(self.ranker.name, [])
+        )
         return MatchResult(
             focus=normalized,
-            matcher=self.ranker.name,
+            matcher=ranked.matcher,
             candidates_considered=len(candidates),
-            matches=matches[:limit],
+            matches=ranked.matches[:limit],
             sources=statuses,
         )
 
@@ -206,9 +211,12 @@ class GrantsService:
         status = SourceStatus(source=GrantSource.GRANTS_GOV)
         alias = resolve_agency(search.agency) if search.agency.strip() else None
         try:
+            codes = (
+                await self.grants_gov.expand_agency_codes(alias.grants_gov_codes) if alias else None
+            )
             data = await self.grants_gov.search(
                 keyword=search.keyword.strip(),
-                agency_codes=alias.grants_gov_codes if alias else None,
+                agency_codes=codes,
                 statuses=list(OPEN_STATUSES) if search.open_only else None,
                 rows=page_size,
                 start_record=page * page_size,

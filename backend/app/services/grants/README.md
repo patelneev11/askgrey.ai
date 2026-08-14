@@ -49,7 +49,7 @@ await service.aclose()
 
 - `GET /api/grants/search` — query params `keyword`, `agency`, `program`, `open_only`,
   `closing_after`, `closing_before`, repeatable `source`, `page`, `page_size`. Returns a
-  `GrantPage`.
+  `GrantPage`. `program` takes `SBIR`, `STTR`, `BOTH` or `OTHER`, in any case.
 - `POST /api/grants/match` — body carries `focus` plus the same filters, `limit` and
   `candidate_pool`. Returns a `MatchResult`.
 
@@ -118,10 +118,11 @@ is eligible; the ranker only decides the order.
   configured and in every test. It scores the IDF-weighted share of the focus vocabulary a
   candidate covers, weighting title hits above body hits.
 - `FallbackMatchRanker` combines them: any `MatchingError` from Claude falls through to lexical,
-  and `MatchResult.matcher` records which one produced the ranking.
+  and `MatchResult.matcher` reports the ranker that actually produced the result — `claude`
+  when Claude answered, `claude+lexical` when it failed and lexical stood in.
 
 Scores are normalized to `0-1`. Lexical scores are term overlap, not semantic fit — treat a
-`matcher == "lexical"` result as a keyword ranking.
+`matcher == "lexical"` or `"claude+lexical"` result as a keyword ranking.
 
 ## SBIR.gov reachability
 

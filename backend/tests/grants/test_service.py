@@ -39,7 +39,8 @@ async def test_keyword_and_agency_are_sent_to_both_providers() -> None:
 
     payload = transport.payloads("search2")[0]
     assert payload["keyword"] == "organoid"
-    assert payload["agencies"] == "HHS"
+    # The department code is expanded to the sub-agency codes grants.gov actually files under.
+    assert payload["agencies"] == "HHS|HHS-NIH11"
     assert payload["oppStatuses"] == "posted"
     assert payload["rows"] == 5
 
@@ -51,6 +52,19 @@ async def test_keyword_and_agency_are_sent_to_both_providers() -> None:
         "agency": ["HHS"],
         "open": ["1"],
     }
+    await service.aclose()
+
+
+async def test_a_sub_agency_code_skips_the_vocabulary_probe() -> None:
+    service, transport = make_service(
+        search2=fixture_response("search2_nih_sbir.json"), enrich_limit=0
+    )
+
+    await service.search(GrantSearch(keyword="cancer", agency="NIH", sources=GRANTS_ONLY))
+
+    # HHS-NIH11 is already an exact provider code, so no vocabulary lookup is needed.
+    assert len(transport.payloads("search2", include_probes=True)) == 1
+    assert transport.payloads("search2")[0]["agencies"] == "HHS-NIH11"
     await service.aclose()
 
 
@@ -66,6 +80,60 @@ async def test_agency_alias_is_translated_per_provider() -> None:
     assert transport.payloads("search2")[0]["agencies"] == "DOD"
     # SBIR.gov calls the same department DOW.
     assert transport.queries("solicitations")[0]["agency"] == ["DOW"]
+    await service.aclose()
+
+
+async def test_department_codes_are_expanded_to_the_sub_agencies_that_carry_postings() -> None:
+    # grants.gov matches agency codes exactly: `agencies=DOD` finds only the handful of
+    # opportunities filed under the bare department code, not DOD-AMRAA, DOD-DARPA-* etc.
+    service, transport = make_service(
+        search2=[
+            fixture_response("search2_agency_facet.json"),
+            fixture_response("search2_nih_sbir.json"),
+        ],
+        enrich_limit=0,
+    )
+
+    await service.search(GrantSearch(keyword="biothreat", agency="DoD", sources=GRANTS_ONLY))
+
+    assert transport.payloads("search2")[0]["agencies"] == (
+        "DOD|DOD-AFRL|DOD-AMRAA|DOD-DARPA-BTO|DOD-ONR"
+    )
+    # The probe that reads the vocabulary asks for no rows.
+    assert transport.payloads("search2", include_probes=True)[0]["rows"] == 0
+    await service.aclose()
+
+
+async def test_agency_vocabulary_is_read_once_per_client() -> None:
+    service, transport = make_service(
+        search2=[
+            fixture_response("search2_agency_facet.json"),
+            fixture_response("search2_nih_sbir.json"),
+        ],
+        enrich_limit=0,
+    )
+
+    await service.search(GrantSearch(keyword="one", agency="DoD", sources=GRANTS_ONLY))
+    await service.search(GrantSearch(keyword="two", agency="HHS", sources=GRANTS_ONLY))
+
+    probes = [
+        body for body in transport.payloads("search2", include_probes=True) if body["rows"] == 0
+    ]
+    assert len(probes) == 1
+    await service.aclose()
+
+
+async def test_an_unreadable_agency_vocabulary_leaves_the_filter_as_requested() -> None:
+    # Losing the vocabulary must narrow the search rather than fail it.
+    service, transport = make_service(
+        search2=[error_response(503), fixture_response("search2_nih_sbir.json")],
+        enrich_limit=0,
+    )
+
+    page = await service.search(GrantSearch(keyword="cancer", agency="HHS", sources=GRANTS_ONLY))
+
+    assert transport.payloads("search2")[0]["agencies"] == "HHS"
+    assert page.opportunities
     await service.aclose()
 
 

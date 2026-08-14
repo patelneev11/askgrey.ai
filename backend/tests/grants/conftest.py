@@ -79,12 +79,14 @@ class RoutingTransport(httpx.AsyncBaseTransport):
     def _count(self, label: str) -> int:
         return sum(1 for request in self.requests[:-1] if request.url.path.endswith(f"/{label}"))
 
-    def payloads(self, path_suffix: str) -> list[dict[str, Any]]:
-        return [
+    def payloads(self, path_suffix: str, *, include_probes: bool = False) -> list[dict[str, Any]]:
+        """Request bodies, minus the `rows=0` agency-vocabulary probe unless asked for."""
+        bodies = [
             json.loads(request.content.decode())
             for request in self.requests
             if request.url.path.endswith(path_suffix)
         ]
+        return bodies if include_probes else [body for body in bodies if body.get("rows") != 0]
 
     def queries(self, path_suffix: str) -> list[dict[str, list[str]]]:
         return [

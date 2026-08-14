@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import re
 from datetime import date, datetime
 from typing import Any
@@ -110,8 +111,9 @@ def clean_text(value: object, *, limit: int = 4000) -> str:
     """Collapse provider HTML/whitespace into plain text the matcher can read."""
     if not isinstance(value, str):
         return ""
+    # Tags first, then entities: unescaping first would let `&lt;b&gt;` become a strippable tag.
     without_tags = re.sub(r"<[^>]+>", " ", value)
-    collapsed = " ".join(without_tags.split())
+    collapsed = " ".join(html.unescape(without_tags).split())
     return collapsed[:limit]
 
 

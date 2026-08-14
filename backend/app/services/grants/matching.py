@@ -4,7 +4,7 @@ import json
 import math
 import re
 from collections import Counter
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
 import httpx
 
@@ -43,14 +43,19 @@ STOPWORDS = frozenset(
 )
 
 
+class RankedMatches(NamedTuple):
+    """Ranked matches plus the ranker that actually produced them."""
+
+    matcher: str
+    matches: list[OpportunityMatch]
+
+
 class MatchRanker(Protocol):
     """Scores candidate opportunities against a company research focus."""
 
     name: str
 
-    async def rank(
-        self, focus: str, candidates: list[GrantOpportunity]
-    ) -> list[OpportunityMatch]: ...
+    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> RankedMatches: ...
 
 
 def normalize_focus(focus: str) -> str:
@@ -85,11 +90,11 @@ class LexicalMatchRanker:
 
     TITLE_WEIGHT = 2.0
 
-    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> list[OpportunityMatch]:
+    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> RankedMatches:
         normalized = normalize_focus(focus)
         focus_terms = list(dict.fromkeys(tokenize(normalized)))
         if not focus_terms or not candidates:
-            return []
+            return RankedMatches(self.name, [])
 
         documents = [tokenize(candidate.match_text()) for candidate in candidates]
         document_frequency = Counter(
@@ -132,7 +137,7 @@ class LexicalMatchRanker:
             )
 
         matches.sort(key=lambda match: (-match.score, match.opportunity.title))
-        return matches
+        return RankedMatches(self.name, matches)
 
 
 def _strip_code_fence(content: str) -> str:
@@ -229,10 +234,10 @@ class ClaudeMatchRanker:
             raise MatchingError("Claude returned no text content")
         return text
 
-    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> list[OpportunityMatch]:
+    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> RankedMatches:
         normalized = normalize_focus(focus)
         if not candidates:
-            return []
+            return RankedMatches(self.name, [])
 
         prompt = (
             f"Company research focus:\n{normalized}\n\n"
@@ -265,7 +270,7 @@ class ClaudeMatchRanker:
         if not matches:
             raise MatchingError("Claude ranked none of the candidates")
         matches.sort(key=lambda match: (-match.score, match.opportunity.title))
-        return matches
+        return RankedMatches(self.name, matches)
 
 
 def _parse_ranking(item: Any, candidates: list[GrantOpportunity]) -> OpportunityMatch | None:
@@ -290,17 +295,25 @@ def _parse_ranking(item: Any, candidates: list[GrantOpportunity]) -> Opportunity
 
 
 class FallbackMatchRanker:
-    """Tries `primary`, and on any matching failure re-ranks with `fallback`."""
+    """
+    Tries `primary`, and on any matching failure re-ranks with `fallback`.
+
+    `RankedMatches.matcher` reports which one produced the ranking — `claude` when the primary
+    answered, `claude+lexical` when it failed and the fallback stood in.
+    """
 
     def __init__(self, primary: MatchRanker, fallback: MatchRanker) -> None:
         self.primary = primary
         self.fallback = fallback
         self.name = f"{primary.name}+{fallback.name}"
 
-    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> list[OpportunityMatch]:
+    async def rank(self, focus: str, candidates: list[GrantOpportunity]) -> RankedMatches:
         # An unusable focus is the caller's problem regardless of ranker, so it propagates.
         normalized = normalize_focus(focus)
         try:
             return await self.primary.rank(normalized, candidates)
         except MatchingError:
-            return await self.fallback.rank(normalized, candidates)
+            # The composite name is honest only for a ranking the fallback actually produced.
+            return RankedMatches(
+                self.name, (await self.fallback.rank(normalized, candidates)).matches
+            )

@@ -53,6 +53,7 @@ class GrantsGovClient:
         self.base_delay = base_delay
         self.rate_limiter = rate_limiter or RateLimiter(5.0)
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        self._agency_vocabulary: dict[str, list[str]] | None = None
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -124,6 +125,51 @@ class GrantsGovClient:
             payload["agencies"] = "|".join(agency_codes)
         return await self._post("search2", payload)
 
+    async def agency_vocabulary(self) -> dict[str, list[str]]:
+        """
+        Department code -> every agency code that sits under it, from the `search2` facet.
+
+        `agencies` matches codes exactly, with no prefix expansion: `agencies="DOD"` finds the
+        two opportunities literally filed under `DOD` while the department's real postings sit
+        under `DOD-AMRAA`, `DOD-DARPA-*` and so on. The facet is the provider's own vocabulary,
+        so it is read once per client rather than hard-coded and left to drift.
+        """
+        if self._agency_vocabulary is None:
+            data = await self.search(rows=0)
+            vocabulary: dict[str, list[str]] = {}
+            facet = data.get("agencies")
+            for entry in facet if isinstance(facet, list) else []:
+                department = as_dict(entry)
+                code = clean_text(department.get("value"), limit=100)
+                if not code:
+                    continue
+                options = department.get("subAgencyOptions")
+                children = [
+                    clean_text(as_dict(option).get("value"), limit=100)
+                    for option in (options if isinstance(options, list) else [])
+                ]
+                vocabulary[code] = sorted({code, *(child for child in children if child)})
+            self._agency_vocabulary = vocabulary
+        return self._agency_vocabulary
+
+    async def expand_agency_codes(self, codes: list[str]) -> list[str]:
+        """Replace department codes with the sub-agency codes that actually carry postings."""
+        # Sub-agency codes are already exact ("HHS-NIH11"), so only a bare department code
+        # ("DOD") is worth the vocabulary probe.
+        if all("-" in code for code in codes):
+            return codes
+        try:
+            vocabulary = await self.agency_vocabulary()
+        except (GrantsRequestError, GrantsResponseError):
+            # A missing vocabulary must narrow the search, never fail it.
+            return codes
+        expanded: list[str] = []
+        for code in codes:
+            for resolved in vocabulary.get(code, [code]):
+                if resolved not in expanded:
+                    expanded.append(resolved)
+        return expanded
+
     async def fetch_opportunity(self, opportunity_id: str) -> dict[str, Any]:
         """Raw `fetchOpportunity` data object, which carries the synopsis and award figures."""
         try:
@@ -163,9 +209,11 @@ def apply_detail(
     return opportunity.model_copy(
         update={
             "number": clean_text(detail.get("opportunityNumber"), limit=100) or opportunity.number,
-            "agency": clean_text(synopsis.get("agencyName"), limit=200) or opportunity.agency,
-            "agency_code": clean_text(synopsis.get("agencyCode"), limit=100)
-            or opportunity.agency_code,
+            # The synopsis `agencyName` is the grantor contact person, not the agency, so the
+            # summary hit wins and the synopsis only fills a gap.
+            "agency": opportunity.agency or clean_text(synopsis.get("agencyName"), limit=200),
+            "agency_code": opportunity.agency_code
+            or clean_text(synopsis.get("agencyCode"), limit=100),
             "topic_description": description or opportunity.topic_description,
             "funding_ceiling": parse_money(synopsis.get("awardCeiling")),
             "funding_floor": parse_money(synopsis.get("awardFloor")),

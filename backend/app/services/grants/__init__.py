@@ -12,6 +12,7 @@ from .matching import (
     FallbackMatchRanker,
     LexicalMatchRanker,
     MatchRanker,
+    RankedMatches,
     normalize_focus,
 )
 from .models import (
@@ -49,6 +50,7 @@ __all__ = [
     "InvalidQueryError",
     "LexicalMatchRanker",
     "MatchRanker",
+    "RankedMatches",
     "MatchResult",
     "MatchingError",
     "OpportunityMatch",

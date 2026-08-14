@@ -23,6 +23,13 @@ class GrantProgram(str, Enum):
     BOTH = "BOTH"
     OTHER = "OTHER"
 
+    @classmethod
+    def _missing_(cls, value: object) -> GrantProgram | None:
+        """Accept `sbir` as readily as `SBIR`; callers type these into a query string."""
+        if isinstance(value, str):
+            return cls.__members__.get(value.strip().upper())
+        return None
+
 
 class GrantStatus(str, Enum):
     """Whether the opportunity can be applied to today."""

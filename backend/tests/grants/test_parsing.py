@@ -78,7 +78,10 @@ def test_parse_status_falls_back_to_the_deadline_for_unknown_strings() -> None:
 
 
 def test_clean_text_strips_provider_markup() -> None:
-    assert clean_text("<p>Phase&nbsp;I\n  awards</p>") == "Phase&nbsp;I awards"
+    assert clean_text("<p>Phase&nbsp;I\n  awards</p>") == "Phase I awards"
+    assert clean_text("Navigation &amp; Positioning") == "Navigation & Positioning"
+    # Entities are unescaped after tag stripping, so escaped markup cannot become a live tag.
+    assert clean_text("&lt;b&gt;bold&lt;/b&gt;") == "<b>bold</b>"
     assert clean_text("x" * 50, limit=10) == "x" * 10
     assert clean_text(None) == ""
 
@@ -109,6 +112,20 @@ def test_fetch_opportunity_detail_supplies_the_topic_text_search_omits() -> None
     assert enriched.close_date == date(2027, 4, 5)
     # NIH parent announcements publish no ceiling; "none" must not become 0.
     assert enriched.funding_ceiling is None
+
+
+def test_enrichment_keeps_the_search_agency_over_the_synopsis_contact() -> None:
+    # `synopsis.agencyName` is frequently the grantor contact person, so it may only fill a gap.
+    hit = search2_fixture()["data"]["oppHits"][0]
+    detail = load_fixture("fetch_opportunity_359671.json")["data"]
+    detail["synopsis"]["agencyName"] = "Jane Doe"
+
+    enriched = apply_detail(parse_hit(hit, TODAY), detail, TODAY)
+
+    assert enriched.agency == "National Institutes of Health"
+
+    unattributed = parse_hit({**hit, "agency": ""}, TODAY)
+    assert apply_detail(unattributed, detail, TODAY).agency == "Jane Doe"
 
 
 def test_fetch_opportunity_detail_carries_the_funding_ceiling_when_published() -> None:
@@ -178,3 +195,11 @@ def test_agency_aliases_resolve_to_provider_specific_codes() -> None:
     # An unknown value is passed through as a literal provider code rather than rejected.
     unknown = resolve_agency("HHS-NIH99")
     assert unknown is not None and unknown.grants_gov_codes == ["HHS-NIH99"]
+
+
+def test_program_values_are_accepted_in_any_case() -> None:
+    # Callers type these into a query string, where "sbir" is the natural spelling.
+    assert GrantProgram("sbir") is GrantProgram.SBIR
+    assert GrantProgram(" Sttr ") is GrantProgram.STTR
+    with pytest.raises(ValueError):
+        GrantProgram("phase-iii")

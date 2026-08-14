@@ -1,0 +1,36 @@
+{
+  "errorcode": 0,
+  "msg": "",
+  "data": {
+    "hitCount": 83188,
+    "oppHits": [],
+    "agencies": [
+      {
+        "label": "Department of Defense",
+        "value": "DOD",
+        "count": 144,
+        "subAgencyOptions": [
+          { "label": "Air Force -- Research Lab", "value": "DOD-AFRL", "count": 9 },
+          { "label": "DARPA - Biological Technologies Office", "value": "DOD-DARPA-BTO", "count": 1 },
+          { "label": "Defense Health Agency Contracting Activity - DHACA", "value": "DOD-AMRAA", "count": 94 },
+          { "label": "Office of Naval Research", "value": "DOD-ONR", "count": 6 }
+        ]
+      },
+      {
+        "label": "Department of Health and Human Services",
+        "value": "HHS",
+        "count": 491,
+        "subAgencyOptions": [
+          { "label": "National Institutes of Health", "value": "HHS-NIH11", "count": 393 },
+          { "label": "Food and Drug Administration", "value": "HHS-FDA", "count": 13 }
+        ]
+      },
+      {
+        "label": "U.S. National Science Foundation",
+        "value": "NSF",
+        "count": 148,
+        "subAgencyOptions": []
+      }
+    ]
+  }
+}

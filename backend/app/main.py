@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.clinicaltrials import router as clinicaltrials_router
+from app.api.pdf_extraction import router as pdf_extraction_router
 from app.api.pubchem import router as pubchem_router
 from app.api.pubmed import router as pubmed_router
 from app.core.config import get_settings
@@ -36,6 +37,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(pubmed_router, prefix="/api")
 app.include_router(pubchem_router, prefix="/api")
 app.include_router(clinicaltrials_router, prefix="/api")
+app.include_router(pdf_extraction_router, prefix="/api")
 
 
 @app.get("/api/health", tags=["system"])

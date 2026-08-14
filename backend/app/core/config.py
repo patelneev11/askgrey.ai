@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     clinicaltrials_rate_limit: float = 5.0
     clinicaltrials_page_size: int = 25
 
+    # PDF extraction. Documents are parsed locally; only the extracted text reaches the LLM.
+    pdf_fetch_timeout_seconds: float = 30.0
+    pdf_extraction_timeout_seconds: float = 60.0
+    pdf_extraction_max_tokens: int = 2048
+    pdf_extraction_context_chars: int = 40000
+    pdf_extraction_max_pages: int = 40
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

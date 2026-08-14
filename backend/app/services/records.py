@@ -11,6 +11,7 @@ class RecordSource(str, Enum):
     PUBMED = "pubmed"
     PUBCHEM = "pubchem"
     CLINICALTRIALS = "clinicaltrials"
+    PDF = "pdf"
 
 
 class SourceRecord(BaseModel):

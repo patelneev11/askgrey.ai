@@ -1,0 +1,229 @@
+.fill {
+  height: 100%;
+}
+
+.overall {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+}
+
+/* ---- Left rail: eCTD module tree ---- */
+
+.tree,
+.sections {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.module + .module {
+  margin-top: var(--space-5);
+}
+
+.moduleHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ring {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: var(--color-border-default);
+  stroke-width: 3;
+}
+
+.ringFill {
+  fill: none;
+  stroke: var(--color-accent-pipeline);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.moduleId {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+
+.moduleTitle {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.sections {
+  margin: var(--space-2) 0 0 var(--space-4);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.sections li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.sectionDot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: currentcolor;
+}
+
+.complete {
+  color: var(--color-accent-success);
+}
+
+.review {
+  color: var(--color-accent-warning);
+}
+
+.empty {
+  color: var(--color-text-tertiary);
+}
+
+/* ---- Right pane: document with margin annotations ---- */
+
+.docActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.guideline {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.docLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-6);
+}
+
+.document {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 72ch;
+}
+
+.docTitle {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xl);
+}
+
+.docBody {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+}
+
+/* A paragraph the audit has an open finding against. */
+.flagged {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent-warning-surface);
+  border-left: 2px solid var(--color-accent-warning);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.flaggedMedium {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-inset);
+  border-left: 2px solid var(--color-accent-warning-muted);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.margin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.marginTitle {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.discrepancy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.discrepancyHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.anchor {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+}
+
+.severity {
+  color: var(--color-accent-warning);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.discrepancyBody {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.checklist ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+}
+
+.pass {
+  color: var(--color-accent-success);
+}
+
+.pending {
+  color: var(--color-text-tertiary);
+}

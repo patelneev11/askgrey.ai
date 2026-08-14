@@ -151,14 +151,33 @@ distinct `storageKey` so users keep a per-tab split.
 The standard bordered container with an optional header for a title and actions. Use
 `flush` when the panel hosts a table or editor that manages its own padding.
 
+### `PageCanvas` — `src/components/PageCanvas.tsx`
+
+The alternative to the split: a scrolling single-column frame with a page title, description and
+actions. Used by destinations that are documents to read rather than workspaces to work in.
+
+### Page layouts
+
+Each destination composes the shared primitives differently, so no two tabs read the same. The
+split ratio and the right pane's job are what distinguish the agent tabs:
+
+| Page | Frame | Left | Right |
+| --- | --- | --- | --- |
+| Literature | split, 0.40 | agent thread with citation chips | dense evidence review table |
+| Screening | split, 0.32 | compound queue rail | profile: structure, Lipinski grid, ADMET meters, toxicity flags |
+| Protocol | split, 0.28 | numbered step timeline | document surface with materials table and inline reagent calcs |
+| Regulatory | split, 0.30 | eCTD module tree with completeness rings | draft with margin discrepancy annotations |
+| Grants | board | — | opportunity cards over a mock review board and budget breakdown |
+| Workspace / Audit / Settings | `PageCanvas` | — | members and seats / event timeline / grouped settings form |
+
 ### Building a new tab
 
 1. Add the route to `src/layouts/navigation.ts` and `src/App.tsx`.
-2. Render a `DualPaneWorkspace` with a unique `storageKey`.
-3. Put content in `Panel`s; express state with `StatusPill`; use `Button` for actions.
-4. Style with CSS modules that reference tokens only.
+2. Choose the frame: `DualPaneWorkspace` with a unique `storageKey`, or `PageCanvas`.
+3. Put content in `Panel`s; express state with `StatusPill`; use `Meter` for scored properties.
+4. Style with a CSS module that references tokens only.
 
-`src/pages/TabPlaceholder.tsx` is a working example of steps 2–4.
+`src/pages/ScreeningPage.tsx` is a worked example of steps 2–4.
 
 ---
 

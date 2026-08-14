@@ -1,186 +1,292 @@
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
+
+import { Button } from '@/components/Button';
+import { CitationViewer, type CitationTarget } from '@/components/CitationViewer';
 import { Panel } from '@/components/Panel';
+import { ReviewTable } from '@/components/ReviewTable';
 import { StatusPill } from '@/components/StatusPill';
 import { DualPaneWorkspace } from '@/layouts/DualPaneWorkspace';
+import { api, type ExportFormat } from '@/lib/api';
+import {
+  EMPTY_TABLE,
+  cellKey,
+  groundedCount,
+  mergeTables,
+  type ExtractionCell,
+  type ExtractionTable,
+  type PaperRow,
+} from '@/lib/extraction';
+import { getAccessToken } from '@/lib/session';
 
 import styles from './LiteraturePage.module.css';
 
-interface Turn {
-  role: 'researcher' | 'agent';
-  body: string;
-  citations?: string[];
+interface Source {
+  id: string;
+  label: string;
+  file?: File;
+  url?: string;
 }
 
-const THREAD: Turn[] = [
-  {
-    role: 'researcher',
-    body: 'Randomized trials of semaglutide for obesity in adults without diabetes, 2021 onwards. Summarize weight-loss endpoints.',
-  },
-  {
-    role: 'agent',
-    body: 'Translated to a Boolean Entrez query over MeSH descriptors and title/abstract synonyms, then screened 238 hits down to 12 randomized trials with a body-weight primary endpoint. The review table on the right is built from those 12; every cell links to the passage it came from.',
-    citations: ['PMID 33567185', 'PMID 35441470', 'PMID 40353578'],
-  },
-  {
-    role: 'researcher',
-    body: 'Drop anything with fewer than 200 participants.',
-  },
-  {
-    role: 'agent',
-    body: 'Four trials fall below that threshold. Filtering them out leaves 8 studies and does not change the pooled direction of effect.',
-  },
-];
-
-const QUERY_CHIPS = [
-  '"Semaglutide"[MeSH Terms]',
-  '"Obesity"[MeSH Terms]',
-  '"Randomized Controlled Trial"[Publication Type]',
-  '2021/01/01 : 3000',
-];
-
-interface Row {
-  study: string;
-  design: string;
-  n: string;
-  endpoint: string;
-  effect: string;
-  source: string;
+/** Split the goal the same way the backend does, so pending headers match real columns. */
+function goalLabels(goal: string): string[] {
+  return goal
+    .split(/[,;\n]| and (?=[a-z])/)
+    .map((part) => part.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
 }
 
-const ROWS: Row[] = [
-  {
-    study: 'STEP 1 (Wilding 2021)',
-    design: 'Phase 3, double-blind',
-    n: '1961',
-    endpoint: 'Δ body weight, wk 68',
-    effect: '−14.9%',
-    source: 'NEJM 384:989',
-  },
-  {
-    study: 'STEP 2 (Davies 2021)',
-    design: 'Phase 3, T2D cohort',
-    n: '1210',
-    endpoint: 'Δ body weight, wk 68',
-    effect: '−9.6%',
-    source: 'Lancet 397:971',
-  },
-  {
-    study: 'STEP 4 (Rubino 2021)',
-    design: 'Withdrawal RCT',
-    n: '803',
-    endpoint: 'Δ weight after wk 20',
-    effect: '−7.9%',
-    source: 'JAMA 325:1414',
-  },
-  {
-    study: 'STEP 1 extension (2022)',
-    design: 'Off-treatment follow-up',
-    n: '327',
-    endpoint: 'Regain, wk 68→120',
-    effect: '+11.6 pp',
-    source: 'Diabetes Obes Metab 24:1553',
-  },
-  {
-    study: 'SURMOUNT-5 (Aronne 2025)',
-    design: 'Open-label, active comparator',
-    n: '751',
-    endpoint: 'Δ body weight, wk 72',
-    effect: '−20.2% vs −13.7%',
-    source: 'NEJM 392:26',
-  },
-];
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : 'Extraction failed';
+}
+
+function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 export function LiteraturePage() {
+  const [sources, setSources] = useState<Source[]>([]);
+  const [urlDraft, setUrlDraft] = useState('');
+  const [goal, setGoal] = useState('');
+  const [table, setTable] = useState<ExtractionTable>(EMPTY_TABLE);
+  const [pendingColumns, setPendingColumns] = useState<string[]>([]);
+  const [running, setRunning] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [target, setTarget] = useState<CitationTarget | null>(null);
+  const [activeCell, setActiveCell] = useState<string | null>(null);
+  // document_id -> the bytes the user uploaded, so the viewer can render real pages.
+  const filesByDocument = useRef(new Map<string, File>());
+
+  const addFiles = (files: FileList | null) => {
+    if (!files) return;
+    setSources((current) => [
+      ...current,
+      ...Array.from(files).map((file) => ({
+        id: `${file.name}:${file.size}:${file.lastModified}`,
+        label: file.name,
+        file,
+      })),
+    ]);
+  };
+
+  const addUrl = () => {
+    const url = urlDraft.trim();
+    if (!url) return;
+    setSources((current) =>
+      current.some((source) => source.url === url)
+        ? current
+        : [...current, { id: url, label: url, url }],
+    );
+    setUrlDraft('');
+  };
+
+  const removeSource = (id: string) =>
+    setSources((current) => current.filter((source) => source.id !== id));
+
+  const runExtraction = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = goal.trim();
+    if (!trimmed || sources.length === 0 || running) return;
+
+    setRunning(true);
+    setError(null);
+    setPendingColumns(goalLabels(trimmed));
+    const token = getAccessToken();
+    const failures: string[] = [];
+
+    // Papers are extracted one at a time so a slow or broken source never holds the whole
+    // table hostage — each result lands as soon as it arrives.
+    for (const source of sources) {
+      try {
+        const result = source.file
+          ? await api.extractFromUpload(source.file, trimmed, token)
+          : await api.extractFromUrl(source.url ?? '', trimmed, token);
+        if (source.file) {
+          for (const row of result.rows) filesByDocument.current.set(row.document_id, source.file);
+        }
+        setTable((current) => mergeTables(current, result));
+      } catch (cause) {
+        failures.push(`${source.label}: ${errorMessage(cause)}`);
+      }
+    }
+
+    setPendingColumns([]);
+    setRunning(false);
+    if (failures.length > 0) setError(failures.join(' · '));
+  };
+
+  const onCitationSelect = useCallback(
+    (row: PaperRow, columnKey: string, cell: ExtractionCell) => {
+      if (!cell.citation) return;
+      const column = table.columns.find((candidate) => candidate.key === columnKey);
+      setTarget({ row, columnLabel: column?.label ?? columnKey, citation: cell.citation });
+      setActiveCell(cellKey(row.document_id, columnKey));
+    },
+    [table.columns],
+  );
+
+  const exportTable = async (format: ExportFormat) => {
+    setExporting(format);
+    setError(null);
+    try {
+      const file = await api.exportTable(table, format, {}, getAccessToken());
+      saveFile(file.blob, file.filename);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const fileFor = useCallback((documentId: string) => filesByDocument.current.get(documentId), []);
+
+  const grounded = useMemo(() => groundedCount(table), [table]);
+  const hasTable = table.rows.length > 0 && table.columns.length > 0;
+  const canRun = goal.trim().length > 0 && sources.length > 0 && !running;
+
   return (
     <DualPaneWorkspace
       storageKey="literature"
-      defaultRatio={0.4}
-      leftLabel="Literature agent thread"
-      rightLabel="Evidence review table"
+      defaultRatio={0.58}
+      leftLabel="Dynamic review table"
+      rightLabel="Cited passage viewer"
       left={
-        <Panel
-          title="Literature agent"
-          actions={<StatusPill tone="validated">12 screened</StatusPill>}
-          className={styles.fill}
-          flush
-        >
-          <div className={styles.thread}>
-            {THREAD.map((turn, index) => (
-              <article key={index} className={styles[turn.role]}>
-                <span className={styles.speaker}>{turn.role === 'agent' ? 'Agent' : 'You'}</span>
-                <p className={styles.turnBody}>{turn.body}</p>
-                {turn.citations && (
-                  <div className={styles.citations}>
-                    {turn.citations.map((citation) => (
-                      <span key={citation} className={styles.citation}>
-                        {citation}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-          <div className={styles.composer}>
-            <div className={styles.queryChips}>
-              {QUERY_CHIPS.map((chip) => (
-                <span key={chip} className={styles.queryChip}>
-                  {chip}
-                </span>
-              ))}
-            </div>
-            <div className={styles.input} aria-hidden="true">
-              Ask a follow-up, or refine the query…
-            </div>
-          </div>
-        </Panel>
-      }
-      right={
         <Panel
           title="Evidence review"
           actions={
-            <div className={styles.tableActions}>
-              <span className={styles.filter}>n ≥ 200</span>
-              <span className={styles.filter}>RCT only</span>
-              <span className={styles.count}>8 studies</span>
+            <div className={styles.actions}>
+              {running ? (
+                <StatusPill tone="running" pulse>
+                  extracting
+                </StatusPill>
+              ) : (
+                hasTable && <StatusPill tone="validated">{grounded} cited values</StatusPill>
+              )}
+              <Button
+                size="sm"
+                onClick={() => void exportTable('xlsx')}
+                disabled={!hasTable || exporting !== null}
+              >
+                {exporting === 'xlsx' ? 'Exporting…' : 'Export Excel'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void exportTable('csv')}
+                disabled={!hasTable || exporting !== null}
+              >
+                {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+              </Button>
             </div>
           }
-          className={styles.fill}
           flush
         >
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Study</th>
-                <th scope="col">Design</th>
-                <th scope="col" className={styles.numeric}>
-                  n
-                </th>
-                <th scope="col">Primary endpoint</th>
-                <th scope="col" className={styles.numeric}>
-                  Effect
-                </th>
-                <th scope="col">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((row) => (
-                <tr key={row.study}>
-                  <th scope="row" className={styles.studyCell}>
-                    {row.study}
-                  </th>
-                  <td>{row.design}</td>
-                  <td className={styles.numeric}>{row.n}</td>
-                  <td>{row.endpoint}</td>
-                  <td className={[styles.numeric, styles.effect].join(' ')}>{row.effect}</td>
-                  <td>
-                    <span className={styles.sourceLink}>{row.source}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className={styles.canvas}>
+            <form className={styles.composer} onSubmit={(event) => void runExtraction(event)}>
+              <label className={styles.label} htmlFor="extraction-goal">
+                Extraction goal
+              </label>
+              <div className={styles.goalRow}>
+                <input
+                  id="extraction-goal"
+                  className={styles.goalInput}
+                  value={goal}
+                  onChange={(event) => setGoal(event.target.value)}
+                  placeholder="sample size, dosing regimen, primary efficacy endpoint"
+                  autoComplete="off"
+                />
+                <Button type="submit" variant="primary" disabled={!canRun}>
+                  {running ? 'Generating…' : 'Generate columns'}
+                </Button>
+              </div>
+
+              <div className={styles.sourceRow}>
+                <input
+                  aria-label="PDF or PMC link"
+                  className={styles.urlInput}
+                  value={urlDraft}
+                  onChange={(event) => setUrlDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addUrl();
+                    }
+                  }}
+                  placeholder="https://pmc.ncbi.nlm.nih.gov/articles/PMC…"
+                  autoComplete="off"
+                />
+                <Button size="sm" onClick={addUrl} disabled={urlDraft.trim().length === 0}>
+                  Add link
+                </Button>
+                <label className={styles.upload}>
+                  Upload PDFs
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    multiple
+                    aria-label="Upload PDFs"
+                    onChange={(event) => {
+                      addFiles(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+
+              {sources.length > 0 && (
+                <ul className={styles.sourceList}>
+                  {sources.map((source) => (
+                    <li key={source.id} className={styles.sourceChip}>
+                      <span className={styles.sourceLabel}>{source.label}</span>
+                      <button
+                        type="button"
+                        className={styles.remove}
+                        aria-label={`Remove ${source.label}`}
+                        onClick={() => removeSource(source.id)}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {error && (
+                <p className={styles.error} role="alert">
+                  {error}
+                </p>
+              )}
+            </form>
+
+            {hasTable || running || pendingColumns.length > 0 ? (
+              <ReviewTable
+                table={table}
+                activeCell={activeCell}
+                onCitationSelect={onCitationSelect}
+                pendingColumns={pendingColumns}
+                busy={running && table.rows.length === 0}
+              />
+            ) : (
+              <div className={styles.empty}>
+                <p className={styles.emptyTitle}>No columns yet</p>
+                <p className={styles.emptyBody}>
+                  Add the papers to review, then describe what to pull out of them. Each phrase in
+                  the goal becomes a column, and every value that can be traced to a passage links
+                  back to the page it came from.
+                </p>
+              </div>
+            )}
+          </div>
         </Panel>
       }
+      right={<Panel flush>{<CitationViewer target={target} fileFor={fileFor} />}</Panel>}
     />
   );
 }

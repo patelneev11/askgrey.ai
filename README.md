@@ -156,6 +156,31 @@ The standard bordered container with an optional header for a title and actions.
 The alternative to the split: a scrolling single-column frame with a page title, description and
 actions. Used by destinations that are documents to read rather than workspaces to work in.
 
+### `ReviewTable` — `src/components/ReviewTable.tsx`
+
+The Dynamic Column Generator surface: rows are papers, columns are the fields the user asked
+for, cells are `{value, citation}` straight off `/api/pdf-extraction/*`. Provenance is legible
+without opening anything — a grounded value is a button carrying its page ref in acid blue, an
+approximate (`fuzzy`) match wears an amber `p4~`, an ungrounded value is tagged `unverified`,
+and a missing one is an em dash rather than a blank.
+
+```tsx
+<ReviewTable
+  table={table}                              // ExtractionTable, see src/lib/extraction.ts
+  activeCell={cellKey(documentId, columnKey)} // the citation currently open in the viewer
+  pendingColumns={['adverse events']}         // headers to show while a run is in flight
+  onCitationSelect={(row, columnKey, cell) => open(cell.citation)}
+/>
+```
+
+### `CitationViewer` — `src/components/CitationViewer.tsx`
+
+The right-pane counterpart. For a PDF uploaded in this session it renders the cited page with
+pdf.js and paints `citation.rects` over it, scaled by `renderedWidth / citation.page_width`,
+then scrolls the highlight into view. A paper fetched server-side from a PMC link cannot be
+re-fetched cross-origin, so it falls back to the verbatim quote plus a `#page=` deep link until
+a proxy endpoint exists. pdf.js is imported lazily and ships as its own chunk.
+
 ### Page layouts
 
 Each destination composes the shared primitives differently, so no two tabs read the same. The
@@ -163,7 +188,7 @@ split ratio and the right pane's job are what distinguish the agent tabs:
 
 | Page | Frame | Left | Right |
 | --- | --- | --- | --- |
-| Literature | split, 0.40 | agent thread with citation chips | dense evidence review table |
+| Literature | split, 0.58 | goal composer over the dynamic review table | cited passage viewer |
 | Screening | split, 0.32 | compound queue rail | profile: structure, Lipinski grid, ADMET meters, toxicity flags |
 | Protocol | split, 0.28 | numbered step timeline | document surface with materials table and inline reagent calcs |
 | Regulatory | split, 0.30 | eCTD module tree with completeness rings | draft with margin discrepancy annotations |

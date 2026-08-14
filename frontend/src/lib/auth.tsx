@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { api, type TokenPair, type User } from './api';
 import { AuthContext } from './auth-context';
-
-const ACCESS_KEY = 'askgrey:access-token';
-const REFRESH_KEY = 'askgrey:refresh-token';
+import { ACCESS_KEY, REFRESH_KEY } from './session';
 
 function storeTokens(tokens: TokenPair): void {
   window.localStorage.setItem(ACCESS_KEY, tokens.access_token);

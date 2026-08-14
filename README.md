@@ -172,6 +172,13 @@ the login screen renders the provider button only when it is. Set `OIDC_ISSUER` 
 `OIDC_CLIENT_ID` to enable it. **The authorization-code exchange is not implemented yet** — the
 endpoint exists so the frontend contract is stable before tenant onboarding lands.
 
+## Backend services
+
+`backend/app/services/pubmed/` wraps the NCBI Entrez E-utilities: natural-language →
+Boolean/MeSH Entrez translation, rate limiting (3/s, or 10/s with `NCBI_API_KEY`), retry with
+backoff, and normalized records behind `GET /api/pubmed/search`. See
+[its README](backend/app/services/pubmed/README.md) for the public interface and configuration.
+
 ## Deployment
 
 Frontend deploys to Vercel (`frontend/vercel.json`), backend to Railway

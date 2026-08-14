@@ -1,0 +1,11 @@
+{
+  "header": { "type": "esearch", "version": "0.3" },
+  "esearchresult": {
+    "count": "412",
+    "retmax": "2",
+    "retstart": "0",
+    "idlist": ["37733246", "34499262"],
+    "translationset": [],
+    "querytranslation": "(\"semaglutide\"[MeSH Terms] OR \"semaglutide\"[tiab]) AND (\"obesity\"[MeSH Terms] OR \"obesity\"[tiab]) AND \"Randomized Controlled Trial\"[Publication Type]"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "header": { "type": "esummary", "version": "0.3" },
+  "result": {
+    "uids": ["37733246"],
+    "37733246": {
+      "uid": "37733246",
+      "pubdate": "2023 Dec 14",
+      "source": "N Engl J Med",
+      "title": "Semaglutide in Patients with Heart Failure with Preserved Ejection Fraction and Obesity",
+      "fulljournalname": "The New England journal of medicine",
+      "elocationid": "doi: 10.1056/NEJMoa2306963"
+    }
+  }
+}

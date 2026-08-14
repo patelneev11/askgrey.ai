@@ -1,0 +1,94 @@
+<?xml version="1.0" ?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2024//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_240101.dtd">
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">37733246</PMID>
+      <Article PubModel="Print-Electronic">
+        <Journal>
+          <ISSN IssnType="Electronic">1533-4406</ISSN>
+          <JournalIssue CitedMedium="Internet">
+            <Volume>389</Volume>
+            <Issue>24</Issue>
+            <PubDate>
+              <Year>2023</Year>
+              <Month>Dec</Month>
+              <Day>14</Day>
+            </PubDate>
+          </JournalIssue>
+          <Title>The New England journal of medicine</Title>
+          <ISOAbbreviation>N Engl J Med</ISOAbbreviation>
+        </Journal>
+        <ArticleTitle>Semaglutide in Patients with Heart Failure with Preserved Ejection Fraction and Obesity</ArticleTitle>
+        <Abstract>
+          <AbstractText Label="BACKGROUND">Obesity-related heart failure with preserved ejection fraction is a phenotype with few therapies.</AbstractText>
+          <AbstractText Label="RESULTS">Semaglutide led to larger reductions in symptoms than placebo (P&lt;0.001), with a mean weight loss of 13.3%.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Kosiborod</LastName>
+            <ForeName>Mikhail N</ForeName>
+            <Initials>MN</Initials>
+          </Author>
+          <Author ValidYN="Y">
+            <LastName>Abildstrøm</LastName>
+            <ForeName>Steen Z</ForeName>
+            <Initials>SZ</Initials>
+          </Author>
+          <Author ValidYN="Y">
+            <CollectiveName>STEP-HFpEF Trial Committees and Investigators</CollectiveName>
+          </Author>
+        </AuthorList>
+        <PublicationTypeList>
+          <PublicationType UI="D016428">Journal Article</PublicationType>
+          <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">37733246</ArticleId>
+        <ArticleId IdType="doi">10.1056/NEJMoa2306963</ArticleId>
+        <ArticleId IdType="pmc">PMC10685891</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+  <PubmedArticle>
+    <MedlineCitation Status="MEDLINE" Owner="NLM">
+      <PMID Version="1">34499262</PMID>
+      <Article PubModel="Print">
+        <Journal>
+          <ISSN IssnType="Electronic">1533-4406</ISSN>
+          <JournalIssue CitedMedium="Internet">
+            <Volume>384</Volume>
+            <PubDate>
+              <MedlineDate>2021 Mar-Apr</MedlineDate>
+            </PubDate>
+          </JournalIssue>
+          <Title>The New England journal of medicine</Title>
+          <ISOAbbreviation>N Engl J Med</ISOAbbreviation>
+        </Journal>
+        <ArticleTitle>Once-Weekly Semaglutide in Adults with Overweight or Obesity</ArticleTitle>
+        <Abstract>
+          <AbstractText>Participants receiving semaglutide had a mean change in body weight of -14.9%.</AbstractText>
+        </Abstract>
+        <AuthorList CompleteYN="Y">
+          <Author ValidYN="Y">
+            <LastName>Wilding</LastName>
+            <ForeName>John P H</ForeName>
+            <Initials>JPH</Initials>
+          </Author>
+        </AuthorList>
+        <ELocationID EIdType="doi" ValidYN="Y">10.1056/NEJMoa2032183</ELocationID>
+        <PublicationTypeList>
+          <PublicationType UI="D016449">Randomized Controlled Trial</PublicationType>
+        </PublicationTypeList>
+      </Article>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">34499262</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+  </PubmedArticle>
+</PubmedArticleSet>

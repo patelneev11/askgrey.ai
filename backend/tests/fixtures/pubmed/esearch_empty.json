@@ -1,0 +1,12 @@
+{
+  "header": { "type": "esearch", "version": "0.3" },
+  "esearchresult": {
+    "count": "0",
+    "retmax": "0",
+    "retstart": "0",
+    "idlist": [],
+    "errorlist": { "phrasesnotfound": ["zzzzqqqq"], "fieldsnotfound": [] },
+    "warninglist": { "phrasesignored": [], "quotedphrasesnotfound": [], "outputmessages": ["No items found."] },
+    "querytranslation": "\"zzzzqqqq\"[tiab]"
+  }
+}

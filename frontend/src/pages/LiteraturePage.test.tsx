@@ -94,6 +94,18 @@ describe('LiteraturePage — dynamic column generation', () => {
     expect(screen.getByText('Uploaded trial')).toBeInTheDocument();
   });
 
+  it('keeps an uploaded file as a source even though the input is reset straight away', async () => {
+    const user = userEvent.setup();
+    render(<LiteraturePage />);
+
+    const input = screen.getByLabelText('Upload PDFs');
+    await user.upload(input, new File(['%PDF-1.4'], 'uploaded.pdf', { type: 'application/pdf' }));
+
+    // The input is cleared so the same file can be picked twice; the source must survive it.
+    expect((input as HTMLInputElement).value).toBe('');
+    expect(screen.getByRole('listitem')).toHaveTextContent('uploaded.pdf');
+  });
+
   it('needs both a paper and a goal before it will run', async () => {
     const user = userEvent.setup();
     render(<LiteraturePage />);

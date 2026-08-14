@@ -35,6 +35,9 @@ function CellContent({
 
   if (cell.status === 'grounded' && cell.citation) {
     const { page_number: page, match } = cell.citation;
+    // `normalized` only means whitespace was folded before matching, so it is as verified as
+    // `exact`; only a fuzzy span is genuinely approximate and must be flagged.
+    const approximate = match === 'fuzzy';
     return (
       <button
         type="button"
@@ -44,9 +47,9 @@ function CellContent({
         onClick={() => onSelect(row, columnKey, cell)}
       >
         <span className={styles.value}>{cell.value}</span>
-        <span className={match === 'exact' ? styles.pageRef : styles.pageRefFuzzy}>
+        <span className={approximate ? styles.pageRefFuzzy : styles.pageRef}>
           p{page}
-          {match !== 'exact' ? '~' : ''}
+          {approximate ? '~' : ''}
         </span>
       </button>
     );

@@ -66,14 +66,14 @@ export function LiteraturePage() {
 
   const addFiles = (files: FileList | null) => {
     if (!files) return;
-    setSources((current) => [
-      ...current,
-      ...Array.from(files).map((file) => ({
-        id: `${file.name}:${file.size}:${file.lastModified}`,
-        label: file.name,
-        file,
-      })),
-    ]);
+    // The FileList is live and the input is reset the moment this handler returns, so it has
+    // to be copied here rather than inside the (deferred) state updater.
+    const picked = Array.from(files).map((file) => ({
+      id: `${file.name}:${file.size}:${file.lastModified}`,
+      label: file.name,
+      file,
+    }));
+    setSources((current) => [...current, ...picked]);
   };
 
   const addUrl = () => {
@@ -113,7 +113,8 @@ export function LiteraturePage() {
         }
         setTable((current) => mergeTables(current, result));
       } catch (cause) {
-        failures.push(`${source.label}: ${errorMessage(cause)}`);
+        const message = errorMessage(cause);
+        failures.push(message.includes(source.label) ? message : `${source.label}: ${message}`);
       }
     }
 

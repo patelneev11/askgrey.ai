@@ -32,13 +32,16 @@ function PdfPage({ file, citation }: { file: File; citation: Citation }) {
   const [error, setError] = useState<string | null>(null);
   const [rendered, setRendered] = useState(false);
 
+  // The pane is resizable independently of the window, so the page has to be re-rastered
+  // against the frame itself rather than against `window.resize`.
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
-    const measure = () => setWidth(frame.clientWidth);
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    setWidth(frame.clientWidth);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(frame);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -87,19 +90,21 @@ function PdfPage({ file, citation }: { file: File; citation: Citation }) {
   const rects = citation.rects.length > 0 ? citation.rects : [citation.bbox];
 
   return (
-    <div className={styles.frame} ref={frameRef}>
+    <div className={styles.frame}>
       {error && (
         <p className={styles.error} role="alert">
           {error}
         </p>
       )}
+      {/* Measured separately from the padded frame so the raster never overflows it. */}
+      <div className={styles.sizer} ref={frameRef} />
       <div className={styles.pageStack} style={{ width, height: citation.page_height * scale }}>
         <canvas ref={canvasRef} className={styles.canvas} />
         {rects.map((rect, index) => (
           <div
             key={index}
             ref={index === 0 ? highlightRef : undefined}
-            className={citation.match === 'exact' ? styles.highlight : styles.highlightFuzzy}
+            className={citation.match === 'fuzzy' ? styles.highlightFuzzy : styles.highlight}
             data-testid="citation-highlight"
             style={{
               left: rect.x0 * scale,
@@ -169,10 +174,10 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
           <span className={styles.page}>
             p{citation.page_number} · {citation.block_id}
           </span>
-          {citation.match === 'exact' ? (
-            <StatusPill tone="validated">exact match</StatusPill>
+          {citation.match === 'fuzzy' ? (
+            <StatusPill tone="warning">fuzzy match</StatusPill>
           ) : (
-            <StatusPill tone="warning">{citation.match} match</StatusPill>
+            <StatusPill tone="validated">{citation.match} match</StatusPill>
           )}
         </div>
       </header>

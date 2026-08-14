@@ -59,8 +59,19 @@ describe('ReviewTable', () => {
     );
   });
 
-  it('shows the page number, flagging an approximate match', () => {
+  it('shows the page number, flagging only a genuinely approximate match', () => {
     const { rerender } = render(<ReviewTable table={table()} onCitationSelect={vi.fn()} />);
+    expect(screen.getByText('p4')).toBeInTheDocument();
+
+    // A normalized match only folded whitespace before matching: still verified.
+    rerender(
+      <ReviewTable
+        table={table({
+          rows: [paperRow({ cells: { sample_size: grounded('73 patients', 'normalized') } })],
+        })}
+        onCitationSelect={vi.fn()}
+      />,
+    );
     expect(screen.getByText('p4')).toBeInTheDocument();
 
     rerender(

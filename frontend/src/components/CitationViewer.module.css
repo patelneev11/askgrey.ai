@@ -59,6 +59,11 @@
   background: var(--color-surface-inset);
 }
 
+.sizer {
+  width: 100%;
+  height: 0;
+}
+
 .pageStack {
   position: relative;
   margin: 0 auto;
@@ -71,22 +76,27 @@
   height: 100%;
 }
 
+/*
+ * The backdrop here is a white PDF raster, not the dark UI, so the fills are translucent
+ * mixes of the accent tokens under `multiply` — an opaque or screen-blended surface colour
+ * would either hide the text or wash out to white.
+ */
 .highlight,
 .highlightFuzzy {
   position: absolute;
   border-radius: var(--radius-xs);
-  mix-blend-mode: screen;
+  mix-blend-mode: multiply;
   pointer-events: none;
 }
 
 .highlight {
-  background: var(--color-accent-pipeline-surface);
+  background: color-mix(in srgb, var(--color-accent-pipeline) 28%, transparent);
   border: 1px solid var(--color-accent-pipeline);
 }
 
 /* An approximate span is marked as such on the page, not only in the table. */
 .highlightFuzzy {
-  background: var(--color-accent-warning-surface);
+  background: color-mix(in srgb, var(--color-accent-warning) 32%, transparent);
   border: 1px solid var(--color-accent-warning);
 }
 

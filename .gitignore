@@ -216,3 +216,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / frontend
+node_modules/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Local databases
+*.db
+
+# Environment (keep the checked-in example)
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/

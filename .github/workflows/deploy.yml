@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The deploy steps are skipped until the corresponding token is added to repository
+# secrets, so the workflow stays green on a fresh clone.
+jobs:
+  frontend:
+    name: Frontend → Vercel
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Deploy
+        if: env.VERCEL_TOKEN != ''
+        working-directory: frontend
+        run: npx --yes vercel@39 deploy --prod --yes --token "$VERCEL_TOKEN"
+      - name: Skip notice
+        if: env.VERCEL_TOKEN == ''
+        run: echo "VERCEL_TOKEN is not configured; skipping frontend deploy."
+
+  backend:
+    name: Backend → Railway
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        if: env.RAILWAY_TOKEN != ''
+        working-directory: backend
+        run: npx --yes @railway/cli@3 up --service askgrey-backend --detach
+      - name: Skip notice
+        if: env.RAILWAY_TOKEN == ''
+        run: echo "RAILWAY_TOKEN is not configured; skipping backend deploy."

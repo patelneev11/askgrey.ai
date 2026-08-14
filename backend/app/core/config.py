@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     ncbi_contact_email: str = ""
     ncbi_timeout_seconds: float = 20.0
 
+    # PubChem PUG-REST. Unauthenticated and capped at 5 requests/second per IP.
+    pubchem_base_url: str = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+    pubchem_timeout_seconds: float = 20.0
+    pubchem_rate_limit: float = 5.0
+    pubchem_max_candidates: int = 10
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

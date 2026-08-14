@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.pubchem import router as pubchem_router
 from app.api.pubmed import router as pubmed_router
 from app.core.config import get_settings
 from app.db.session import engine
@@ -32,6 +33,7 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(pubmed_router, prefix="/api")
+app.include_router(pubchem_router, prefix="/api")
 
 
 @app.get("/api/health", tags=["system"])

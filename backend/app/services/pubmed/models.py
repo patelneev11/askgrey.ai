@@ -4,6 +4,8 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from app.services.records import RecordSource, SourceRecord
+
 
 class PublicationTypeFilter(BaseModel):
     """A publication-type constraint, e.g. `Review` -> `Review[Publication Type]`."""
@@ -74,6 +76,24 @@ class Article(BaseModel):
     pubmed_url: str = ""
     doi_url: str | None = None
     full_text_url: str | None = None
+
+    def to_source_record(self) -> SourceRecord:
+        """Project into the review-table row shape shared with the chemistry services."""
+        venue = self.journal_abbreviation or self.journal
+        return SourceRecord(
+            source=RecordSource.PUBMED,
+            record_id=self.pmid,
+            title=self.title,
+            subtitle=" · ".join(part for part in (venue, self.publication_date) if part),
+            url=self.full_text_url or self.doi_url or self.pubmed_url,
+            fields={
+                "Authors": ", ".join(author.display_name for author in self.authors),
+                "Journal": self.journal,
+                "Published": self.publication_date,
+                "Design": ", ".join(self.publication_types),
+                "DOI": self.doi or "",
+            },
+        )
 
 
 class SearchResult(BaseModel):

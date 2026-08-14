@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services.pubmed.errors import EntrezRequestError
-from app.services.pubmed.rate_limit import RateLimiter, retry_with_backoff
+from app.services.rate_limit import RateLimiter, retry_with_backoff
 
 
 class FakeClock:

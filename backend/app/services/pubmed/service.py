@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from app.core.config import Settings, get_settings
+from app.services.rate_limit import RateLimiter
 
 from .client import EntrezClient
 from .errors import EntrezResponseError
 from .models import Article, SearchResult
 from .parsing import parse_article_set
-from .rate_limit import RateLimiter
 from .translation import (
     ClaudeQueryTranslator,
     FallbackQueryTranslator,

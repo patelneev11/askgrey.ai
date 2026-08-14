@@ -4,8 +4,9 @@ from typing import Any
 
 import httpx
 
+from app.services.rate_limit import RateLimiter, retry_with_backoff
+
 from .errors import EntrezRequestError, EntrezResponseError
-from .rate_limit import RateLimiter, retry_with_backoff
 
 EUTILS_BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})

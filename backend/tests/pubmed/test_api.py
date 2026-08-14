@@ -9,9 +9,9 @@ from fastapi.testclient import TestClient
 from app.api.pubmed import get_pubmed_service
 from app.main import app
 from app.services.pubmed.client import EntrezClient
-from app.services.pubmed.rate_limit import RateLimiter
 from app.services.pubmed.service import PubMedService
 from app.services.pubmed.translation import RuleBasedQueryTranslator
+from app.services.rate_limit import RateLimiter
 from tests.pubmed.conftest import (
     RecordingTransport,
     json_response,

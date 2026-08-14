@@ -12,8 +12,9 @@ class RateLimiter:
     """
     Serializing rate limiter: at most `rate` acquisitions per second across all callers.
 
-    NCBI enforces its limit per key rather than per connection, so the spacing is applied
-    globally by holding a lock while sleeping out the remainder of the interval.
+    The public data providers this product talks to (NCBI, PubChem) enforce their limits per
+    key or per IP rather than per connection, so the spacing is applied globally by holding a
+    lock while sleeping out the remainder of the interval.
     """
 
     def __init__(self, rate: float, *, time_source: Callable[[], float] | None = None) -> None:
@@ -46,8 +47,8 @@ async def retry_with_backoff(
     """
     Retry `operation` with exponential backoff while `should_retry` accepts the failure.
 
-    NCBI answers bursts over the limit with HTTP 429, so the caller classifies which
-    exceptions are worth another attempt and this only owns the timing.
+    Providers answer bursts over the limit with HTTP 429 and shed load with 5xx, so the caller
+    classifies which exceptions are worth another attempt and this only owns the timing.
     """
     attempt = 0
     while True:

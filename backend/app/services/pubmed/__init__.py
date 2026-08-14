@@ -1,3 +1,5 @@
+from app.services.rate_limit import RateLimiter, retry_with_backoff
+
 from .client import EntrezClient
 from .errors import (
     EntrezRequestError,
@@ -15,7 +17,6 @@ from .models import (
     TranslatedQuery,
 )
 from .parsing import parse_article_set
-from .rate_limit import RateLimiter, retry_with_backoff
 from .service import PubMedService
 from .translation import (
     ClaudeQueryTranslator,

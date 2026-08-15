@@ -39,7 +39,8 @@ attachment. The name is sent twice — an ASCII `filename` and a percent-encoded
 ## Workbook layout
 
 **Sheet 1 `Review table`** — one row per paper, one column per extracted field, preceded by
-`Paper | Source | Pages | Row status`. Header is frozen, filled and auto-filtered; the
+`Paper | Source | Pages | Row status` (the first header is `ExportOptions.record_label`, which
+non-paper callers such as the grant budget module rename). Header is frozen, filled and auto-filtered; the
 `Source` cell is a real hyperlink. Each **cited** value is an internal hyperlink into its
 `Sources` row, with the quote as the hover tooltip. Each **unverified** value (the model
 produced it but its quote could not be found in the PDF) is rendered in amber italics and

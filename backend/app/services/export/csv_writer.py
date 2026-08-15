@@ -6,13 +6,13 @@ import io
 from app.services.pdf_extraction import ExtractionTable
 
 from .layout import (
-    METADATA_HEADERS,
     CitationEntry,
     cell_of,
     cell_text,
     citation_entries,
     clean,
     escape_formula,
+    leading_headers,
     paper_name,
     refs_by_cell,
     validate,
@@ -46,7 +46,7 @@ def build_rows(table: ExtractionTable, options: ExportOptions) -> list[list[str]
     validate(table, options)
     entries = refs_by_cell(citation_entries(table)) if options.include_citations else {}
 
-    header = list(METADATA_HEADERS) if options.include_metadata else ["Paper"]
+    header = leading_headers(options)
     for column in table.columns:
         label = column.label or column.key
         header.append(label)

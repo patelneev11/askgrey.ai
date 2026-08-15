@@ -19,7 +19,8 @@ MAX_CELL_CHARS = 32_767
 # Quotes are prose and can run long; keep the sources sheet readable.
 MAX_QUOTE_CHARS = 1_000
 
-METADATA_HEADERS = ("Paper", "Source", "Pages", "Row status")
+# The record column's header is `ExportOptions.record_label`; these follow it.
+METADATA_HEADERS = ("Source", "Pages", "Row status")
 SOURCES_HEADERS = (
     "Ref",
     "Paper",
@@ -111,9 +112,15 @@ def cell_text(cell: ExtractionCell) -> str:
     return cell.value
 
 
+def leading_headers(options: ExportOptions) -> list[str]:
+    leading = [options.record_label]
+    if options.include_metadata:
+        leading += list(METADATA_HEADERS)
+    return leading
+
+
 def headers(table: ExtractionTable, options: ExportOptions) -> list[str]:
-    leading = list(METADATA_HEADERS) if options.include_metadata else ["Paper"]
-    return leading + [column.label or column.key for column in table.columns]
+    return leading_headers(options) + [column.label or column.key for column in table.columns]
 
 
 def validate(table: ExtractionTable, options: ExportOptions) -> None:

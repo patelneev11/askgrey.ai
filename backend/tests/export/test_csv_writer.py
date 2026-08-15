@@ -73,6 +73,14 @@ def test_citations_and_metadata_can_be_dropped() -> None:
     ]
 
 
+def test_the_record_column_can_be_relabelled_for_non_paper_exports() -> None:
+    options = ExportOptions(record_label="Section")
+
+    rows = read_back(write_csv(sample_table(), options).content)
+
+    assert rows[0][:4] == ["Section", "Source", "Pages", "Row status"]
+
+
 def test_bom_can_be_disabled() -> None:
     content = write_csv(sample_table(), ExportOptions(bom=False)).content
 

@@ -25,6 +25,9 @@ class ExportOptions(BaseModel):
     include_citations: bool = True
     # Per-paper columns that precede the extracted fields.
     include_metadata: bool = True
+    # Header of the always-present first column, which carries each row's title. Callers
+    # exporting something other than papers — a grant budget, say — rename it to suit.
+    record_label: str = Field(default="Paper", max_length=60)
     # CSV only: prefix a UTF-8 BOM. Excel on Windows assumes the local codepage without it
     # and mangles every non-ASCII character; every other consumer tolerates the BOM.
     bom: bool = True

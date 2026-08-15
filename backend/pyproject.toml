@@ -39,6 +39,8 @@ dev = [
 [tool.setuptools.package-data]
 # The eligibility thresholds are data, not code, and are read from the installed package.
 "app.services.grants.eligibility" = ["*.json"]
+# Likewise the federal budget rules.
+"app.services.grants.budget" = ["*.json"]
 
 [tool.ruff]
 line-length = 100

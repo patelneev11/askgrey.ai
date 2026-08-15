@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.pdf_extraction import get_pdf_extraction_service
+from app.api.pdf_extraction import MAX_UPLOAD_BYTES, get_pdf_extraction_service
 from app.main import app
 from app.services.pdf_extraction import PdfExtractionService, PdfFetcher, RawDataPoint
 from tests.pdf_extraction.conftest import StubExtractor, fixture_bytes
@@ -19,6 +19,12 @@ POINT = RawDataPoint(
     quote="73 patients were randomized in a double-blinded, placebo-controlled study",
     block_id="p1-b4",
 )
+
+
+# The fetcher rejects any host that does not resolve to a public address, so tests that are
+# not about SSRF stub the lookup rather than depending on live DNS.
+def public_resolver(host: str) -> list[str]:
+    return ["93.184.216.34"]
 
 
 class FetchTransport(httpx.AsyncBaseTransport):
@@ -41,7 +47,7 @@ def install() -> Iterator[Callable[..., FetchTransport]]:
         transport = FetchTransport(fetch or httpx.Response(200, content=b""))
         app.dependency_overrides[get_pdf_extraction_service] = lambda: PdfExtractionService(
             extractor or StubExtractor(*points),
-            PdfFetcher(transport=transport),
+            PdfFetcher(transport=transport, resolver=public_resolver),
         )
         return transport
 
@@ -141,6 +147,52 @@ def test_unreachable_url_is_502(client: TestClient, install: Callable[..., Fetch
     )
 
     assert response.status_code == 502
+
+
+def test_a_non_pdf_upload_is_415(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT)
+
+    response = client.post(
+        "/api/pdf-extraction/upload",
+        files={"file": ("payload.pdf", b"<html>not a pdf</html>", "application/pdf")},
+        data={"goal": GOAL},
+        headers=auth_header(client),
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"] == "the uploaded file is not a PDF"
+
+
+def test_an_oversized_upload_is_413(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT)
+
+    response = client.post(
+        "/api/pdf-extraction/upload",
+        files={"file": ("big.pdf", b"%PDF-" + b"0" * (MAX_UPLOAD_BYTES + 1), "application/pdf")},
+        data={"goal": GOAL},
+        headers=auth_header(client),
+    )
+
+    assert response.status_code == 413
+
+
+def test_an_internal_url_is_refused_without_a_request(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    transport = install(POINT, fetch=httpx.Response(200, content=b"%PDF-1.4"))
+
+    response = client.post(
+        "/api/pdf-extraction/url",
+        json={"url": "http://169.254.169.254/latest/meta-data/", "goal": GOAL},
+        headers=auth_header(client),
+    )
+
+    assert response.status_code == 502
+    assert transport.requests == []
 
 
 def test_missing_llm_credentials_is_503(

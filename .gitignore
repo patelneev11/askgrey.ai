@@ -234,3 +234,6 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+
+# Built SPA copied in for single-origin deployment
+backend/static/

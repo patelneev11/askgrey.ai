@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173"
 
+    # Absolute path to the built frontend. Set in a single-origin deployment, where this
+    # process serves the SPA as well as the API; empty when Vite serves the frontend.
+    frontend_dist_dir: str = ""
+
     # SSO / OIDC. Populated per corporate tenant; left empty in development.
     oidc_issuer: str = ""
     oidc_client_id: str = ""

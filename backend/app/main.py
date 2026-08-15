@@ -1,9 +1,13 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 
 from app.api.auth import router as auth_router
 from app.api.clinicaltrials import router as clinicaltrials_router
@@ -57,3 +61,27 @@ def health() -> dict[str, str]:
     """Liveness only. The environment name told an unauthenticated caller which deployment
     they had reached, which is free reconnaissance for no operational benefit."""
     return {"status": "ok"}
+
+
+def mount_frontend(application: FastAPI, dist: Path) -> None:
+    """Serve the built SPA from this process.
+
+    Single origin keeps the session cookie first-party and removes cross-site CORS from the
+    deployment entirely; unknown paths fall back to index.html so client-side routes reload.
+    """
+    application.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    @application.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> Response:
+        candidate = dist / path
+        if path and candidate.is_file() and dist in candidate.resolve().parents:
+            return FileResponse(candidate)
+        return FileResponse(dist / "index.html")
+
+
+# `backend/static` is the convention a container image builds into, so a single-origin
+# deployment needs no configuration; FRONTEND_DIST_DIR points at a build elsewhere.
+_default_dist = Path(__file__).resolve().parent.parent / "static"
+_dist = Path(settings.frontend_dist_dir).resolve() if settings.frontend_dist_dir else _default_dist
+if (_dist / "index.html").is_file():
+    mount_frontend(app, _dist)

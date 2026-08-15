@@ -26,7 +26,22 @@ npm install
 npm run dev
 ```
 
-The first account to register becomes the workspace `owner`; later accounts join as `member`.
+Node 22 is required (`.nvmrc`). The first account to register becomes the workspace `owner`;
+later accounts join as `member`.
+
+### Serving the app from one origin
+
+For a deployment, the built SPA can be served by the API process instead of a separate static
+host, which keeps the session cookie first-party and takes cross-site CORS out of the picture:
+
+```bash
+cd frontend && npm run build && cp -r dist ../backend/static
+cd ../backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+`backend/static` is the default location; `FRONTEND_DIST_DIR` points at a build elsewhere. Unknown
+paths fall back to `index.html` so client-side routes survive a reload, and `/api/*` keeps the
+strict `default-src 'none'` policy while the SPA gets one that allows its own bundle.
 
 ## Checks
 

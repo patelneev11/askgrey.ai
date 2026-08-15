@@ -19,6 +19,18 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : 'Extraction failed';
 }
 
+function isPdf(file: File): boolean {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+}
+
+function isFetchableUrl(url: string): boolean {
+  try {
+    return ['http:', 'https:'].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
 function saveFile(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -61,17 +73,26 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  // Sources are validated as they are added: a chip says "this paper is queued", so an
+  // unusable file must never get one and then fail minutes later behind an extraction run.
   const addFiles = useCallback(
     (files: FileList | null) => {
       if (!files) return;
       // The FileList is live and the input is reset the moment this handler returns, so it has
       // to be copied here rather than inside the (deferred) state updater.
-      const picked = Array.from(files).map((file) => ({
+      const chosen = Array.from(files);
+      const rejected = chosen.filter((file) => !isPdf(file));
+      const picked = chosen.filter(isPdf).map((file) => ({
         id: `${file.name}:${file.size}:${file.lastModified}`,
         label: file.name,
         file,
       }));
-      updateSources((current) => [...current, ...picked]);
+      if (picked.length > 0) updateSources((current) => [...current, ...picked]);
+      if (rejected.length > 0) {
+        setError(
+          `${rejected.map((file) => file.name).join(', ')} is not a PDF. Upload a PDF file, or paste a link to one.`,
+        );
+      }
     },
     [updateSources],
   );
@@ -80,6 +101,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (raw: string) => {
       const url = raw.trim();
       if (!url) return;
+      if (!isFetchableUrl(url)) {
+        setError(`${url} is not a valid link. Paste a full https:// URL to a PDF or PMC article.`);
+        return;
+      }
       updateSources((current) =>
         current.some((source) => source.url === url)
           ? current
@@ -149,7 +174,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (row: PaperRow, columnKey: string, cell: ExtractionCell) => {
       if (!cell.citation) return;
       const column = table.columns.find((candidate) => candidate.key === columnKey);
-      setTarget({ row, columnLabel: column?.label ?? columnKey, citation: cell.citation });
+      setTarget({
+        row,
+        columnLabel: column?.label ?? columnKey,
+        citation: cell.citation,
+      });
       setActiveCell(cellKey(row.document_id, columnKey));
     },
     [table.columns],

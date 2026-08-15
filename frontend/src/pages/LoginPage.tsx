@@ -61,6 +61,10 @@ export function LoginPage() {
         <h1 className={styles.heading}>
           {mode === 'login' ? 'Sign in to your workspace' : 'Create your workspace'}
         </h1>
+        <p className={styles.tagline}>
+          Grounded literature review — extract data from papers with every value traced back to the
+          passage it came from.
+        </p>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           {mode === 'register' && (

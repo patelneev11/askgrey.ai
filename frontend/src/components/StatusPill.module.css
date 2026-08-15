@@ -10,6 +10,8 @@
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--letter-spacing-wide);
   text-transform: uppercase;
+  /* A pill is a single token of status; wrapping it reads as two broken labels. */
+  white-space: nowrap;
 }
 
 .dot {

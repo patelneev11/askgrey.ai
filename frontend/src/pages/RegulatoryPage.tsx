@@ -1,3 +1,4 @@
+import { CaveatBand } from '@/components/CaveatBand';
 import { Panel } from '@/components/Panel';
 import { StatusPill } from '@/components/StatusPill';
 import { DualPaneWorkspace } from '@/layouts/DualPaneWorkspace';
@@ -134,6 +135,11 @@ export function RegulatoryPage() {
         >
           <div className={styles.docLayout}>
             <article className={styles.document}>
+              <CaveatBand label="Draft">
+                Agent-drafted content. Requires qualified researcher review before any regulatory
+                use or submission.
+              </CaveatBand>
+
               <h1 className={styles.docTitle}>2.6.6 Toxicology written summary</h1>
               <p className={styles.docBody}>
                 Repeat-dose toxicity of AG-0412 was evaluated in Sprague-Dawley rats and beagle dogs

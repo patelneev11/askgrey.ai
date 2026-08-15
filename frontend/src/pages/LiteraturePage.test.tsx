@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -127,6 +127,41 @@ describe('LiteraturePage — dynamic column generation', () => {
     expect(screen.getByRole('button', { name: 'Generate columns' })).toBeEnabled();
   });
 
+  it('says which prerequisite is missing rather than just greying the button out', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByText('Add at least one paper to generate columns.')).toBeInTheDocument();
+    await addUrlSource(user);
+    expect(
+      screen.getByText('Describe what to pull out of the papers to generate columns.'),
+    ).toBeInTheDocument();
+  });
+
+  it('rejects a non-PDF upload at add time instead of queueing a doomed source', () => {
+    renderPage();
+
+    // Bypassing user.upload deliberately: it honours the input's accept filter, and the
+    // point of the check is what happens when a browser hands us a non-PDF anyway.
+    fireEvent.change(screen.getByLabelText('Upload PDFs'), {
+      target: { files: [new File(['notes'], 'notes.txt', { type: 'text/plain' })] },
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('notes.txt is not a PDF');
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+  });
+
+  it('rejects a link that is not an http(s) URL', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('PDF or PMC link'), 'pmc123');
+    await user.click(screen.getByRole('button', { name: 'Add link' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('is not a valid link');
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+  });
+
   it('shows the run as in flight, then reports how many values were cited', async () => {
     const user = userEvent.setup();
     let release: (value: unknown) => void = () => {};
@@ -174,7 +209,7 @@ describe('LiteraturePage — citation click-through', () => {
     const cell = screen.getByRole('button', { name: /show source for/i });
     await user.click(cell);
 
-    expect(screen.getByText('p4 · p4-b2')).toBeInTheDocument();
+    expect(screen.getByText('page 4')).toBeInTheDocument();
     expect(
       screen.getByText('73 patients were randomized to ziprasidone or placebo'),
     ).toBeInTheDocument();
@@ -185,8 +220,8 @@ describe('LiteraturePage — citation click-through', () => {
 describe('LiteraturePage — export', () => {
   it('is unavailable until there is a table to export', async () => {
     renderPage();
-    expect(screen.getByRole('button', { name: 'Export Excel' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'CSV' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Export .xlsx' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Export .csv' })).toBeDisabled();
   });
 
   it('downloads the rendered file the export endpoint returns', async () => {
@@ -197,7 +232,7 @@ describe('LiteraturePage — export', () => {
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
 
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    await user.click(screen.getByRole('button', { name: 'Export Excel' }));
+    await user.click(screen.getByRole('button', { name: 'Export .xlsx' }));
 
     await waitFor(() => expect(exportTable).toHaveBeenCalledTimes(1));
     const [exported, format, , token] = exportTable.mock.calls[0];
@@ -216,7 +251,7 @@ describe('LiteraturePage — export', () => {
     await generate(user);
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: 'CSV' }));
+    await user.click(screen.getByRole('button', { name: 'Export .csv' }));
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('table has no columns'),

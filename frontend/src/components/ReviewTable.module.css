@@ -39,6 +39,20 @@
   min-width: 200px;
 }
 
+/* The paper is the row's identity, so it stays put while the value columns scroll. */
+.paperHeader,
+.paperCell {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-sticky);
+  background: var(--color-surface-panel);
+}
+
+.table thead .paperHeader {
+  z-index: calc(var(--z-sticky) + 1);
+  background: var(--color-surface-raised);
+}
+
 .paperCell {
   display: table-cell;
   color: var(--color-text-primary);
@@ -50,6 +64,7 @@
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .paperMeta {
@@ -70,6 +85,8 @@
   margin: -2px calc(-1 * var(--space-2));
   background: none;
   border: 1px solid transparent;
+  /* A resting outline, so the table reads as links into the PDF before anyone hovers. */
+  border-bottom-color: var(--color-accent-pipeline-muted);
   border-radius: var(--radius-xs);
   color: var(--color-text-primary);
   font: inherit;
@@ -113,8 +130,37 @@
   color: var(--color-accent-warning);
 }
 
+.unverified,
+.missing {
+  display: inline-block;
+}
+
 .unverified {
   color: var(--color-text-secondary);
+}
+
+/* The backend's explanation of why a value is unsupported, on screen rather than in a tooltip. */
+.note {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
+}
+
+.warnings {
+  display: inline;
+}
+
+.warnings summary {
+  display: inline;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+.warnings ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
 }
 
 .unverifiedTag {
@@ -159,6 +205,25 @@
   margin-top: 0;
 }
 
+/* ---- Legend: the result vocabulary is defined on screen, not left to be inferred ---- */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;
@@ -166,6 +231,23 @@
 
   to {
     background-position: -200% 0;
+  }
+}
+
+/* Laptop widths: the review table is the product's main output and must not need
+   horizontal scrolling to be read on a 13-inch screen. */
+@media (max-width: 1440px) {
+  .table th,
+  .table td {
+    padding: var(--space-3);
+  }
+
+  .paperHeader {
+    min-width: 150px;
+  }
+
+  .paperCell {
+    max-width: 170px;
   }
 }
 

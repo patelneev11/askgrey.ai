@@ -19,8 +19,8 @@ describe('CitationViewer', () => {
     );
 
     expect(screen.getByText('sample size')).toBeInTheDocument();
-    expect(screen.getByText('p4 · p4-b2')).toBeInTheDocument();
-    expect(screen.getByText('exact match')).toBeInTheDocument();
+    expect(screen.getByText('page 4')).toBeInTheDocument();
+    expect(screen.getByText('verified quote')).toBeInTheDocument();
     expect(
       screen.getByText('73 patients were randomized to ziprasidone or placebo'),
     ).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('CitationViewer', () => {
       />,
     );
 
-    expect(screen.getByText('fuzzy match')).toBeInTheDocument();
+    expect(screen.getByText('approximate quote')).toBeInTheDocument();
   });
 
   it('renders the page itself when the PDF was uploaded in this session', () => {

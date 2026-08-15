@@ -1,4 +1,7 @@
+import { useState } from 'react';
+
 import { PageCanvas } from '@/components/PageCanvas';
+import { StatusPill } from '@/components/StatusPill';
 
 import styles from './AuditPage.module.css';
 
@@ -62,24 +65,35 @@ const EVENTS: Event[] = [
   },
 ];
 
-const FILTERS = ['All activity', 'Agent runs', 'Human edits', 'Exports'];
+const FILTERS: { label: string; kind: Event['kind'] | null }[] = [
+  { label: 'All activity', kind: null },
+  { label: 'Agent runs', kind: 'agent' },
+  { label: 'Human edits', kind: 'human' },
+  { label: 'Exports', kind: 'export' },
+];
 
 export function AuditPage() {
+  const [kind, setKind] = useState<Event['kind'] | null>(null);
+  const events = kind ? EVENTS.filter((event) => event.kind === kind) : EVENTS;
+
   return (
     <PageCanvas
       title="Audit Trails"
       description="Every agent run, document access and export, recorded with the model and inputs that produced it."
       actions={
         <div className={styles.filters}>
-          {FILTERS.map((filter, index) => (
+          <StatusPill tone="idle">Sample data</StatusPill>
+          {FILTERS.map((filter) => (
             <button
-              key={filter}
+              key={filter.label}
               type="button"
-              className={[styles.filter, index === 0 ? styles.filterActive : '']
+              aria-pressed={filter.kind === kind}
+              onClick={() => setKind(filter.kind)}
+              className={[styles.filter, filter.kind === kind ? styles.filterActive : '']
                 .filter(Boolean)
                 .join(' ')}
             >
-              {filter}
+              {filter.label}
             </button>
           ))}
         </div>
@@ -87,7 +101,7 @@ export function AuditPage() {
     >
       <p className={styles.day}>Today · August 13, 2026</p>
       <ol className={styles.timeline}>
-        {EVENTS.map((event) => (
+        {events.map((event) => (
           <li key={event.hash} className={styles.event}>
             <time className={styles.time}>{event.time}</time>
             <span className={[styles.rail, styles[event.kind]].join(' ')} aria-hidden="true" />

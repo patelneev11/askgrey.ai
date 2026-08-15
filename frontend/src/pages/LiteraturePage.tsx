@@ -46,7 +46,14 @@ export function LiteraturePage() {
 
   const grounded = useMemo(() => groundedCount(table), [table]);
   const hasTable = table.rows.length > 0 && table.columns.length > 0;
-  const canRun = goal.trim().length > 0 && sources.length > 0 && !running;
+  const hasGoal = goal.trim().length > 0;
+  const canRun = hasGoal && sources.length > 0 && !running;
+  const blocker =
+    sources.length === 0
+      ? 'Add at least one paper to generate columns.'
+      : hasGoal
+        ? null
+        : 'Describe what to pull out of the papers to generate columns.';
 
   return (
     <DualPaneWorkspace
@@ -70,16 +77,18 @@ export function LiteraturePage() {
                 size="sm"
                 onClick={() => void exportTable('xlsx')}
                 disabled={!hasTable || exporting !== null}
+                title="Downloads review-table.xlsx — the grid plus a Sources sheet with the quote and page behind every cited value."
               >
-                {exporting === 'xlsx' ? 'Exporting…' : 'Export Excel'}
+                {exporting === 'xlsx' ? 'Exporting…' : 'Export .xlsx'}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => void exportTable('csv')}
                 disabled={!hasTable || exporting !== null}
+                title="Downloads review-table.csv — values only, with a citation column."
               >
-                {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+                {exporting === 'csv' ? 'Exporting…' : 'Export .csv'}
               </Button>
             </div>
           }
@@ -99,10 +108,22 @@ export function LiteraturePage() {
                   placeholder="sample size, dosing regimen, primary efficacy endpoint"
                   autoComplete="off"
                 />
-                <Button type="submit" variant="primary" disabled={!canRun}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={!canRun}
+                  aria-describedby="generate-hint"
+                >
                   {running ? 'Generating…' : 'Generate columns'}
                 </Button>
               </div>
+
+              {/* The empty state explains the goal→column model, but it is gone once a table
+                  exists — this line keeps the contract on screen for every later run. */}
+              <p className={styles.hint} id="generate-hint">
+                {blocker ??
+                  'Each phrase in the goal becomes a column, and every value that can be traced to a passage links back to the page it came from.'}
+              </p>
 
               <div className={styles.sourceRow}>
                 <input

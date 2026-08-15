@@ -1,3 +1,4 @@
+import { CaveatBand } from '@/components/CaveatBand';
 import { Meter } from '@/components/Meter';
 import { Panel } from '@/components/Panel';
 import { StatusPill } from '@/components/StatusPill';
@@ -144,6 +145,12 @@ export function ScreeningPage() {
           className={styles.fill}
         >
           <div className={styles.profile}>
+            <CaveatBand label="Unvalidated">
+              Affinity, ADMET and toxicity figures on this page are computational approximations
+              (RDKit/LLM), not validated assay results. Confirm experimentally before making series
+              decisions.
+            </CaveatBand>
+
             <section className={styles.identity}>
               <div className={styles.structure} aria-hidden="true">
                 <span className={styles.structureHint}>2D structure</span>
@@ -159,7 +166,9 @@ export function ScreeningPage() {
                 </div>
                 <div>
                   <dt>Predicted pKi</dt>
-                  <dd className={styles.strong}>8.4</dd>
+                  <dd className={styles.strong}>
+                    8.4 <span className={styles.predictedMark}>predicted</span>
+                  </dd>
                 </div>
                 <div>
                   <dt>Patent status</dt>
@@ -186,15 +195,7 @@ export function ScreeningPage() {
               </div>
             </section>
 
-            <section>
-              <h3 className={styles.sectionTitle}>ADMET prediction</h3>
-              <div className={styles.meters}>
-                {ADMET.map((prediction) => (
-                  <Meter key={prediction.label} {...prediction} />
-                ))}
-              </div>
-            </section>
-
+            {/* Safety-critical content sits above ADMET so it survives a short viewport. */}
             <section>
               <h3 className={styles.sectionTitle}>Toxicity &amp; liability flags</h3>
               <ul className={styles.flags}>
@@ -205,6 +206,15 @@ export function ScreeningPage() {
                   </li>
                 ))}
               </ul>
+            </section>
+
+            <section>
+              <h3 className={styles.sectionTitle}>ADMET prediction</h3>
+              <div className={styles.meters}>
+                {ADMET.map((prediction) => (
+                  <Meter key={prediction.label} {...prediction} />
+                ))}
+              </div>
             </section>
           </div>
         </Panel>

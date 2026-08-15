@@ -136,8 +136,10 @@ export function GrantsPage() {
     <div className={styles.board}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Funding pipeline</p>
           <h1 className={styles.title}>Grants</h1>
+          <p className={styles.description}>
+            Open federal opportunities scored against the workspace's research focus.
+          </p>
         </div>
         <div className={styles.headerMeta}>
           <StatusPill tone="idle">Sample data · /api/grants not wired up yet</StatusPill>

@@ -20,16 +20,15 @@
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
-.eyebrow {
-  margin: 0 0 var(--space-2);
-  color: var(--color-accent-pipeline);
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
+/* Matches PageCanvas so the shell's page headers share one rhythm. */
+.title {
+  font-size: var(--font-size-xl);
 }
 
-.title {
-  font-size: var(--font-size-2xl);
+.description {
+  margin: var(--space-2) 0 0;
+  max-width: 62ch;
+  color: var(--color-text-secondary);
 }
 
 .headerMeta {

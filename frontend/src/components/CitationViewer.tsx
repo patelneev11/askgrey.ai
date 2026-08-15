@@ -11,6 +11,10 @@ export interface CitationTarget {
   citation: Citation;
 }
 
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3;
+const ZOOM_STEP = 0.25;
+
 interface CitationViewerProps {
   target: CitationTarget | null;
   /** The uploaded bytes for a document, when the PDF came from this browser session. */
@@ -24,11 +28,11 @@ interface CitationViewerProps {
  * Highlight geometry is in PDF points against `page_width`/`page_height`, so the overlay
  * only has to scale by the ratio the page was actually rendered at.
  */
-function PdfPage({ file, citation }: { file: File; citation: Citation }) {
+function PdfPage({ file, citation, zoom }: { file: File; citation: Citation; zoom: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [fitWidth, setFitWidth] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [rendered, setRendered] = useState(false);
 
@@ -37,12 +41,16 @@ function PdfPage({ file, citation }: { file: File; citation: Citation }) {
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
-    setWidth(frame.clientWidth);
+    setFitWidth(frame.clientWidth);
     if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    const observer = new ResizeObserver(([entry]) => setFitWidth(entry.contentRect.width));
     observer.observe(frame);
     return () => observer.disconnect();
   }, []);
+
+  // Zoom multiplies the fit-to-width raster: at laptop widths a whole journal page scaled
+  // into a ~400px pane is not legible, so the user has to be able to magnify it.
+  const width = fitWidth * zoom;
 
   useEffect(() => {
     if (width === 0) return;
@@ -83,7 +91,13 @@ function PdfPage({ file, citation }: { file: File; citation: Citation }) {
   }, [file, citation, width]);
 
   useEffect(() => {
-    if (rendered) highlightRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (rendered) {
+      highlightRef.current?.scrollIntoView({
+        block: 'center',
+        inline: 'center',
+        behavior: 'smooth',
+      });
+    }
   }, [rendered, citation]);
 
   const scale = width > 0 ? width / citation.page_width : 1;
@@ -147,6 +161,8 @@ function QuoteFallback({ citation }: { citation: Citation }) {
 }
 
 export function CitationViewer({ target, fileFor }: CitationViewerProps) {
+  const [zoom, setZoom] = useState(MIN_ZOOM);
+
   if (!target) {
     return (
       <div className={styles.empty}>
@@ -162,6 +178,7 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
 
   const { citation, row, columnLabel } = target;
   const file = fileFor?.(citation.document_id);
+  const approximate = citation.match === 'fuzzy';
 
   return (
     <div className={styles.viewer}>
@@ -171,17 +188,42 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
           <span className={styles.paper}>{rowLabel(row)}</span>
         </div>
         <div className={styles.headerMeta}>
-          <span className={styles.page}>
-            p{citation.page_number} · {citation.block_id}
-          </span>
-          {citation.match === 'fuzzy' ? (
-            <StatusPill tone="warning">fuzzy match</StatusPill>
+          <span className={styles.page}>page {citation.page_number}</span>
+          {approximate ? (
+            <StatusPill tone="warning">approximate quote</StatusPill>
           ) : (
-            <StatusPill tone="validated">{citation.match} match</StatusPill>
+            <StatusPill tone="validated">verified quote</StatusPill>
+          )}
+          {file && (
+            <span className={styles.zoom}>
+              <button
+                type="button"
+                onClick={() => setZoom((current) => Math.max(MIN_ZOOM, current - ZOOM_STEP))}
+                disabled={zoom <= MIN_ZOOM}
+                aria-label="Zoom out"
+              >
+                −
+              </button>
+              <button type="button" onClick={() => setZoom(MIN_ZOOM)} className={styles.zoomLevel}>
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom((current) => Math.min(MAX_ZOOM, current + ZOOM_STEP))}
+                disabled={zoom >= MAX_ZOOM}
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+            </span>
           )}
         </div>
       </header>
-      {file ? <PdfPage file={file} citation={citation} /> : <QuoteFallback citation={citation} />}
+      {file ? (
+        <PdfPage file={file} citation={citation} zoom={zoom} />
+      ) : (
+        <QuoteFallback citation={citation} />
+      )}
     </div>
   );
 }

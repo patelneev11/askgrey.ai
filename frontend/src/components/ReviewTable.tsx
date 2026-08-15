@@ -1,4 +1,10 @@
-import { cellKey, rowLabel, type ExtractionCell, type ExtractionTable, type PaperRow } from '@/lib/extraction';
+import {
+  cellKey,
+  rowLabel,
+  type ExtractionCell,
+  type ExtractionTable,
+  type PaperRow,
+} from '@/lib/extraction';
 
 import styles from './ReviewTable.module.css';
 
@@ -27,8 +33,8 @@ function CellContent({
 }) {
   if (!cell || cell.status === 'not_found' || !cell.value) {
     return (
-      <span className={styles.missing} title={cell?.note || 'Not found in this paper'}>
-        —
+      <span className={styles.missing}>
+        —<span className={styles.note}>{cell?.note || 'Not reported in this paper'}</span>
       </span>
     );
   }
@@ -49,7 +55,7 @@ function CellContent({
         <span className={styles.value}>{cell.value}</span>
         <span className={approximate ? styles.pageRefFuzzy : styles.pageRef}>
           p{page}
-          {approximate ? '~' : ''}
+          {approximate ? ' close' : ''}
         </span>
       </button>
     );
@@ -58,10 +64,33 @@ function CellContent({
   // A value the model produced but could not ground in the parsed text: shown, never
   // silently dropped, but it must not look like a cited value.
   return (
-    <span className={styles.unverified} title={cell.note || 'No matching passage found'}>
+    <span className={styles.unverified}>
       {cell.value}
-      <span className={styles.unverifiedTag}>unverified</span>
+      <span className={styles.unverifiedTag}>no source found</span>
+      <span className={styles.note}>
+        {cell.note || 'The value could not be traced to a passage in this paper.'}
+      </span>
     </span>
+  );
+}
+
+/** Row warnings, all of them: a paper with several parsing problems must not report one. */
+function RowWarnings({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) return null;
+  if (warnings.length === 1) return <> · {warnings[0]}</>;
+
+  return (
+    <>
+      {' · '}
+      <details className={styles.warnings}>
+        <summary>{warnings.length} warnings</summary>
+        <ul>
+          {warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      </details>
+    </>
   );
 }
 
@@ -101,10 +130,12 @@ export function ReviewTable({
           {table.rows.map((row) => (
             <tr key={row.document_id} data-status={row.status}>
               <th scope="row" className={styles.paperCell}>
-                <span className={styles.paperTitle}>{rowLabel(row)}</span>
+                <span className={styles.paperTitle} title={rowLabel(row)}>
+                  {rowLabel(row)}
+                </span>
                 <span className={styles.paperMeta}>
                   {row.page_count > 0 ? `${row.page_count} pages` : 'no pages parsed'}
-                  {row.warnings.length > 0 ? ` · ${row.warnings[0]}` : ''}
+                  <RowWarnings warnings={row.warnings} />
                 </span>
               </th>
               {table.columns.map((column) => (
@@ -139,6 +170,23 @@ export function ReviewTable({
           )}
         </tbody>
       </table>
+
+      {table.rows.length > 0 && (
+        <p className={styles.legend}>
+          <span className={styles.legendItem}>
+            <span className={styles.pageRef}>p1</span> quote located on page 1 — click the value to
+            open it
+          </span>
+          <span className={styles.legendItem}>
+            <span className={styles.pageRefFuzzy}>p1 close</span> located, but the wording is not an
+            exact match
+          </span>
+          <span className={styles.legendItem}>
+            <span className={styles.unverifiedTag}>no source found</span> the value could not be
+            traced to a passage
+          </span>
+        </p>
+      )}
     </div>
   );
 }

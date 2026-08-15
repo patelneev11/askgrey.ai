@@ -120,6 +120,10 @@ function Control({ row }: { row: Row }) {
         role="switch"
         aria-checked={on}
         aria-label={row.label}
+        // Nothing behind these yet: a control that moves but changes nothing is worse
+        // than one that is visibly not ready.
+        disabled
+        title="Sample setting — not editable yet"
         className={[styles.toggle, on ? styles.toggleOn : ''].filter(Boolean).join(' ')}
       >
         <span className={styles.knob} />
@@ -135,8 +139,8 @@ export function SettingsPage() {
   return (
     <PageCanvas
       title="Settings"
-      description="Workspace-wide configuration. Changes apply to every member and are recorded in the audit trail."
-      actions={<StatusPill tone="idle">No unsaved changes</StatusPill>}
+      description="Workspace-wide configuration. These values are a sample of the settings model — editing is not wired up yet, so every control here is read-only."
+      actions={<StatusPill tone="idle">Sample data · read-only</StatusPill>}
       narrow
     >
       {GROUPS.map((group) => (

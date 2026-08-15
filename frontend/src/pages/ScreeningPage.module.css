@@ -124,6 +124,15 @@
   font-family: var(--font-family-mono);
 }
 
+/* Travels with the number, so a screenshot of the field alone still carries the caveat. */
+.predictedMark {
+  color: var(--color-accent-warning);
+  font-family: var(--font-family-text);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
 .sectionTitle {
   margin-bottom: var(--space-4);
   color: var(--color-text-tertiary);

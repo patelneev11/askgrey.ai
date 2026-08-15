@@ -30,6 +30,14 @@
   text-transform: uppercase;
 }
 
+/* Either the standing explanation of what a goal does, or the reason Generate is disabled. */
+.hint {
+  margin: calc(-1 * var(--space-1)) 0 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
+}
+
 .goalRow,
 .sourceRow {
   display: flex;

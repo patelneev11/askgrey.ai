@@ -1,3 +1,4 @@
+import { CaveatBand } from '@/components/CaveatBand';
 import { Panel } from '@/components/Panel';
 import { StatusPill } from '@/components/StatusPill';
 import { DualPaneWorkspace } from '@/layouts/DualPaneWorkspace';
@@ -87,7 +88,9 @@ export function ProtocolPage() {
           title="Cytotoxicity screen — AG-0412"
           actions={
             <div className={styles.docActions}>
-              <StatusPill tone="validated">Controls validated</StatusPill>
+              {/* The checkpoint is that the outline lists the required controls — not that
+                  the draft itself has been reviewed. */}
+              <StatusPill tone="validated">Controls listed</StatusPill>
               <span className={styles.version}>v4 · draft</span>
             </div>
           }
@@ -95,6 +98,11 @@ export function ProtocolPage() {
           flush
         >
           <article className={styles.document}>
+            <CaveatBand label="Draft">
+              Agent-drafted content. Requires qualified researcher review before it is executed at
+              the bench or attached to a record.
+            </CaveatBand>
+
             <header className={styles.docHeader}>
               <p className={styles.eyebrow}>Laboratory protocol</p>
               <h1 className={styles.docTitle}>

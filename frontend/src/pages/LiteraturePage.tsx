@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/Button';
 import { CitationViewer } from '@/components/CitationViewer';
+import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { ReviewTable } from '@/components/ReviewTable';
 import { StatusPill } from '@/components/StatusPill';
@@ -199,14 +200,13 @@ export function LiteraturePage() {
                 busy={running && table.rows.length === 0}
               />
             ) : (
-              <div className={styles.empty}>
-                <p className={styles.emptyTitle}>No columns yet</p>
-                <p className={styles.emptyBody}>
+              <EmptyState title="No columns yet">
+                <p>
                   Add the papers to review, then describe what to pull out of them. Each phrase in
                   the goal becomes a column, and every value that can be traced to a passage links
                   back to the page it came from.
                 </p>
-              </div>
+              </EmptyState>
             )}
           </div>
         </Panel>

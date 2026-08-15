@@ -1,5 +1,7 @@
+import { Button } from '@/components/Button';
 import { PageCanvas } from '@/components/PageCanvas';
 import { StatusPill } from '@/components/StatusPill';
+import { useOnboarding } from '@/lib/onboarding-context';
 
 import styles from './SettingsPage.module.css';
 
@@ -136,6 +138,8 @@ function Control({ row }: { row: Row }) {
 }
 
 export function SettingsPage() {
+  const { restartTour } = useOnboarding();
+
   return (
     <PageCanvas
       title="Settings"
@@ -162,6 +166,28 @@ export function SettingsPage() {
           </div>
         </section>
       ))}
+
+      {/* The one control on this page that does something: a tour you cannot reopen is a tour
+          you have to absorb first time. */}
+      <section className={styles.group}>
+        <header className={styles.groupHeader}>
+          <h2 className={styles.groupTitle}>Onboarding</h2>
+          <p className={styles.groupSummary}>
+            Replay the first-run walkthrough of what AskGrey does and where to start.
+          </p>
+        </header>
+        <div className={styles.rows}>
+          <div className={styles.row}>
+            <div className={styles.rowText}>
+              <span className={styles.rowLabel}>First-run tour</span>
+              <span className={styles.rowHelp}>Four screens, under two minutes, skippable.</span>
+            </div>
+            <Button size="sm" onClick={restartTour}>
+              Replay tour
+            </Button>
+          </div>
+        </div>
+      </section>
     </PageCanvas>
   );
 }

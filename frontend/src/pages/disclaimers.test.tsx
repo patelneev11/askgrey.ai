@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { OnboardingProvider } from '@/lib/onboarding';
+
 import { AuditPage } from './AuditPage';
 import { ProtocolPage } from './ProtocolPage';
 import { RegulatoryPage } from './RegulatoryPage';
@@ -36,7 +38,11 @@ describe('unvalidated / draft disclaimers', () => {
 
 describe('sample surfaces', () => {
   it('labels Settings as read-only sample data and disables its controls', () => {
-    render(<SettingsPage />);
+    render(
+      <OnboardingProvider>
+        <SettingsPage />
+      </OnboardingProvider>,
+    );
 
     expect(screen.getByText('Sample data · read-only')).toBeInTheDocument();
     for (const toggle of screen.getAllByRole('switch')) {

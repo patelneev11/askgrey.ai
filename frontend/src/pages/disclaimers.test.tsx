@@ -9,6 +9,7 @@ import { ProtocolPage } from './ProtocolPage';
 import { RegulatoryPage } from './RegulatoryPage';
 import { ScreeningPage } from './ScreeningPage';
 import { SettingsPage } from './SettingsPage';
+import { WorkspacePage } from './WorkspacePage';
 
 // These caveats are a product requirement, not decoration: the numbers on these pages are
 // model output, so a regression that drops the warning is a correctness bug.
@@ -37,6 +38,15 @@ describe('unvalidated / draft disclaimers', () => {
 });
 
 describe('sample surfaces', () => {
+  // The one-time onboarding notice says this page is invented; the page has to keep saying so
+  // once that notice is gone, or named members and "Connected" integrations read as fact.
+  it('marks Workspace as sample data rather than claiming a compliance posture', () => {
+    render(<WorkspacePage />);
+
+    expect(screen.getByText('Sample data · read-only')).toBeInTheDocument();
+    expect(screen.queryByText('SOC 2 controls active')).not.toBeInTheDocument();
+  });
+
   it('labels Settings as read-only sample data and disables its controls', () => {
     render(
       <OnboardingProvider>

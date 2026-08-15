@@ -49,12 +49,14 @@ const INTEGRATIONS = [
   },
 ];
 
+// The members, seats and integrations below are invented, so the header marks the page as a
+// sample rather than asserting a compliance posture as if it were this workspace's own.
 export function WorkspacePage() {
   return (
     <PageCanvas
       title="Grey Therapeutics"
       description="Workspace identity, seats and the connected systems your agents can read from and write to."
-      actions={<StatusPill tone="validated">SOC 2 controls active</StatusPill>}
+      actions={<StatusPill tone="idle">Sample data · read-only</StatusPill>}
     >
       <section className={styles.identity}>
         <span className={styles.monogram} aria-hidden="true">

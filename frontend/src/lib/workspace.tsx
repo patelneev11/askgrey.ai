@@ -12,6 +12,7 @@ import {
   type ExtractionTable,
   type PaperRow,
 } from './extraction';
+import { logger } from './observability';
 import { getAccessToken } from './session';
 import { WorkspaceContext, type Source, type WorkspaceContextValue } from './workspace-context';
 
@@ -125,6 +126,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (!trimmed || queued.length === 0 || runningRef.current) return;
 
     runningRef.current = true;
+    // The goal text is the researcher's own words, so only its size is recorded.
+    logger.info('extraction.started', { sources: queued.length, goal_length: trimmed.length });
+    const startedAt = performance.now();
     setRunning(true);
     setError(null);
     setPendingColumns(goalLabels(trimmed));
@@ -151,6 +155,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setPendingColumns([]);
     setRunning(false);
     runningRef.current = false;
+    logger.info('extraction.finished', {
+      sources: queued.length,
+      failed: failures.length,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
     if (failures.length > 0) setError(failures.join(' · '));
   }, []);
 
@@ -161,6 +170,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       try {
         const file = await api.exportTable(table, format, {}, getAccessToken());
         saveFile(file.blob, file.filename);
+        logger.info('export.completed', {
+          format,
+          rows: table.rows.length,
+          columns: table.columns.length,
+        });
       } catch (cause) {
         setError(errorMessage(cause));
       } finally {

@@ -226,9 +226,20 @@ backoff, and normalized records behind `GET /api/pubmed/search`. See
 ## Deployment
 
 Frontend deploys to Vercel (`frontend/vercel.json`), backend to Railway
-(`backend/railway.toml`, health-checked at `/api/health`). Both jobs in
-`.github/workflows/deploy.yml` skip themselves until `VERCEL_TOKEN` / `RAILWAY_TOKEN` are added
-to repository secrets.
+(`backend/railway.toml`, health-checked at `/api/health`). `.github/workflows/deploy.yml`
+deploys `main` to **staging** automatically and to **production** only on a manual dispatch,
+reading each environment's credentials from the GitHub Environment of the same name; steps skip
+themselves until those secrets exist.
 
-Set at minimum in production: `JWT_SECRET` (required — the default is a development placeholder),
-`DATABASE_URL` (Postgres; SQLite is development only), and `CORS_ORIGINS`.
+Set at minimum in a deployed environment: `JWT_SECRET` (required — the app refuses to boot on
+the development placeholder), `DATABASE_URL` (Postgres; SQLite is development only), and
+`CORS_ORIGINS`. Full variable and secret handling: [docs/deployment.md](docs/deployment.md).
+
+## Operations
+
+Logs are one JSON object per line, keyed by the `request_id` also returned as `X-Request-ID`;
+`GET /api/status/dependencies` and `GET /api/status/llm-cost` (both authenticated) show upstream
+API health and today's metered Claude spend. Sentry is off until a DSN is set.
+
+- [docs/monitoring.md](docs/monitoring.md) — what is monitored and, just as importantly, what is not.
+- [docs/on-call-runbook.md](docs/on-call-runbook.md) — where to look first when something breaks.

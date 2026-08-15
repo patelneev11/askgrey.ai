@@ -24,6 +24,7 @@ dependencies = [
     # pdfplumber's own floor allows the versions with PYSEC-2026-1761/1762.
     "pdfminer.six>=20251230",
     "openpyxl==3.1.5",
+    "sentry-sdk==2.66.1",
 ]
 
 [project.optional-dependencies]

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { api, type TokenResponse, type User } from './api';
 import { AuthContext } from './auth-context';
+import { identify, logger } from './observability';
 import { setAccessToken } from './session';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const tokens = await api.refresh();
         setAccessToken(tokens.access_token);
         const current = await api.me(tokens.access_token);
+        identify(current.id);
         if (!cancelled) setUser(current);
       } catch {
         setAccessToken(undefined);
@@ -34,7 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeSignIn = useCallback(async (tokens: TokenResponse) => {
     setAccessToken(tokens.access_token);
-    setUser(await api.me(tokens.access_token));
+    const current = await api.me(tokens.access_token);
+    identify(current.id);
+    logger.info('auth.signed_in', { user_id: current.id, provider: current.provider });
+    setUser(current);
   }, []);
 
   const login = useCallback(
@@ -55,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Revoking server-side matters more than clearing memory: the cookie is what an
     // attacker with the device would otherwise keep replaying for two weeks.
     void api.logout().catch(() => undefined);
+    logger.info('auth.signed_out');
+    identify(null);
     setAccessToken(undefined);
     setUser(null);
   }, []);

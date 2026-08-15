@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from app.core.dependency_health import MonitoredAsyncClient
 from app.services.rate_limit import RateLimiter, retry_with_backoff
 
 from .errors import GrantsRequestError, GrantsResponseError
@@ -52,7 +53,7 @@ class GrantsGovClient:
         self.max_attempts = max_attempts
         self.base_delay = base_delay
         self.rate_limiter = rate_limiter or RateLimiter(5.0)
-        self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        self._client = MonitoredAsyncClient("grants_gov", timeout=timeout, transport=transport)
         self._agency_vocabulary: dict[str, list[str]] | None = None
 
     async def aclose(self) -> None:

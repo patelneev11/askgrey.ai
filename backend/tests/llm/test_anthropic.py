@@ -5,6 +5,7 @@ from collections.abc import Callable
 import httpx
 import pytest
 
+from app.core.llm_cost import get_meter
 from app.services.llm import AnthropicError, AnthropicMessagesClient
 
 pytestmark = pytest.mark.asyncio
@@ -82,3 +83,34 @@ async def test_reports_a_transport_failure_rather_than_leaking_httpx() -> None:
 async def test_rejects_an_empty_api_key_at_construction() -> None:
     with pytest.raises(ValueError, match="api_key is required"):
         AnthropicMessagesClient(api_key="", model="m", max_tokens=1, timeout=1.0)
+
+
+async def test_meters_the_tokens_the_api_reports_against_the_calling_feature() -> None:
+    meter = get_meter()
+    meter.reset()
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "content": [{"type": "text", "text": "ok"}],
+                "usage": {"input_tokens": 1200, "output_tokens": 300},
+            },
+        )
+
+    await client(handler, purpose="pdf_extraction").complete(system="s", prompt="p")
+
+    usage = meter.snapshot()
+    assert (usage.calls, usage.input_tokens, usage.output_tokens) == (1, 1200, 300)
+    meter.reset()
+
+
+async def test_a_reply_without_a_usage_block_still_counts_as_a_call() -> None:
+    meter = get_meter()
+    meter.reset()
+
+    await client(text_reply("ok")).complete(system="s", prompt="p")
+
+    # Dropping it would make the call count, not just the cost, understate reality.
+    assert meter.snapshot().calls == 1
+    meter.reset()

@@ -83,6 +83,16 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1024
     llm_timeout_seconds: float = 30.0
 
+    # Observability. The DSN is empty in development, which turns error reporting into a
+    # no-op rather than requiring a Sentry project to run the app.
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    release: str = "dev"
+    log_level: str = "INFO"
+    log_json: bool = True
+    # Warn once a day when metered Claude spend crosses this; 0 disables the alert.
+    llm_daily_cost_alert_usd: float = 25.0
+
     # Abuse and cost controls. Turned off only in tests that assert on unthrottled behaviour.
     rate_limit_enabled: bool = True
     auth_rate_limit_per_minute: int = 10

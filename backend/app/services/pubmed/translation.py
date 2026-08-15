@@ -262,6 +262,7 @@ class ClaudeQueryTranslator:
             anthropic_version=anthropic_version,
             max_tokens=max_tokens,
             timeout=timeout,
+            purpose="pubmed_translation",
             transport=transport,
         )
 

@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 
+from app.core.dependency_health import MonitoredAsyncClient
 from app.services.rate_limit import RateLimiter, retry_with_backoff
 
 from .errors import ClinicalTrialsRequestError, ClinicalTrialsResponseError
@@ -49,7 +50,7 @@ class ClinicalTrialsClient:
         self.max_attempts = max_attempts
         self.base_delay = base_delay
         self.rate_limiter = rate_limiter or RateLimiter(5.0)
-        self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        self._client = MonitoredAsyncClient("clinicaltrials", timeout=timeout, transport=transport)
 
     async def aclose(self) -> None:
         await self._client.aclose()

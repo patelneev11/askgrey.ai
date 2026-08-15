@@ -4,6 +4,9 @@ import re
 
 import httpx
 
+from app.core.dependency_health import MonitoredAsyncClient
+from app.core.llm_cost import get_meter
+
 DEFAULT_BASE_URL = "https://api.anthropic.com/v1"
 DEFAULT_ANTHROPIC_VERSION = "2023-06-01"
 
@@ -39,6 +42,7 @@ class AnthropicMessagesClient:
         anthropic_version: str = DEFAULT_ANTHROPIC_VERSION,
         max_tokens: int,
         timeout: float,
+        purpose: str = "unspecified",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         if not api_key:
@@ -48,7 +52,9 @@ class AnthropicMessagesClient:
         self.base_url = base_url.rstrip("/")
         self.anthropic_version = anthropic_version
         self.max_tokens = max_tokens
-        self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        # Which feature spent the money; without it the cost log says only that Claude ran.
+        self.purpose = purpose
+        self._client = MonitoredAsyncClient("anthropic", timeout=timeout, transport=transport)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -80,9 +86,11 @@ class AnthropicMessagesClient:
         if response.status_code >= 400:
             raise AnthropicError(f"Claude returned HTTP {response.status_code}")
         try:
-            blocks = response.json()["content"]
+            body = response.json()
+            blocks = body["content"]
         except (ValueError, KeyError, TypeError) as exc:
             raise AnthropicError("Claude response had an unexpected shape") from exc
+        self._meter(body.get("usage"))
         text = "".join(
             block["text"]
             for block in blocks
@@ -91,3 +99,20 @@ class AnthropicMessagesClient:
         if not text.strip():
             raise AnthropicError("Claude returned no text content")
         return text
+
+    def _meter(self, usage: object) -> None:
+        """Bill the reported tokens. A response without a usage block still happened, so it is
+        metered at zero rather than dropped: the call count is what would then look wrong."""
+        input_tokens = 0
+        output_tokens = 0
+        if isinstance(usage, dict):
+            reported_input = usage.get("input_tokens")
+            reported_output = usage.get("output_tokens")
+            input_tokens = reported_input if isinstance(reported_input, int) else 0
+            output_tokens = reported_output if isinstance(reported_output, int) else 0
+        get_meter().record(
+            model=self.model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            purpose=self.purpose,
+        )

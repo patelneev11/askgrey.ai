@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 
+from app.core.dependency_health import MonitoredAsyncClient
 from app.services.rate_limit import RateLimiter, retry_with_backoff
 
 from .errors import GrantsRequestError, GrantsResponseError
@@ -41,7 +42,8 @@ class SbirClient:
         self.max_attempts = max_attempts
         self.base_delay = base_delay
         self.rate_limiter = rate_limiter or RateLimiter(2.0)
-        self._client = httpx.AsyncClient(
+        self._client = MonitoredAsyncClient(
+            "sbir",
             timeout=timeout,
             transport=transport,
             headers={"User-Agent": user_agent, "Accept": "application/json"},

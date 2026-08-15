@@ -176,6 +176,7 @@ class ClaudeDataPointExtractor:
             anthropic_version=anthropic_version,
             max_tokens=max_tokens,
             timeout=timeout,
+            purpose="pdf_extraction",
             transport=transport,
         )
 

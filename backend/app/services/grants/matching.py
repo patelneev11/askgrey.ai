@@ -208,6 +208,7 @@ class ClaudeMatchRanker:
             anthropic_version=anthropic_version,
             max_tokens=max_tokens,
             timeout=timeout,
+            purpose="grants_matching",
             transport=transport,
         )
 

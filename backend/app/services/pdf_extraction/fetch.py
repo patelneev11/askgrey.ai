@@ -6,6 +6,8 @@ from collections.abc import Callable
 
 import httpx
 
+from app.core.dependency_health import MonitoredAsyncClient
+
 from .errors import PdfFetchError
 
 MAX_PDF_BYTES = 25 * 1024 * 1024
@@ -86,7 +88,8 @@ class PdfFetcher:
     ) -> None:
         self.max_bytes = max_bytes
         self.resolver = resolver
-        self._client = httpx.AsyncClient(
+        self._client = MonitoredAsyncClient(
+            "pdf_fetch",
             timeout=timeout,
             follow_redirects=False,
             headers={"User-Agent": user_agent, "Accept": "application/pdf"},

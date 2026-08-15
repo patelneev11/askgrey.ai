@@ -1,4 +1,5 @@
 import type { ExtractionTable } from './extraction';
+import { logger } from './observability';
 
 export type ExportFormat = 'xlsx' | 'csv';
 
@@ -94,24 +95,39 @@ async function send(
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // The query string carries the researcher's question; only the route is loggable.
+  const route = path.split('?')[0];
+  const started = performance.now();
   let response: Response;
   try {
     response = await fetch(`${API_BASE}/api${path}`, { ...init, headers, signal: controller.signal });
   } catch (cause) {
     if (controller.signal.aborted) {
+      logger.warn('api.timeout', { route, timeout_ms: timeoutMs });
       throw new TimeoutError(Math.round(timeoutMs / 1000));
     }
+    logger.error('api.unreachable', cause, { route });
     throw cause;
   } finally {
     clearTimeout(timer);
   }
+  const durationMs = Math.round(performance.now() - started);
   if (!response.ok) {
     const detail = await response
       .json()
       .then((body: { detail?: unknown }) => formatErrorDetail(body.detail))
       .catch(() => undefined);
+    // 401 during session restore is the normal "not signed in" path, not a defect.
+    const level = response.status === 401 ? logger.info : logger.warn;
+    level('api.error', {
+      route,
+      status: response.status,
+      duration_ms: durationMs,
+      request_id: response.headers.get('X-Request-ID'),
+    });
     throw new ApiError(detail ?? `Request failed (${response.status})`, response.status);
   }
+  logger.debug('api.ok', { route, duration_ms: durationMs });
   return response;
 }
 

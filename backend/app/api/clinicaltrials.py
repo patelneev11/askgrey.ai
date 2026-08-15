@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import CurrentUser
+from app.api.deps import ThrottledUser
 from app.services.clinicaltrials import (
     MAX_PAGE_SIZE,
     ClinicalTrialsRequestError,
@@ -27,7 +27,7 @@ Service = Annotated[ClinicalTrialsService, Depends(get_clinicaltrials_service)]
 
 @router.get("/search", response_model=TrialPage)
 async def search(
-    _user: CurrentUser,
+    _user: ThrottledUser,
     service: Service,
     sponsor: Annotated[str, Query(max_length=200, description="Lead sponsor or collaborator")] = "",
     condition: Annotated[str, Query(max_length=200, description="Disease or condition")] = "",

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import CurrentUser
+from app.api.deps import ThrottledUser
 from app.services.pubchem import (
     CompoundLookup,
     CompoundNotFoundError,
@@ -25,7 +25,7 @@ Service = Annotated[PubChemService, Depends(get_pubchem_service)]
 
 @router.get("/compound", response_model=CompoundLookup)
 async def compound(
-    _user: CurrentUser,
+    _user: ThrottledUser,
     service: Service,
     q: Annotated[str, Query(min_length=1, max_length=4000, description="SMILES, name or synonym")],
     kind: Annotated[IdentifierKind | None, Query(description="Force an interpretation")] = None,

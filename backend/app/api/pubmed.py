@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import CurrentUser
+from app.api.deps import LlmUser
 from app.services.pubmed import (
     EntrezRequestError,
     EntrezResponseError,
@@ -24,7 +24,7 @@ Service = Annotated[PubMedService, Depends(get_pubmed_service)]
 
 @router.get("/search", response_model=SearchResult)
 async def search(
-    _user: CurrentUser,
+    _user: LlmUser,
     service: Service,
     q: Annotated[str, Query(min_length=1, max_length=1000, description="Natural language query")],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,

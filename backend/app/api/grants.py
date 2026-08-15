@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser
+from app.api.deps import LlmUser, ThrottledUser
 from app.services.grants import (
     MAX_PAGE_SIZE,
     GrantPage,
@@ -67,7 +67,7 @@ def _handle(exc: Exception) -> HTTPException:
 
 @router.get("/search", response_model=GrantPage)
 async def search(
-    _user: CurrentUser,
+    _user: ThrottledUser,
     service: Service,
     keyword: Annotated[str, Query(max_length=200, description="Topic keyword")] = "",
     agency: Annotated[
@@ -99,7 +99,7 @@ async def search(
 
 
 @router.post("/match", response_model=MatchResult)
-async def match(_user: CurrentUser, service: Service, request: MatchRequest) -> MatchResult:
+async def match(_user: LlmUser, service: Service, request: MatchRequest) -> MatchResult:
     try:
         return await service.match(
             request.focus,

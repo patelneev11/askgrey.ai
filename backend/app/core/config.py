@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1024
     llm_timeout_seconds: float = 30.0
 
+    # Abuse and cost controls. Turned off only in tests that assert on unthrottled behaviour.
+    rate_limit_enabled: bool = True
+    auth_rate_limit_per_minute: int = 10
+    auth_account_rate_limit_per_hour: int = 30
+    api_rate_limit_per_minute: int = 120
+    llm_rate_limit_per_minute: int = 12
+    llm_daily_call_budget: int = 250
+
     @model_validator(mode="after")
     def _reject_placeholder_jwt_secret(self) -> "Settings":
         if self.environment == "development":

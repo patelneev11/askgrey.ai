@@ -4,7 +4,8 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser
+from app.api.deps import ClientIp, ThrottledUser
+from app.core import audit
 from app.services.export import (
     ExportError,
     ExportFile,
@@ -47,18 +48,36 @@ def _download(file: ExportFile) -> Response:
     )
 
 
-def _render(service: ExportService, request: ExportRequest, fmt: ExportFormat) -> Response:
+def _render(
+    service: ExportService,
+    request: ExportRequest,
+    fmt: ExportFormat,
+    actor: str,
+    ip: str,
+) -> Response:
     try:
-        return _download(service.render(request.table, fmt, request.options))
+        response = _download(service.render(request.table, fmt, request.options))
     except ExportError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    # Data leaving the workspace is a reviewable event; the rows themselves are not logged.
+    audit.record(
+        "export.downloaded",
+        actor=actor,
+        client_ip=ip,
+        detail={"format": fmt.value, "rows": len(request.table.rows)},
+    )
+    return response
 
 
 @router.post("/xlsx")
-def export_xlsx(_user: CurrentUser, service: Service, request: ExportRequest) -> Response:
-    return _render(service, request, ExportFormat.XLSX)
+def export_xlsx(
+    user: ThrottledUser, ip: ClientIp, service: Service, request: ExportRequest
+) -> Response:
+    return _render(service, request, ExportFormat.XLSX, str(user.id), ip)
 
 
 @router.post("/csv")
-def export_csv(_user: CurrentUser, service: Service, request: ExportRequest) -> Response:
-    return _render(service, request, ExportFormat.CSV)
+def export_csv(
+    user: ThrottledUser, ip: ClientIp, service: Service, request: ExportRequest
+) -> Response:
+    return _render(service, request, ExportFormat.CSV, str(user.id), ip)

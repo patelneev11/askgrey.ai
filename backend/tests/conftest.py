@@ -6,9 +6,24 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api import deps
 from app.db.session import get_db
 from app.main import app
 from app.models.base import Base
+
+
+@pytest.fixture(autouse=True)
+def fresh_limiters() -> Iterator[None]:
+    """The limiters are process-wide singletons, so a test must not inherit another's window."""
+    for limiter in (
+        deps.auth_ip_limiter,
+        deps.auth_account_limiter,
+        deps.api_limiter,
+        deps.llm_limiter,
+    ):
+        limiter.reset()
+    deps.llm_budget.reset()
+    yield
 
 
 @pytest.fixture

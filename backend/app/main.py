@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,10 @@ from app.models.base import Base
 from app.models.user import User  # noqa: F401  (registers the table on Base.metadata)
 
 settings = get_settings()
+
+# Audit events are emitted at INFO on their own logger so a deployment can route them to a
+# separate sink without turning on debug logging for everything else.
+logging.getLogger("askgrey.audit").setLevel(logging.INFO)
 
 
 @asynccontextmanager

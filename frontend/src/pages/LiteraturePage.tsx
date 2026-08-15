@@ -158,6 +158,13 @@ export function LiteraturePage() {
                 </label>
               </div>
 
+              {/* The text of anything added here leaves the workspace, so say so where the
+                  decision is made rather than in a policy page nobody opens. */}
+              <p className={styles.hint}>
+                Text from these documents is sent to Anthropic (Claude) to generate the columns.
+                Do not add material you are not permitted to share with a third-party processor.
+              </p>
+
               {sources.length > 0 && (
                 <ul className={styles.sourceList}>
                   {sources.map((source) => (

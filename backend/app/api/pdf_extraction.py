@@ -4,7 +4,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import CurrentUser
+from app.api.deps import ClientIp, LlmUser
+from app.core import audit
+from app.core.config import get_settings
 from app.services.pdf_extraction import (
     ExtractionField,
     ExtractionRequestError,
@@ -83,15 +85,35 @@ def _handle(exc: Exception) -> HTTPException:
     return HTTPException(status.HTTP_502_BAD_GATEWAY, f"extraction failed: {exc}")
 
 
+def _record_outbound(actor: str, ip: str, source: str, size: int) -> None:
+    """Note that document text left the deployment for the model vendor.
+
+    Only the provenance is recorded — never the text, the goal or the extracted values.
+    """
+    audit.record(
+        "document.sent_to_llm",
+        actor=actor,
+        client_ip=ip,
+        detail={
+            "source": source,
+            "bytes": size,
+            "vendor": "anthropic",
+            "model": get_settings().llm_model,
+        },
+    )
+
+
 @router.post("/upload", response_model=ExtractionTable)
 async def extract_from_upload(
-    _user: CurrentUser,
+    user: LlmUser,
+    ip: ClientIp,
     service: Service,
     request: Request,
     file: Annotated[UploadFile, File(description="The research PDF")],
     goal: Annotated[str, Form(max_length=2000, description="e.g. 'sample size, dosing'")],
 ) -> ExtractionTable:
     data = await _read_upload(request, file)
+    _record_outbound(str(user.id), ip, file.filename or "upload.pdf", len(data))
     if _parse_slots.locked():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -116,10 +138,12 @@ async def extract_from_upload(
 
 @router.post("/url", response_model=ExtractionTable)
 async def extract_from_url(
-    _user: CurrentUser,
+    user: LlmUser,
+    ip: ClientIp,
     service: Service,
     request: UrlExtractionRequest,
 ) -> ExtractionTable:
+    _record_outbound(str(user.id), ip, request.url, 0)
     try:
         return await service.extract_from_url(
             request.url, goal=request.goal, fields=request.fields or None

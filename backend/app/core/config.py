@@ -1,6 +1,16 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_JWT_SECRET = "dev-secret-change-me"
+# Every value a deployment could inherit from the repo rather than choose. Anyone holding one
+# of these can mint an access token for any user id, so a deployed process must not start
+# with one.
+PLACEHOLDER_JWT_SECRETS = frozenset(
+    {DEV_JWT_SECRET, "change-me-in-every-deployed-environment", "changeme", "secret"}
+)
+MIN_JWT_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -10,7 +20,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./askgrey.db"
 
-    jwt_secret: str = "dev-secret-change-me"
+    jwt_secret: str = DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 30
     refresh_token_ttl_days: int = 14
@@ -70,6 +80,22 @@ class Settings(BaseSettings):
     llm_model: str = "claude-sonnet-4-5"
     llm_max_tokens: int = 1024
     llm_timeout_seconds: float = 30.0
+
+    @model_validator(mode="after")
+    def _reject_placeholder_jwt_secret(self) -> "Settings":
+        if self.environment == "development":
+            return self
+        if self.jwt_secret in PLACEHOLDER_JWT_SECRETS:
+            raise ValueError(
+                "JWT_SECRET is still the placeholder value; set a unique random secret "
+                f"outside the development environment (environment={self.environment!r})"
+            )
+        if len(self.jwt_secret) < MIN_JWT_SECRET_LENGTH:
+            raise ValueError(
+                f"JWT_SECRET must be at least {MIN_JWT_SECRET_LENGTH} characters "
+                f"outside the development environment (environment={self.environment!r})"
+            )
+        return self
 
     @property
     def entrez_rate_limit(self) -> float:

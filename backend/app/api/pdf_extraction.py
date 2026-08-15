@@ -48,7 +48,7 @@ class UrlExtractionRequest(BaseModel):
 async def _read_upload(request: Request, file: UploadFile) -> bytes:
     """Read the upload with the size cap enforced as it streams, not after it is buffered."""
     too_large = HTTPException(
-        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        status.HTTP_413_CONTENT_TOO_LARGE,
         f"PDF is larger than {MAX_UPLOAD_BYTES} bytes",
     )
     declared = request.headers.get("content-length")
@@ -73,7 +73,7 @@ async def _read_upload(request: Request, file: UploadFile) -> bytes:
 
 def _handle(exc: Exception) -> HTTPException:
     if isinstance(exc, ExtractionRequestError):
-        return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if isinstance(exc, UnsupportedPdfError):
         return HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, str(exc))
     if isinstance(exc, PdfParseError):

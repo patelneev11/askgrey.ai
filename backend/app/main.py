@@ -13,6 +13,7 @@ from app.api.pdf_extraction import router as pdf_extraction_router
 from app.api.pubchem import router as pubchem_router
 from app.api.pubmed import router as pubmed_router
 from app.core.config import get_settings
+from app.core.headers import SecurityHeadersMiddleware
 from app.db.session import engine
 from app.models.base import Base
 from app.models.session import RefreshSession  # noqa: F401  (registers the table)
@@ -33,6 +34,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -52,4 +54,6 @@ app.include_router(grants_router, prefix="/api")
 
 @app.get("/api/health", tags=["system"])
 def health() -> dict[str, str]:
-    return {"status": "ok", "environment": settings.environment}
+    """Liveness only. The environment name told an unauthenticated caller which deployment
+    they had reached, which is free reconnaissance for no operational benefit."""
+    return {"status": "ok"}

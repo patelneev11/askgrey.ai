@@ -58,7 +58,7 @@ def _render(
     try:
         response = _download(service.render(request.table, fmt, request.options))
     except ExportError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     # Data leaving the workspace is a reviewable event; the rows themselves are not logged.
     audit.record(
         "export.downloaded",

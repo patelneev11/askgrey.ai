@@ -34,7 +34,7 @@ async def compound(
     try:
         return await service.lookup(q, kind=kind, limit=limit)
     except InvalidIdentifierError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except CompoundNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except (PubChemRequestError, PubChemResponseError) as exc:

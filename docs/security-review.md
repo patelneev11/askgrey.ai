@@ -194,23 +194,28 @@ posture the product implies.
 URL or ID" has no answer today because uploads are never stored — the risk is entirely prospective.
 Before any persistence lands (which the workspace-reload gap already argues for), the design needs
 tenant-scoped object keys, unguessable ids, authorization on every read, encryption at rest, and a
-retention/deletion policy. That is ticket T7 rather than a finding.
+retention/deletion policy. That is ticket T12 rather than a finding, and the design it has to satisfy
+is now written up in `docs/storage-security-design.md`.
 
 ---
 
 ## Follow-up tickets
 
-| ID | Severity | Title |
-| --- | --- | --- |
-| T1 ([#13](https://github.com/patelneev11/askgrey.ai/issues/13)) | High | Block private/link-local targets and revalidate every redirect hop in the PDF fetcher (H1) |
-| T2 ([#14](https://github.com/patelneev11/askgrey.ai/issues/14)) | High | Per-user/IP rate limiting, concurrency caps and an LLM spend budget (H2) |
-| T3 ([#15](https://github.com/patelneev11/askgrey.ai/issues/15)) | High | Login throttling, lockout and non-enumerable registration (H3) |
-| T4 ([#16](https://github.com/patelneev11/askgrey.ai/issues/16)) | High | Upgrade python-jose, starlette, python-multipart, pdfminer-six, react-router; add audit steps to CI (H4) |
-| T5 ([#17](https://github.com/patelneev11/askgrey.ai/issues/17)) | Medium | Refresh-token rotation, hashed server-side registry and revocation (M1) |
-| T6 ([#18](https://github.com/patelneev11/askgrey.ai/issues/18)) | Medium | Move the refresh token to an HttpOnly SameSite cookie; access token in memory (M2) |
-| T7 ([#19](https://github.com/patelneev11/askgrey.ai/issues/19)) | Medium | Streaming upload limits, `%PDF` signature check, parse concurrency cap (M3) |
-| T8 ([#20](https://github.com/patelneev11/askgrey.ai/issues/20)) | Medium | Data-handling disclosure, zero-retention confirmation and outbound-document audit for LLM calls (M4) |
-| T9 ([#21](https://github.com/patelneev11/askgrey.ai/issues/21)) | Medium | Prompt-injection hardening for PDF text and NL queries (M5) |
-| T10 ([#22](https://github.com/patelneev11/askgrey.ai/issues/22)) | Low | Security response headers incl. CSP; drop the environment string from `/api/health`; verify deployed CORS (L1–L3) |
-| T11 ([#23](https://github.com/patelneev11/askgrey.ai/issues/23)) | Low | Security event audit log wired to the Audit Trails tab (L5) |
-| T12 ([#24](https://github.com/patelneev11/askgrey.ai/issues/24)) | Prospective | Tenant-scoped encrypted document storage with retention/deletion, before any upload persistence ships |
+All twelve were remediated across four PRs (#25 SSRF/uploads, #26 rate limits/budget/audit log,
+#27 auth and sessions, #28 dependencies/headers/prompt boundaries/storage design). Status below is
+the PR the fix landed in; none of these should be read as merged until the PR is.
+
+| ID | Severity | Title | Fixed in |
+| --- | --- | --- | --- |
+| T1 ([#13](https://github.com/patelneev11/askgrey.ai/issues/13)) | High | Block private/link-local targets and revalidate every redirect hop in the PDF fetcher (H1) | [#25](https://github.com/patelneev11/askgrey.ai/pull/25) |
+| T2 ([#14](https://github.com/patelneev11/askgrey.ai/issues/14)) | High | Per-user/IP rate limiting, concurrency caps and an LLM spend budget (H2) | [#26](https://github.com/patelneev11/askgrey.ai/pull/26) |
+| T3 ([#15](https://github.com/patelneev11/askgrey.ai/issues/15)) | High | Login throttling, lockout and non-enumerable registration (H3) | [#27](https://github.com/patelneev11/askgrey.ai/pull/27) |
+| T4 ([#16](https://github.com/patelneev11/askgrey.ai/issues/16)) | High | Upgrade python-jose, starlette, python-multipart, pdfminer-six, react-router; add audit steps to CI (H4) | [#28](https://github.com/patelneev11/askgrey.ai/pull/28) |
+| T5 ([#17](https://github.com/patelneev11/askgrey.ai/issues/17)) | Medium | Refresh-token rotation, hashed server-side registry and revocation (M1) | [#27](https://github.com/patelneev11/askgrey.ai/pull/27) |
+| T6 ([#18](https://github.com/patelneev11/askgrey.ai/issues/18)) | Medium | Move the refresh token to an HttpOnly SameSite cookie; access token in memory (M2) | [#27](https://github.com/patelneev11/askgrey.ai/pull/27) |
+| T7 ([#19](https://github.com/patelneev11/askgrey.ai/issues/19)) | Medium | Streaming upload limits, `%PDF` signature check, parse concurrency cap (M3) | [#25](https://github.com/patelneev11/askgrey.ai/pull/25) |
+| T8 ([#20](https://github.com/patelneev11/askgrey.ai/issues/20)) | Medium | Data-handling disclosure, zero-retention confirmation and outbound-document audit for LLM calls (M4) | [#26](https://github.com/patelneev11/askgrey.ai/pull/26) |
+| T9 ([#21](https://github.com/patelneev11/askgrey.ai/issues/21)) | Medium | Prompt-injection hardening for PDF text and NL queries (M5) | [#28](https://github.com/patelneev11/askgrey.ai/pull/28) |
+| T10 ([#22](https://github.com/patelneev11/askgrey.ai/issues/22)) | Low | Security response headers incl. CSP; drop the environment string from `/api/health`; verify deployed CORS (L1–L3) | [#28](https://github.com/patelneev11/askgrey.ai/pull/28) |
+| T11 ([#23](https://github.com/patelneev11/askgrey.ai/issues/23)) | Low | Security event audit log wired to the Audit Trails tab (L5) | [#26](https://github.com/patelneev11/askgrey.ai/pull/26) |
+| T12 ([#24](https://github.com/patelneev11/askgrey.ai/issues/24)) | Prospective | Tenant-scoped encrypted document storage with retention/deletion, before any upload persistence ships | [#28](https://github.com/patelneev11/askgrey.ai/pull/28) |

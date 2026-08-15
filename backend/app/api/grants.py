@@ -59,7 +59,7 @@ class MatchRequest(BaseModel):
 
 def _handle(exc: Exception) -> HTTPException:
     if isinstance(exc, InvalidQueryError):
-        return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if isinstance(exc, MatchingError):
         return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     return HTTPException(status.HTTP_502_BAD_GATEWAY, f"grants request failed: {exc}")

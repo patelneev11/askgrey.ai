@@ -3,7 +3,9 @@ from functools import lru_cache
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEV_JWT_SECRET = "dev-secret-change-me"
+# Long enough to satisfy RFC 7518's HMAC key guidance so local runs are not noisy; it is still
+# a published literal, which is why deployed environments refuse to boot on it.
+DEV_JWT_SECRET = "dev-secret-change-me-before-deploying"
 # Every value a deployment could inherit from the repo rather than choose. Anyone holding one
 # of these can mint an access token for any user id, so a deployed process must not start
 # with one.
@@ -88,6 +90,20 @@ class Settings(BaseSettings):
     api_rate_limit_per_minute: int = 120
     llm_rate_limit_per_minute: int = 12
     llm_daily_call_budget: int = 250
+
+    @model_validator(mode="after")
+    def _reject_wildcard_cors_with_credentials(self) -> "Settings":
+        """Sessions ride on a cookie, so a wildcard origin would let any site drive the API.
+
+        Browsers reject `Access-Control-Allow-Origin: *` alongside credentials anyway; failing
+        at boot is better than discovering it as a mystery CORS error in production.
+        """
+        if self.environment != "development" and "*" in self.cors_origin_list:
+            raise ValueError(
+                "CORS_ORIGINS must list explicit origins outside development; '*' cannot be "
+                f"combined with credentialed requests (environment={self.environment!r})"
+            )
+        return self
 
     @model_validator(mode="after")
     def _reject_placeholder_jwt_secret(self) -> "Settings":

@@ -53,7 +53,7 @@ async def search(
     try:
         return await service.search(query, page_size=page_size, page_token=page_token)
     except InvalidQueryError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except (ClinicalTrialsRequestError, ClinicalTrialsResponseError) as exc:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, f"ClinicalTrials.gov request failed: {exc}"

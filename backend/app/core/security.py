@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 
 from app.core.config import get_settings
 
@@ -48,7 +49,7 @@ def decode_claims(token: str, expected_type: TokenType = "access") -> dict[str, 
         claims: dict[str, Any] = jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
         )
-    except JWTError:
+    except InvalidTokenError:
         return None
     if claims.get("type") != expected_type:
         return None

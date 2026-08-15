@@ -17,13 +17,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class RefreshRequest(BaseModel):
-    refresh_token: str
+class TokenResponse(BaseModel):
+    """Only the short-lived access token reaches script; the refresh token rides in an
+    HttpOnly cookie so an XSS payload cannot read a 14-day credential out of the page."""
 
-
-class TokenPair(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 

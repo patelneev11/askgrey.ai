@@ -15,6 +15,7 @@ from app.api.pubmed import router as pubmed_router
 from app.core.config import get_settings
 from app.db.session import engine
 from app.models.base import Base
+from app.models.session import RefreshSession  # noqa: F401  (registers the table)
 from app.models.user import User  # noqa: F401  (registers the table on Base.metadata)
 
 settings = get_settings()

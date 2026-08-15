@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api';
+import { setAccessToken } from '@/lib/session';
 import { WorkspaceProvider } from '@/lib/workspace';
 import { grounded, paperRow, table } from '@/test/fixtures';
 
@@ -45,7 +46,7 @@ async function generate(user: ReturnType<typeof userEvent.setup>, goal = 'sample
 }
 
 beforeEach(() => {
-  window.localStorage.setItem('askgrey:access-token', 'token-123');
+  setAccessToken('token-123');
   extractFromUrl.mockResolvedValue(table());
   extractFromUpload.mockResolvedValue(table());
   exportTable.mockResolvedValue({
@@ -58,6 +59,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  setAccessToken(undefined);
   window.localStorage.clear();
 });
 

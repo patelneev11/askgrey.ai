@@ -10,9 +10,8 @@ export interface ExportOptions {
   filename_stem?: string;
 }
 
-export interface TokenPair {
+export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
   token_type: string;
 }
 
@@ -160,23 +159,26 @@ async function download(
 }
 
 export const api = {
+  // `credentials: 'include'` is what carries the HttpOnly refresh cookie; without it the
+  // browser drops the cookie on a cross-origin call and every reload signs the user out.
   register: (email: string, password: string, fullName: string) =>
-    request<TokenPair>('/auth/register', {
+    request<TokenResponse>('/auth/register', {
       method: 'POST',
+      credentials: 'include',
       body: JSON.stringify({ email, password, full_name: fullName }),
     }),
 
   login: (email: string, password: string) =>
-    request<TokenPair>('/auth/login', {
+    request<TokenResponse>('/auth/login', {
       method: 'POST',
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     }),
 
-  refresh: (refreshToken: string) =>
-    request<TokenPair>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    }),
+  refresh: () =>
+    request<TokenResponse>('/auth/refresh', { method: 'POST', credentials: 'include' }),
+
+  logout: () => send('/auth/logout', { method: 'POST', credentials: 'include' }),
 
   me: (token: string) => request<User>('/auth/me', {}, token),
 

@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiteraturePage } from '@/pages/LiteraturePage';
 import { table } from '@/test/fixtures';
 
+import { setAccessToken } from './session';
+
 import { WorkspaceProvider } from './workspace';
 
 const extractFromUrl = vi.fn();
@@ -42,12 +44,13 @@ function renderApp() {
 }
 
 beforeEach(() => {
-  window.localStorage.setItem('askgrey:access-token', 'token-123');
+  setAccessToken('token-123');
   extractFromUrl.mockResolvedValue(table());
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  setAccessToken(undefined);
   window.localStorage.clear();
 });
 

@@ -23,7 +23,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_token(subject: str, token_type: TokenType = "access") -> str:
+def create_token(subject: str, token_type: TokenType = "access", *, jti: str | None = None) -> str:
     settings = get_settings()
     now = datetime.now(timezone.utc)
     if token_type == "access":
@@ -36,17 +36,29 @@ def create_token(subject: str, token_type: TokenType = "access") -> str:
         "iat": int(now.timestamp()),
         "exp": int(expires.timestamp()),
     }
+    if jti is not None:
+        claims["jti"] = jti
     return jwt.encode(claims, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_claims(token: str, expected_type: TokenType = "access") -> dict[str, Any] | None:
+    """Return the verified claims, or None when the token is invalid or of the wrong type."""
+    settings = get_settings()
+    try:
+        claims: dict[str, Any] = jwt.decode(
+            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+        )
+    except JWTError:
+        return None
+    if claims.get("type") != expected_type:
+        return None
+    return claims
 
 
 def decode_token(token: str, expected_type: TokenType = "access") -> str | None:
     """Return the token subject, or None when the token is invalid or of the wrong type."""
-    settings = get_settings()
-    try:
-        claims = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError:
-        return None
-    if claims.get("type") != expected_type:
+    claims = decode_claims(token, expected_type)
+    if claims is None:
         return None
     subject = claims.get("sub")
     return subject if isinstance(subject, str) else None

@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     pdf_extraction_context_chars: int = 40000
     pdf_extraction_max_pages: int = 40
 
+    # Regulatory drafting. Narratives are longer than an extraction reply, hence the larger
+    # token ceiling; the audit of what comes back is local and costs nothing.
+    regulatory_max_tokens: int = 3072
+    regulatory_timeout_seconds: float = 90.0
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

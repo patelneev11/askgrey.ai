@@ -1,0 +1,55 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.api.deps import LlmUser
+from app.services.regulatory.preclinical import (
+    DrafterError,
+    DrafterUnavailableError,
+    PreclinicalReport,
+    PreclinicalRequestError,
+    PreclinicalService,
+    StudyTable,
+)
+
+router = APIRouter(prefix="/regulatory", tags=["regulatory"])
+
+
+def get_preclinical_service() -> PreclinicalService:
+    return PreclinicalService.from_settings()
+
+
+Preclinical = Annotated[PreclinicalService, Depends(get_preclinical_service)]
+
+
+def _handle(exc: Exception) -> HTTPException:
+    """
+    Map service failures to client-safe statuses.
+
+    The messages these exceptions carry are written not to quote study data: a request body
+    here can contain unpublished manufacturing or animal study detail, and an error is the
+    easiest place for that to leak into a log or a browser console.
+    """
+    if isinstance(exc, PreclinicalRequestError):
+        return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+    if isinstance(exc, DrafterUnavailableError):
+        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    return HTTPException(status.HTTP_502_BAD_GATEWAY, "drafting the narrative failed")
+
+
+@router.post("/preclinical/report", response_model=PreclinicalReport)
+async def preclinical_report(
+    _user: LlmUser, service: Preclinical, table: StudyTable
+) -> PreclinicalReport:
+    """
+    Draft a preclinical study narrative from a structured study table and audit its numbers.
+
+    `LlmUser` rather than `ThrottledUser`: this spends money at Anthropic, so it takes the
+    per-minute LLM limit and the daily call budget as well as authentication.
+    """
+    try:
+        return await service.draft_report(table)
+    except (PreclinicalRequestError, DrafterUnavailableError, DrafterError) as exc:
+        raise _handle(exc) from exc
+    finally:
+        await service.aclose()

@@ -1,5 +1,6 @@
 import type { ExtractionTable } from './extraction';
 import type {
+  BoardReport,
   BudgetRequest,
   CompanyProfile,
   EligibilityReport,
@@ -8,6 +9,8 @@ import type {
   GrantProgram,
   GrantSearchQuery,
   MatchResult,
+  PersonaSummary,
+  ReviewBoardRequest,
 } from './grants';
 import { logger } from './observability';
 
@@ -301,5 +304,16 @@ export const api = {
       { method: 'POST', body: JSON.stringify(budget) },
       token,
       `grant-budget.${format}`,
+    ),
+
+  reviewPersonas: (token?: string) =>
+    request<PersonaSummary[]>('/grants/review-board/personas', {}, token),
+
+  reviewSection: (review: ReviewBoardRequest, token?: string) =>
+    request<BoardReport>(
+      '/grants/review-board',
+      { method: 'POST', body: JSON.stringify(review) },
+      token,
+      LLM_TIMEOUT_MS,
     ),
 };

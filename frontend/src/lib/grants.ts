@@ -206,6 +206,57 @@ export interface GrantBudget {
   total: string;
 }
 
+/* ---- Mock review board (POST /grants/review-board) ---- */
+
+/** The board's own bounds, mirrored so the form can say what it needs before a 422 does. */
+export const MIN_SECTION_CHARS = 200;
+export const MAX_SECTION_CHARS = 20_000;
+
+export interface PersonaSummary {
+  id: string;
+  name: string;
+  focus: string;
+  criteria: string[];
+}
+
+export interface CriterionScore {
+  criterion: string;
+  /** NIH scale: 1 is exceptional, 9 is poor, so lower is better. Never rescaled here. */
+  score: number;
+  reasoning: string;
+}
+
+export interface PersonaReview {
+  persona_id: string;
+  persona_name: string;
+  focus: string;
+  scores: CriterionScore[];
+  overall_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  comment: string;
+}
+
+export interface BoardReport {
+  section_name: string;
+  program: string | null;
+  phase: string | null;
+  config_version: string;
+  validation_status: 'unvalidated';
+  caveat: string;
+  model: string;
+  reviews: PersonaReview[];
+  summary: string;
+}
+
+export interface ReviewBoardRequest {
+  section_name: string;
+  program: string;
+  phase: string;
+  text: string;
+  personas: string[];
+}
+
 export const EMPTY_PROFILE: CompanyProfile = {
   name: '',
   organization_type: null,

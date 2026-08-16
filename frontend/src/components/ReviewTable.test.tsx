@@ -183,6 +183,18 @@ describe('ReviewTable', () => {
     expect(screen.getByText('no abstract detected')).toBeInTheDocument();
   });
 
+  it('states a lone warning inline, with nothing to expand', () => {
+    render(
+      <ReviewTable
+        table={table({ rows: [paperRow({ warnings: ['page 3 is a scanned image'] })] })}
+        onCitationSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/page 3 is a scanned image/)).toBeInTheDocument();
+    expect(screen.queryByText(/problems reading this paper/)).not.toBeInTheDocument();
+  });
+
   it('explains the result vocabulary in a legend', () => {
     render(<ReviewTable table={table()} onCitationSelect={vi.fn()} />);
 

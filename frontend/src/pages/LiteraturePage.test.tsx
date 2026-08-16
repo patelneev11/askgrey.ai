@@ -40,6 +40,12 @@ async function addUrlSource(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Add link' }));
 }
 
+/** The added-paper chips, scoped away from the numbered steps in “How this works”. */
+function sourceChips() {
+  const list = screen.queryByRole('list', { name: 'Added papers' });
+  return list ? within(list).queryAllByRole('listitem') : [];
+}
+
 async function generate(user: ReturnType<typeof userEvent.setup>, goal = 'sample size') {
   await user.type(screen.getByLabelText('Extraction goal'), goal);
   await user.click(screen.getByRole('button', { name: 'Generate columns' }));
@@ -114,7 +120,7 @@ describe('LiteraturePage — dynamic column generation', () => {
 
     // The input is cleared so the same file can be picked twice; the source must survive it.
     expect((input as HTMLInputElement).value).toBe('');
-    expect(screen.getByRole('listitem')).toHaveTextContent('uploaded.pdf');
+    expect(sourceChips()[0]).toHaveTextContent('uploaded.pdf');
   });
 
   it('needs both a paper and a goal before it will run', async () => {
@@ -133,11 +139,47 @@ describe('LiteraturePage — dynamic column generation', () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(screen.getByText('Add at least one paper to generate columns.')).toBeInTheDocument();
+    // Nothing has been provided yet, so both prerequisites are named.
+    expect(
+      screen.getByText(
+        'Two things are missing: add at least one paper, and describe what to pull out of them.',
+      ),
+    ).toBeInTheDocument();
+
     await addUrlSource(user);
     expect(
       screen.getByText('Describe what to pull out of the papers to generate columns.'),
     ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
+    await user.click(screen.getByRole('button', { name: `Remove ${PAPER_URL}` }));
+    expect(screen.getByText('Add at least one paper to generate columns.')).toBeInTheDocument();
+  });
+
+  it('keeps the goal → column → citation explanation available once a table exists', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await addUrlSource(user);
+    await generate(user);
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+
+    // The empty state is gone, so the standing affordance is the only thing left explaining it.
+    expect(screen.queryByText('No columns yet')).not.toBeInTheDocument();
+    await user.click(screen.getByText('How this works'));
+    expect(screen.getByText(/Each phrase becomes one column/)).toBeInTheDocument();
+  });
+
+  it('keeps a visible caveat that every value is unvalidated model output', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByText(/extracted by a language model and is unvalidated/i)).toBeVisible();
+    await addUrlSource(user);
+    await generate(user);
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+
+    expect(screen.getByText(/extracted by a language model and is unvalidated/i)).toBeVisible();
   });
 
   it('rejects a non-PDF upload at add time instead of queueing a doomed source', () => {
@@ -150,7 +192,7 @@ describe('LiteraturePage — dynamic column generation', () => {
     });
 
     expect(screen.getByRole('alert')).toHaveTextContent('notes.txt is not a PDF');
-    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(sourceChips()).toHaveLength(0);
   });
 
   it('rejects a link that is not an http(s) URL', async () => {
@@ -161,7 +203,7 @@ describe('LiteraturePage — dynamic column generation', () => {
     await user.click(screen.getByRole('button', { name: 'Add link' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('is not a valid link');
-    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(sourceChips()).toHaveLength(0);
   });
 
   it('shows the run as in flight, then reports how many values were cited', async () => {
@@ -211,7 +253,7 @@ describe('LiteraturePage — citation click-through', () => {
     const cell = screen.getByRole('button', { name: /show source for/i });
     await user.click(cell);
 
-    expect(screen.getByText('page 4')).toBeInTheDocument();
+    expect(screen.getByText('quote found on this page')).toBeInTheDocument();
     expect(
       screen.getByText('73 patients were randomized to ziprasidone or placebo'),
     ).toBeInTheDocument();
@@ -224,6 +266,16 @@ describe('LiteraturePage — export', () => {
     renderPage();
     expect(screen.getByRole('button', { name: 'Export .xlsx' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Export .csv' })).toBeDisabled();
+  });
+
+  it('says on screen what each export file contains', () => {
+    renderPage();
+
+    // Not a tooltip: someone choosing between the two files has to be able to read this.
+    expect(
+      screen.getByText(/plus a Sources sheet listing the quote and page number/i),
+    ).toBeVisible();
+    expect(screen.getByText(/no separate Sources sheet/i)).toBeVisible();
   });
 
   it('downloads the rendered file the export endpoint returns', async () => {
@@ -265,9 +317,9 @@ describe('LiteraturePage — export', () => {
     renderPage();
     await addUrlSource(user);
 
-    const chip = screen.getByRole('listitem');
+    const [chip] = sourceChips();
     expect(within(chip).getByText(PAPER_URL)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: `Remove ${PAPER_URL}` }));
-    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(sourceChips()).toHaveLength(0);
   });
 });

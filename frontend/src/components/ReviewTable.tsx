@@ -1,8 +1,10 @@
 import {
   cellKey,
   rowLabel,
+  type Citation,
   type ExtractionCell,
   type ExtractionTable,
+  type MatchQuality,
   type PaperRow,
 } from '@/lib/extraction';
 
@@ -16,6 +18,23 @@ interface ReviewTableProps {
   /** Columns being generated right now, rendered as pending headers ahead of their values. */
   pendingColumns?: string[];
   busy?: boolean;
+}
+
+/** How each match quality is stated in plain words, without losing the underlying term. */
+const MATCH_WORDING: Record<MatchQuality, string> = {
+  exact: 'the quoted words appear on the page exactly as shown (an "exact" match)',
+  normalized:
+    'the quoted words appear on the page, with only spaces and line breaks tidied up before comparing (a "normalized" match)',
+  fuzzy:
+    'the passage is a close but not word-for-word match, so read it before relying on the value (a "fuzzy" match)',
+};
+
+/**
+ * The precise locator — page number, internal text-block id and match quality — kept as a
+ * tooltip so the surface can read as plain language without the detail being lost.
+ */
+function citationDetail(citation: Citation): string {
+  return `Page ${citation.page_number} of the PDF, text block ${citation.block_id}: ${MATCH_WORDING[citation.match]}. Click to see the passage highlighted on the page.`;
 }
 
 function CellContent({
@@ -45,19 +64,24 @@ function CellContent({
     // `exact`; only a fuzzy span is genuinely approximate and must be flagged.
     const approximate = match === 'fuzzy';
     return (
-      <button
-        type="button"
-        className={[styles.cited, active ? styles.citedActive : ''].filter(Boolean).join(' ')}
-        aria-pressed={active}
-        aria-label={`Show source for ${rowLabel(row)}, page ${page}`}
-        onClick={() => onSelect(row, columnKey, cell)}
-      >
-        <span className={styles.value}>{cell.value}</span>
-        <span className={approximate ? styles.pageRefFuzzy : styles.pageRef}>
-          p{page}
-          {approximate ? ' close' : ''}
-        </span>
-      </button>
+      <>
+        <button
+          type="button"
+          className={[styles.cited, active ? styles.citedActive : ''].filter(Boolean).join(' ')}
+          aria-pressed={active}
+          aria-label={`Show source for ${rowLabel(row)}, page ${page}`}
+          title={citationDetail(cell.citation)}
+          onClick={() => onSelect(row, columnKey, cell)}
+        >
+          <span className={styles.value}>{cell.value}</span>
+          <span className={approximate ? styles.pageRefFuzzy : styles.pageRef}>
+            page {page}
+            {approximate ? ', close wording' : ''}
+          </span>
+        </button>
+        {/* Anything the extractor had to say about how it read this value stays on screen. */}
+        {cell.note && <span className={styles.note}>{cell.note}</span>}
+      </>
     );
   }
 
@@ -83,7 +107,7 @@ function RowWarnings({ warnings }: { warnings: string[] }) {
     <>
       {' · '}
       <details className={styles.warnings}>
-        <summary>{warnings.length} warnings</summary>
+        <summary>{warnings.length} problems reading this paper</summary>
         <ul>
           {warnings.map((warning) => (
             <li key={warning}>{warning}</li>
@@ -106,86 +130,115 @@ export function ReviewTable({
   );
 
   return (
-    <div className={styles.scroll}>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th scope="col" className={styles.paperHeader}>
-              Paper
-            </th>
-            {table.columns.map((column) => (
-              <th key={column.key} scope="col" title={column.description || column.label}>
-                {column.label}
-              </th>
-            ))}
-            {pending.map((label) => (
-              <th key={label} scope="col" className={styles.pendingHeader}>
-                {label}
-                <span className={styles.pendingBar} aria-hidden="true" />
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row) => (
-            <tr key={row.document_id} data-status={row.status}>
-              <th scope="row" className={styles.paperCell}>
-                <span className={styles.paperTitle} title={rowLabel(row)}>
-                  {rowLabel(row)}
-                </span>
-                <span className={styles.paperMeta}>
-                  {row.page_count > 0 ? `${row.page_count} pages` : 'no pages parsed'}
-                  <RowWarnings warnings={row.warnings} />
-                </span>
+    <div className={styles.container}>
+      {/* Only the grid scrolls sideways: the scroll box is its own flex item, so however many
+          columns a goal produces it can never widen the panel or the page behind it. */}
+      <div className={styles.scroll}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col" className={styles.paperHeader}>
+                Paper
               </th>
               {table.columns.map((column) => (
-                <td key={column.key}>
-                  <CellContent
-                    row={row}
-                    columnKey={column.key}
-                    cell={row.cells[column.key]}
-                    active={activeCell === cellKey(row.document_id, column.key)}
-                    onSelect={onCitationSelect}
-                  />
-                </td>
+                <th key={column.key} scope="col" title={column.description || column.label}>
+                  {column.label}
+                </th>
               ))}
               {pending.map((label) => (
-                <td key={label}>
-                  <span className={styles.skeleton} aria-hidden="true" />
-                </td>
+                <th key={label} scope="col" className={styles.pendingHeader}>
+                  {label}
+                  <span className={styles.pendingBar} aria-hidden="true" />
+                </th>
               ))}
             </tr>
-          ))}
-          {busy && (
-            <tr>
-              <th scope="row" className={styles.paperCell}>
-                <span className={styles.skeleton} aria-hidden="true" />
-              </th>
-              {[...table.columns.map((column) => column.key), ...pending].map((key) => (
-                <td key={key}>
+          </thead>
+          <tbody>
+            {table.rows.map((row) => (
+              <tr key={row.document_id} data-status={row.status}>
+                <th scope="row" className={styles.paperCell}>
+                  <span className={styles.paperTitle} title={rowLabel(row)}>
+                    {rowLabel(row)}
+                  </span>
+                  <span className={styles.paperMeta}>
+                    {row.page_count > 0 ? `${row.page_count} pages` : 'no pages parsed'}
+                    <RowWarnings warnings={row.warnings} />
+                  </span>
+                </th>
+                {table.columns.map((column) => (
+                  <td key={column.key}>
+                    <CellContent
+                      row={row}
+                      columnKey={column.key}
+                      cell={row.cells[column.key]}
+                      active={activeCell === cellKey(row.document_id, column.key)}
+                      onSelect={onCitationSelect}
+                    />
+                  </td>
+                ))}
+                {pending.map((label) => (
+                  <td key={label}>
+                    <span className={styles.skeleton} aria-hidden="true" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {busy && (
+              <tr>
+                <th scope="row" className={styles.paperCell}>
                   <span className={styles.skeleton} aria-hidden="true" />
-                </td>
-              ))}
-            </tr>
-          )}
-        </tbody>
-      </table>
+                </th>
+                {[...table.columns.map((column) => column.key), ...pending].map((key) => (
+                  <td key={key}>
+                    <span className={styles.skeleton} aria-hidden="true" />
+                  </td>
+                ))}
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {table.rows.length > 0 && (
-        <p className={styles.legend}>
-          <span className={styles.legendItem}>
-            <span className={styles.pageRef}>p1</span> quote located on page 1 — click the value to
-            open it
-          </span>
-          <span className={styles.legendItem}>
-            <span className={styles.pageRefFuzzy}>p1 close</span> located, but the wording is not an
-            exact match
-          </span>
-          <span className={styles.legendItem}>
-            <span className={styles.unverifiedTag}>no source found</span> the value could not be
-            traced to a passage
-          </span>
-        </p>
+        <div className={styles.legend}>
+          <div className={styles.legendRow}>
+            <span className={styles.legendItem}>
+              <span className={styles.pageRef}>page 1</span> the quote is on page 1 of the PDF —
+              click the value to read it
+            </span>
+            <span className={styles.legendItem}>
+              <span className={styles.pageRefFuzzy}>page 1, close wording</span> the passage was
+              found but is not word-for-word
+            </span>
+            <span className={styles.legendItem}>
+              <span className={styles.unverifiedTag}>no source found</span> the value could not be
+              traced to a passage — treat it as unchecked
+            </span>
+            {/* The precise vocabulary is one click away rather than deleted. */}
+            <details className={styles.legendDetail}>
+              <summary>How a quote is matched to a page (exact detail)</summary>
+              <ul>
+                <li>
+                  <strong>exact</strong> — the extracted quote is character-for-character present
+                  in the parsed page text.
+                </li>
+                <li>
+                  <strong>normalized</strong> — it matches once runs of spaces, line breaks and
+                  hyphenation are folded; shown the same as an exact match because the wording is
+                  unchanged.
+                </li>
+                <li>
+                  <strong>fuzzy</strong> — only a close match was found, shown as
+                  &ldquo;close wording&rdquo;; the highlighted span is approximate.
+                </li>
+                <li>
+                  Hovering a value shows its page number and the internal text-block reference (for
+                  example <code>p1-b4</code> — block 4 on page 1) used to place the highlight.
+                </li>
+              </ul>
+            </details>
+          </div>
+        </div>
       )}
     </div>
   );

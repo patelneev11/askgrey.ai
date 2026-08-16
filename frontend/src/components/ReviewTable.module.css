@@ -1,13 +1,38 @@
+/* Owns the panel's remaining height and nothing more: `min-width: 0` is what stops a wide
+   grid from pushing the workspace pane, and the page behind it, outwards. */
+.container {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 .scroll {
-  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  /* Sideways scrolling belongs to the grid alone, so the scrollbar sits under the last row
+     rather than under the legend at the bottom of the panel. */
   overflow: auto;
+  overscroll-behavior-x: contain;
 }
 
 .table {
   width: 100%;
+  /* `auto` lets one verbose cell dictate the whole column width; fixed layout keeps every
+     generated column readable at 1280px and lets the values wrap instead. */
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--font-size-xs);
   line-height: var(--line-height-dense);
+}
+
+.table td,
+.table thead th:not(.paperHeader) {
+  width: 220px;
+  min-width: 220px;
+  overflow-wrap: break-word;
 }
 
 .table th,
@@ -28,7 +53,8 @@
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--letter-spacing-wide);
   text-transform: uppercase;
-  white-space: nowrap;
+  /* Long generated labels wrap inside their fixed column instead of widening the grid. */
+  white-space: normal;
 }
 
 .table tbody tr:hover {
@@ -36,6 +62,7 @@
 }
 
 .paperHeader {
+  width: 200px;
   min-width: 200px;
 }
 
@@ -57,7 +84,6 @@
   display: table-cell;
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
-  max-width: 260px;
 }
 
 .paperTitle {
@@ -117,6 +143,7 @@
 .pageRef,
 .pageRefFuzzy {
   flex: none;
+  white-space: nowrap;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-2xs);
 }
@@ -207,15 +234,48 @@
 
 /* ---- Legend: the result vocabulary is defined on screen, not left to be inferred ---- */
 
+/* Outside the scroll box: the vocabulary has to stay put while the grid scrolls sideways. */
 .legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: 0;
+  flex: none;
   padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
   color: var(--color-text-tertiary);
   font-size: var(--font-size-2xs);
   line-height: var(--line-height-normal);
+}
+
+.legendRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+/* The precise matching rules stay one click away rather than being deleted. */
+.legendDetail {
+  flex-basis: 100%;
+}
+
+.legendDetail summary {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+.legendDetail ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.legendDetail strong {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.legendDetail code {
+  font-family: var(--font-family-mono);
 }
 
 .legendItem {
@@ -242,12 +302,15 @@
     padding: var(--space-3);
   }
 
-  .paperHeader {
-    min-width: 150px;
+  .table td,
+  .table thead th:not(.paperHeader) {
+    width: 180px;
+    min-width: 180px;
   }
 
-  .paperCell {
-    max-width: 170px;
+  .paperHeader {
+    width: 170px;
+    min-width: 170px;
   }
 }
 

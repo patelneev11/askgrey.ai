@@ -1,6 +1,15 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
 
-from app.api.deps import ThrottledUser
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.api.deps import LlmUser, ThrottledUser
+from app.services.protocols import (
+    DrafterError,
+    DrafterUnavailableError,
+    DraftRequest,
+    ProtocolDraft,
+    ProtocolService,
+)
 from app.services.protocols.calculator import (
     CalculatorError,
     CalculatorInputError,
@@ -24,6 +33,33 @@ from app.services.protocols.calculator import (
 )
 
 router = APIRouter(prefix="/protocols", tags=["protocols"])
+
+
+def get_protocol_service() -> ProtocolService:
+    return ProtocolService.from_settings()
+
+
+Service = Annotated[ProtocolService, Depends(get_protocol_service)]
+
+
+# Drafting spends money at Anthropic, so it rides the LLM limiter and the daily call budget
+# rather than the plain API limit.
+@router.post("/draft", response_model=ProtocolDraft)
+async def draft_protocol(request: DraftRequest, service: Service, _user: LlmUser) -> ProtocolDraft:
+    """
+    Draft a structured protocol from a natural-language experimental goal.
+
+    The response is model output: it carries `origin="agent_drafted"` and the review
+    disclaimer, and nothing in this path validates that the science is correct.
+    """
+    try:
+        return await service.draft(request)
+    except DrafterUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except DrafterError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    finally:
+        await service.aclose()
 
 
 def _handle(exc: CalculatorError) -> HTTPException:

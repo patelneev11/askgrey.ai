@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     pdf_extraction_context_chars: int = 40000
     pdf_extraction_max_pages: int = 40
 
+    # Protocol drafting. A full protocol is longer than a query translation, so it gets its own
+    # token ceiling and a timeout that tolerates the larger completion.
+    protocol_draft_max_tokens: int = 4096
+    protocol_draft_timeout_seconds: float = 90.0
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

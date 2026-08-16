@@ -1,0 +1,119 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--layout-sidebar-width);
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  background: var(--color-surface-panel);
+  border-right: 1px solid var(--color-border-subtle);
+  z-index: var(--z-sidebar);
+  transition: width var(--duration-normal) var(--easing-standard);
+  overflow: hidden;
+}
+
+.collapsed {
+  width: var(--layout-sidebar-width-collapsed);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--layout-topbar-height);
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-pipeline);
+  color: var(--color-text-inverse);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.brandName {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+  white-space: nowrap;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spacer {
+  flex: 1;
+  min-height: var(--space-6);
+}
+
+.link,
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+
+.link:hover,
+.toggle:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.linkActive {
+  background: var(--color-surface-overlay);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  box-shadow: inset 2px 0 0 var(--color-accent-pipeline);
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.linkLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collapsed .linkLabel,
+.collapsed .brandName {
+  display: none;
+}
+
+.toggle {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  padding-top: var(--space-2);
+  height: 40px;
+  color: var(--color-text-tertiary);
+}

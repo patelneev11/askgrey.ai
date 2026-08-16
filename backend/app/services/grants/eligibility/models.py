@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from app.services.grants.models import GrantProgram
 
@@ -53,7 +53,7 @@ class CompanyProfile(BaseModel):
     employees recorded" and "zero employees" survives into the verdict.
     """
 
-    name: str = ""
+    name: str = Field(default="", max_length=200)
     organization_type: OrganizationType | None = None
     principal_place_of_business_us: bool | None = None
     employee_count: int | None = Field(default=None, ge=0)
@@ -74,7 +74,7 @@ class CompanyProfile(BaseModel):
     sam_registered: bool | None = None
     sba_company_registry_registered: bool | None = None
 
-    research_focus: str = ""
+    research_focus: str = Field(default="", max_length=2000)
 
 
 class Verdict(str, Enum):
@@ -114,6 +114,7 @@ class EligibilityReport(BaseModel):
     config_version: str = ""
     outcomes: list[RuleOutcome] = Field(default_factory=list)
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def verdict(self) -> Verdict:
         verdicts = {outcome.verdict for outcome in self.outcomes}
@@ -126,6 +127,7 @@ class EligibilityReport(BaseModel):
     def by_verdict(self, verdict: Verdict) -> list[RuleOutcome]:
         return [outcome for outcome in self.outcomes if outcome.verdict is verdict]
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def summary(self) -> str:
         failed = self.by_verdict(Verdict.FAIL)

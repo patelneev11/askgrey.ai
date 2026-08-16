@@ -1,10 +1,13 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import LlmUser, ThrottledUser
+from app.api.deps import ClientIp, LlmUser, ThrottledUser
+from app.api.export import download_response
+from app.core import audit
+from app.services.export import ExportError, ExportFormat
 from app.services.grants import (
     MAX_PAGE_SIZE,
     GrantPage,
@@ -18,6 +21,22 @@ from app.services.grants import (
     MatchingError,
     MatchResult,
 )
+from app.services.grants.budget import (
+    BudgetCalculator,
+    BudgetConfigError,
+    BudgetInputError,
+    BudgetRequest,
+    BudgetRules,
+    GrantBudget,
+    render,
+)
+from app.services.grants.eligibility import (
+    CompanyProfile,
+    EligibilityChecker,
+    EligibilityConfigError,
+    EligibilityReport,
+    RuleConfig,
+)
 
 router = APIRouter(prefix="/grants", tags=["grants"])
 
@@ -26,7 +45,29 @@ def get_grants_service() -> GrantsService:
     return GrantsService.from_settings()
 
 
+def get_eligibility_checker() -> EligibilityChecker:
+    # A broken rules file is a deployment fault, not a bad request: say so rather than letting
+    # a config error surface as an opaque 500.
+    try:
+        return EligibilityChecker.from_config_file()
+    except EligibilityConfigError as exc:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, f"eligibility rules are unusable: {exc}"
+        ) from exc
+
+
+def get_budget_calculator() -> BudgetCalculator:
+    try:
+        return BudgetCalculator.from_config_file()
+    except BudgetConfigError as exc:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, f"budget rules are unusable: {exc}"
+        ) from exc
+
+
 Service = Annotated[GrantsService, Depends(get_grants_service)]
+Checker = Annotated[EligibilityChecker, Depends(get_eligibility_checker)]
+Calculator = Annotated[BudgetCalculator, Depends(get_budget_calculator)]
 
 
 class MatchRequest(BaseModel):
@@ -55,6 +96,13 @@ class MatchRequest(BaseModel):
             closing_before=self.closing_before,
             sources=self.sources,
         )
+
+
+class EligibilityRequest(BaseModel):
+    """A structured company profile plus the set-aside programme to evaluate it against."""
+
+    profile: CompanyProfile
+    program: GrantProgram = GrantProgram.SBIR
 
 
 def _handle(exc: Exception) -> HTTPException:
@@ -111,3 +159,65 @@ async def match(_user: LlmUser, service: Service, request: MatchRequest) -> Matc
         raise _handle(exc) from exc
     finally:
         await service.aclose()
+
+
+@router.post("/eligibility", response_model=EligibilityReport)
+def check_eligibility(
+    _user: ThrottledUser, checker: Checker, request: EligibilityRequest
+) -> EligibilityReport:
+    """
+    Rules-based SBIR/STTR eligibility screen.
+
+    Deterministic: every verdict comes from a numeric threshold in the service's `rules.json`,
+    so no model is consulted and the same profile always produces the same report.
+    """
+    try:
+        return checker.check(request.profile, request.program)
+    except InvalidQueryError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+@router.get("/eligibility/rules", response_model=RuleConfig)
+def eligibility_rules(_user: ThrottledUser, checker: Checker) -> RuleConfig:
+    """The thresholds a report was produced under, so a verdict can be traced to its numbers."""
+    return checker.config
+
+
+@router.post("/budget", response_model=GrantBudget)
+def build_budget(
+    _user: ThrottledUser, calculator: Calculator, request: BudgetRequest
+) -> GrantBudget:
+    """Cost internal R&D estimates into SF-424 (R&R) shape under the configured federal rules."""
+    try:
+        return calculator.build(request)
+    except BudgetInputError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+@router.get("/budget/rules", response_model=BudgetRules)
+def budget_rules(_user: ThrottledUser, calculator: Calculator) -> BudgetRules:
+    """The salary cap, indirect and fee figures the budget was built under."""
+    return calculator.rules
+
+
+@router.post("/budget/export")
+def export_budget(
+    user: ThrottledUser,
+    ip: ClientIp,
+    calculator: Calculator,
+    request: BudgetRequest,
+    fmt: Annotated[ExportFormat, Query(alias="format")] = ExportFormat.XLSX,
+) -> Response:
+    """The same budget as a file, through the shared exporter rather than a second writer."""
+    try:
+        budget = calculator.build(request)
+        response = download_response(render(budget, fmt))
+    except (BudgetInputError, ExportError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    audit.record(
+        "grants.budget_exported",
+        actor=str(user.id),
+        client_ip=ip,
+        detail={"format": fmt.value, "program": budget.program.value},
+    )
+    return response

@@ -53,6 +53,15 @@ The cost of the reuse: amounts are written as formatted text, because `Extractio
 a string. A recipient who needs live spreadsheet arithmetic would want numeric cells added to
 the exporter — still one writer, not two.
 
+## HTTP API
+
+`POST /api/grants/budget` costs a `BudgetRequest` and returns the `GrantBudget` with its
+computed subtotals and totals; `POST /api/grants/budget/export?format=xlsx|csv` returns the same
+budget as a file through the shared exporter; `GET /api/grants/budget/rules` returns the salary
+cap, indirect and fee figures in force. All three are authenticated and throttled, no model is
+involved, and a request with no lines (or an out-of-range effort, rate or line count) is a 422.
+Exports are recorded in the audit log as `grants.budget_exported`.
+
 ## Limits
 
 - The figures in `rules.json` are the common federal ones. Agencies and solicitations vary, and

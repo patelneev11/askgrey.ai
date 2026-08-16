@@ -1,13 +1,9 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
 
 from app.api.auth import router as auth_router
 from app.api.clinicaltrials import router as clinicaltrials_router
@@ -26,6 +22,7 @@ from app.core.config import get_settings
 from app.core.errors import init_error_tracking
 from app.core.headers import SecurityHeadersMiddleware
 from app.core.logging import RequestLoggingMiddleware, configure_logging
+from app.core.spa import mount_spa
 from app.db.session import engine
 from app.models.base import Base
 from app.models.literature import (  # noqa: F401  (registers the tables)
@@ -51,7 +48,12 @@ logging.getLogger("askgrey.audit").setLevel(logging.INFO)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    Base.metadata.create_all(bind=engine)
+    # Deployed environments migrate before the server starts (`alembic upgrade head`, see
+    # railway.toml): a process that creates its own schema cannot express a column change,
+    # and two replicas doing it at once race. Development keeps the convenience of a database
+    # that appears on first run.
+    if settings.environment == "development":
+        Base.metadata.create_all(bind=engine)
     yield
 
 
@@ -91,25 +93,6 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def mount_frontend(application: FastAPI, dist: Path) -> None:
-    """Serve the built SPA from this process.
-
-    Single origin keeps the session cookie first-party and removes cross-site CORS from the
-    deployment entirely; unknown paths fall back to index.html so client-side routes reload.
-    """
-    application.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
-
-    @application.get("/{path:path}", include_in_schema=False)
-    def spa(path: str) -> Response:
-        candidate = dist / path
-        if path and candidate.is_file() and dist in candidate.resolve().parents:
-            return FileResponse(candidate)
-        return FileResponse(dist / "index.html")
-
-
-# `backend/static` is the convention a container image builds into, so a single-origin
-# deployment needs no configuration; FRONTEND_DIST_DIR points at a build elsewhere.
-_default_dist = Path(__file__).resolve().parent.parent / "static"
-_dist = Path(settings.frontend_dist_dir).resolve() if settings.frontend_dist_dir else _default_dist
-if (_dist / "index.html").is_file():
-    mount_frontend(app, _dist)
+# Last, so the catch-all route it registers can never shadow an API path.
+if settings.serves_frontend:
+    mount_spa(app, settings.frontend_dist_dir)

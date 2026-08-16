@@ -1,0 +1,97 @@
+{
+  "jurisdiction": "pmda",
+  "version": "2026-08-pmda-1",
+  "retrieved": "2026-08-16",
+  "notes": "Transcribed from the PMDA Center for Product Evaluation points to consider on nonclinical safety for an initial clinical trial notification, 25 March 2025, as listed in docs/regulatory-sources.md. That document is revised roughly annually, so this is the dataset most likely to be out of date; check its version and retrieved date before relying on a report. Only the asks PMDA states in its own terms are encoded - the ICH-common expectations are covered by the FDA and EMA datasets.",
+  "requirements": [
+    {
+      "id": "pmda.nonclinical.noael_margin",
+      "title": "NOAEL-to-clinical-dose safety margin stated",
+      "ctd_sections": ["4.2.3", "2.6.6", "2.6.7"],
+      "citation": {
+        "document": "PMDA Center for Product Evaluation - points to consider on nonclinical safety data for an initial clinical trial notification",
+        "url": "https://www.pmda.go.jp/files/000274660.pdf",
+        "document_date": "25 March 2025"
+      },
+      "expectation": "The no-observed-adverse-effect level from the pivotal toxicity studies and the margin it gives over the proposed clinical starting dose and exposure, in terms a reviewer can check.",
+      "signals": [
+        { "all_of": ["noael"] },
+        { "all_of": ["no observed adverse effect level"] },
+        { "all_of": ["safety margin", "clinical dose"] },
+        { "all_of": ["exposure margin", "starting dose"] }
+      ],
+      "negative_signals": ["noael not yet determined"]
+    },
+    {
+      "id": "pmda.nonclinical.safety_concerns_for_participants",
+      "title": "Nonclinical safety concerns identified for communication to trial participants",
+      "ctd_sections": ["2.6", "4.2.3"],
+      "citation": {
+        "document": "PMDA Center for Product Evaluation - points to consider on nonclinical safety data for an initial clinical trial notification",
+        "url": "https://www.pmda.go.jp/files/000274660.pdf",
+        "document_date": "25 March 2025"
+      },
+      "expectation": "The safety concerns predicted from the nonclinical studies, drawn out explicitly so they can be carried into the informed consent document and the monitoring plan rather than left inside the study summaries.",
+      "signals": [
+        { "all_of": ["safety concerns", "predicted"] },
+        { "all_of": ["informed consent", "nonclinical"] },
+        { "all_of": ["informed consent", "non clinical"] },
+        { "all_of": ["target organ", "monitoring"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "pmda.nonclinical.phototoxicity",
+      "title": "Initial phototoxicity assessment discussed",
+      "ctd_sections": ["4.2.3", "2.6.6"],
+      "citation": {
+        "document": "PMDA Center for Product Evaluation - points to consider on nonclinical safety data for an initial clinical trial notification",
+        "url": "https://www.pmda.go.jp/files/000274660.pdf",
+        "document_date": "25 March 2025"
+      },
+      "expectation": "An initial phototoxicity (photosafety) assessment along ICH S10 lines, or a reasoned statement that one is not warranted. PMDA notes this is often missing from initial notifications.",
+      "signals": [
+        { "all_of": ["phototoxicity"] },
+        { "all_of": ["photosafety"] },
+        { "all_of": ["photo safety"] },
+        { "all_of": ["ich s10"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "pmda.nonclinical.contraception",
+      "title": "Contraception requirements specified where reproductive risk is open",
+      "ctd_sections": ["4.2.3", "2.6.6"],
+      "citation": {
+        "document": "PMDA Center for Product Evaluation - points to consider on nonclinical safety data for an initial clinical trial notification",
+        "url": "https://www.pmda.go.jp/files/000274660.pdf",
+        "document_date": "25 March 2025"
+      },
+      "expectation": "Where embryo-fetal toxicity has been seen, or reproductive toxicity studies have not yet been done, the contraception requirements that follow for trial participants.",
+      "signals": [
+        { "all_of": ["contraception"] },
+        { "all_of": ["contraceptive"] },
+        { "all_of": ["embryo fetal", "pregnancy"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "pmda.nonclinical.lactating_women",
+      "title": "Position on lactating women stated",
+      "ctd_sections": ["4.2.3", "2.6.6"],
+      "citation": {
+        "document": "PMDA Center for Product Evaluation - points to consider on nonclinical safety data for an initial clinical trial notification",
+        "url": "https://www.pmda.go.jp/files/000274660.pdf",
+        "document_date": "25 March 2025"
+      },
+      "expectation": "An explicit position on lactating women - excretion into milk where studied, and what follows for eligibility or for breastfeeding during the trial.",
+      "signals": [
+        { "all_of": ["lactating women"] },
+        { "all_of": ["lactation"] },
+        { "all_of": ["breastfeeding"] },
+        { "all_of": ["excretion into milk"] }
+      ],
+      "negative_signals": []
+    }
+  ]
+}

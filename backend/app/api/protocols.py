@@ -4,10 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import LlmUser, ThrottledUser
 from app.services.protocols import (
+    ChecklistItem,
     DrafterError,
     DrafterUnavailableError,
     DraftRequest,
     ProtocolDraft,
+    ProtocolReview,
+    ProtocolReviewRequest,
     ProtocolService,
 )
 from app.services.protocols.calculator import (
@@ -60,6 +63,35 @@ async def draft_protocol(request: DraftRequest, service: Service, _user: LlmUser
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
     finally:
         await service.aclose()
+
+
+@router.post("/controls/review", response_model=ProtocolReview)
+async def review_controls(
+    request: ProtocolReviewRequest, service: Service, _user: LlmUser
+) -> ProtocolReview:
+    """
+    List the standard controls this protocol appears to be missing, plus the reagent checklist.
+
+    The findings are an agent-drafted opinion scoped by `scope_note`: a protocol with no missing
+    control here has not been validated, it has only had its controls looked at.
+    """
+    try:
+        return await service.review_controls(request.protocol)
+    except DrafterUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except DrafterError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    finally:
+        await service.aclose()
+
+
+# Extraction only — no model call — so this rides the plain API limit and works without a key.
+@router.post("/checklist", response_model=list[ChecklistItem])
+def reagent_checklist(
+    request: ProtocolReviewRequest, service: Service, _user: ThrottledUser
+) -> list[ChecklistItem]:
+    """Storage temperatures, spin speeds, handling and timing flags quoted from the protocol."""
+    return service.reagent_checklist(request.protocol)
 
 
 def _handle(exc: CalculatorError) -> HTTPException:

@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     # token ceiling and a timeout that tolerates the larger completion.
     protocol_draft_max_tokens: int = 4096
     protocol_draft_timeout_seconds: float = 90.0
+    protocol_review_max_tokens: int = 2048
 
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.

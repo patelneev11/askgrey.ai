@@ -2,16 +2,20 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import LlmUser, ThrottledUser
+from app.api.deps import DbSession, LlmUser, ThrottledUser
 from app.services.protocols import (
     ChecklistItem,
     DrafterError,
     DrafterUnavailableError,
     DraftRequest,
     ProtocolDraft,
+    ProtocolHistoryResponse,
+    ProtocolRequestError,
     ProtocolReview,
     ProtocolReviewRequest,
     ProtocolService,
+    SavedProtocolResponse,
+    SaveProtocolRequest,
 )
 from app.services.protocols.calculator import (
     CalculatorError,
@@ -33,6 +37,19 @@ from app.services.protocols.calculator import (
     solution_mass,
     solve_dilution,
     stock_ratio,
+)
+from app.services.protocols.eln_export import (
+    ElnExportError,
+    ElnExportPayload,
+    ElnExportRequest,
+    build_export,
+)
+from app.services.protocols.history import (
+    create_protocol,
+    get_history,
+    get_protocol,
+    get_version,
+    update_protocol,
 )
 
 router = APIRouter(prefix="/protocols", tags=["protocols"])
@@ -92,6 +109,76 @@ def reagent_checklist(
 ) -> list[ChecklistItem]:
     """Storage temperatures, spin speeds, handling and timing flags quoted from the protocol."""
     return service.reagent_checklist(request.protocol)
+
+
+@router.post("", response_model=SavedProtocolResponse, status_code=status.HTTP_201_CREATED)
+def save_protocol(
+    request: SaveProtocolRequest, db: DbSession, user: ThrottledUser
+) -> SavedProtocolResponse:
+    """Save a protocol as version 1, owned by the calling account."""
+    return create_protocol(
+        db, user_id=str(user.id), protocol=request.protocol, change_summary=request.change_summary
+    )
+
+
+@router.get("/{protocol_id}", response_model=SavedProtocolResponse)
+def read_protocol(protocol_id: str, db: DbSession, user: ThrottledUser) -> SavedProtocolResponse:
+    try:
+        return get_protocol(db, protocol_id=protocol_id, user_id=str(user.id))
+    except ProtocolRequestError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.put("/{protocol_id}", response_model=SavedProtocolResponse)
+def edit_protocol(
+    protocol_id: str, request: SaveProtocolRequest, db: DbSession, user: ThrottledUser
+) -> SavedProtocolResponse:
+    """Store an edited protocol as the next version, with a changelog against the previous one."""
+    try:
+        return update_protocol(
+            db,
+            protocol_id=protocol_id,
+            user_id=str(user.id),
+            protocol=request.protocol,
+            change_summary=request.change_summary,
+        )
+    except ProtocolRequestError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.get("/{protocol_id}/history", response_model=ProtocolHistoryResponse)
+def read_history(protocol_id: str, db: DbSession, user: ThrottledUser) -> ProtocolHistoryResponse:
+    """Every version of the protocol, newest first, each with what changed."""
+    try:
+        return get_history(db, protocol_id=protocol_id, user_id=str(user.id))
+    except ProtocolRequestError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.get("/{protocol_id}/versions/{version}", response_model=SavedProtocolResponse)
+def read_version(
+    protocol_id: str, version: int, db: DbSession, user: ThrottledUser
+) -> SavedProtocolResponse:
+    try:
+        return get_version(db, protocol_id=protocol_id, user_id=str(user.id), version=version)
+    except ProtocolRequestError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+# Pure transformation: this builds the payload a Benchling client would send and performs no
+# outbound request, so there is no credential in this path and nothing to leak to the browser.
+@router.post("/export/eln", response_model=ElnExportPayload)
+def export_eln(request: ElnExportRequest, _user: ThrottledUser) -> ElnExportPayload:
+    """
+    Transform a protocol into Benchling's documented entry format.
+
+    Schema-ready and untested against the live API: the response carries
+    `integration_status="schema_ready_untested"` so the UI cannot present it as a verified export.
+    """
+    try:
+        return build_export(request)
+    except ElnExportError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
 
 def _handle(exc: CalculatorError) -> HTTPException:

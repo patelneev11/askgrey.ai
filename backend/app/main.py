@@ -20,6 +20,10 @@ from app.core.headers import SecurityHeadersMiddleware
 from app.core.logging import RequestLoggingMiddleware, configure_logging
 from app.db.session import engine
 from app.models.base import Base
+from app.models.protocol import (  # noqa: F401  (registers the tables)
+    ProtocolVersion,
+    SavedProtocol,
+)
 from app.models.session import RefreshSession  # noqa: F401  (registers the table)
 from app.models.user import User  # noqa: F401  (registers the table on Base.metadata)
 

@@ -12,6 +12,9 @@ import { LiteraturePage } from './LiteraturePage';
 const extractFromUrl = vi.fn();
 const extractFromUpload = vi.fn();
 const exportTable = vi.fn();
+const loadWorkspace = vi.fn().mockResolvedValue({ goal: '', sources: [], table: null });
+const saveWorkspace = vi.fn().mockResolvedValue({ goal: '', sources: [], table: null });
+const documentPdf = vi.fn().mockRejectedValue(new Error('no stored copy'));
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -21,6 +24,10 @@ vi.mock('@/lib/api', async () => {
       extractFromUrl: (...args: unknown[]) => extractFromUrl(...args),
       extractFromUpload: (...args: unknown[]) => extractFromUpload(...args),
       exportTable: (...args: unknown[]) => exportTable(...args),
+      extractFromStoredDocument: vi.fn(),
+      loadWorkspace: (...args: unknown[]) => loadWorkspace(...args),
+      saveWorkspace: (...args: unknown[]) => saveWorkspace(...args),
+      documentPdf: (...args: unknown[]) => documentPdf(...args),
     },
   };
 });

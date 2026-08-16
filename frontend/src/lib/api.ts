@@ -33,6 +33,23 @@ export interface SSOConfig {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+/** Mirrors `WorkspaceSource` in `backend/app/schemas/literature.py`. */
+export interface StoredSource {
+  id: string;
+  label: string;
+  kind: 'upload' | 'url';
+  url: string;
+  document_id: string;
+}
+
+export interface StoredWorkspace {
+  goal: string;
+  sources: StoredSource[];
+  table: ExtractionTable | null;
+  updated_at?: string | null;
+  stored_document_ids?: string[];
+}
+
 /**
  * A hung backend is indistinguishable from a slow one without a bound, so every request gets
  * one. Extraction runs a full LLM pass per paper, hence the far longer allowance there.
@@ -221,6 +238,39 @@ export const api = {
       token,
       EXTRACTION_TIMEOUT_MS,
     ),
+
+  /** Extract again from a paper the server already holds, after a reload lost its bytes. */
+  extractFromStoredDocument: (documentId: string, goal: string, token?: string) =>
+    request<ExtractionTable>(
+      `/pdf-extraction/documents/${encodeURIComponent(documentId)}`,
+      { method: 'POST', body: JSON.stringify({ goal }) },
+      token,
+      EXTRACTION_TIMEOUT_MS,
+    ),
+
+  /** The saved Literature workspace for the signed-in user. */
+  loadWorkspace: (token?: string) => request<StoredWorkspace>('/literature/workspace', {}, token),
+
+  saveWorkspace: (workspace: StoredWorkspace, token?: string) =>
+    request<StoredWorkspace>(
+      '/literature/workspace',
+      { method: 'PUT', body: JSON.stringify(workspace) },
+      token,
+    ),
+
+  /**
+   * The bytes of a stored paper, so a citation from a linked paper renders a real page.
+   *
+   * The document id is a digest the backend issued; nothing here can ask it for a URL.
+   */
+  documentPdf: async (documentId: string, token?: string) => {
+    const response = await send(
+      `/literature/documents/${encodeURIComponent(documentId)}/pdf`,
+      {},
+      token,
+    );
+    return response.blob();
+  },
 
   /** Render the review table as a workbook or CSV and hand back the file (Ticket 1.5). */
   exportTable: (

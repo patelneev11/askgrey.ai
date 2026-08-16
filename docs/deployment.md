@@ -40,15 +40,50 @@ environment:
 | --- | --- |
 | `ENVIRONMENT` | `production` (or `staging`) — anything other than `development` enables HSTS and enforces the secret checks below |
 | `JWT_SECRET` | ≥32 chars, unique per environment; the app refuses to boot on the placeholder. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `DATABASE_URL` | a real database; the SQLite default is per-container and disappears on redeploy |
+| `DATABASE_URL` | a managed Postgres URL; the app refuses to boot outside development on a SQLite file, which is per-container and disappears on redeploy. `postgres://`/`postgresql://` are rewritten to the `psycopg` driver, so a provider-supplied URL works unchanged |
+| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE_SECONDS` | optional; sized against the database's connection limit divided by replica count |
 | `CORS_ORIGINS` | exact origins; `*` is rejected outside development. Empty is correct when the API serves the SPA itself |
 | `ANTHROPIC_API_KEY` | server-side only, never in a `VITE_` variable |
 | `SENTRY_DSN`, `RELEASE` | see [monitoring](./monitoring.md) |
 | `LLM_DAILY_COST_ALERT_USD`, `LLM_DAILY_CALL_BUDGET` | spend guards |
-| `FRONTEND_DIST_DIR` | set only for single-origin hosting, where FastAPI serves the built SPA |
+| `FRONTEND_DIST_DIR` | set only for single-origin hosting, where FastAPI serves the built SPA (see below) |
 
 Frontend — `frontend/.env.example`. Everything prefixed `VITE_` is compiled into the bundle
 and is public: `VITE_SENTRY_DSN` is designed to be, an API key never is.
+
+## Schema changes
+
+The schema is owned by Alembic (`backend/migrations`), and the deploy runs `alembic upgrade
+head` before starting the server — see `backend/railway.toml`. `Base.metadata.create_all` now
+runs only in development and in tests, so a deployed database never has its schema created as a
+side effect of a boot.
+
+The baseline revision adopts a database that predates Alembic: it creates each table only if it
+is missing, so a deployment whose tables came from the old startup `create_all` can be stamped
+by simply upgrading. Migrations read `DATABASE_URL` from the same settings the app uses, so
+nothing about the connection lives in `alembic.ini`.
+
+A new migration is written against a database that matches `main`:
+
+```
+cd backend && alembic revision --autogenerate -m "what changed"
+```
+
+`tests/test_migrations.py` fails if the migrations and the models drift apart, so an autogenerate
+diff that is not empty at `head` is a missing migration, not a test problem.
+
+## Single origin or split origin
+
+Both are supported:
+
+- **Split** (what the pipeline does today): Railway serves the API, Vercel serves the SPA.
+  `CORS_ORIGINS` must name the frontend origin exactly, and `FRONTEND_DIST_DIR` stays empty.
+- **Single origin**: build the frontend and point `FRONTEND_DIST_DIR` at `frontend/dist`. The
+  API then serves `index.html` for every non-`/api/` path so client-side routes survive a
+  reload, hashed files under `/assets` are served immutable, and `CORS_ORIGINS` can be empty
+  because the browser makes same-origin requests. Unknown `/api/` paths still return JSON 404s
+  rather than the HTML shell. The process fails to start if the directory has no `index.html`,
+  so a missing frontend build is a failed deploy rather than a site of 404s.
 
 ## Secret handling rules
 
@@ -65,7 +100,9 @@ and is public: `VITE_SENTRY_DSN` is designed to be, an API key never is.
 ## Not covered yet
 
 - No infrastructure-as-code: environments are configured by hand in Railway/Vercel/GitHub.
-- No database migrations in the pipeline (`Base.metadata.create_all` at startup); a schema
-  change that is not additive needs a migration tool before production carries real data.
+- Migrations run on deploy but are not gated: a release whose migration fails leaves the
+  previous container serving traffic, and nothing takes a backup first.
+- Uploaded PDFs are `LargeBinary` rows rather than object-storage keys, so the database carries
+  up to the per-user quota in blobs and every backup copies them.
 - No blue/green or automatic rollback. Rollback is redeploying the previous commit.
 - No secret manager (Vault/KMS) — provider-held environment variables are the store.

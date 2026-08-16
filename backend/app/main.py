@@ -18,6 +18,7 @@ from app.core.config import get_settings
 from app.core.errors import init_error_tracking
 from app.core.headers import SecurityHeadersMiddleware
 from app.core.logging import RequestLoggingMiddleware, configure_logging
+from app.core.spa import mount_spa
 from app.db.session import engine
 from app.models.base import Base
 from app.models.literature import (  # noqa: F401  (registers the tables)
@@ -39,7 +40,12 @@ logging.getLogger("askgrey.audit").setLevel(logging.INFO)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    Base.metadata.create_all(bind=engine)
+    # Deployed environments migrate before the server starts (`alembic upgrade head`, see
+    # railway.toml): a process that creates its own schema cannot express a column change,
+    # and two replicas doing it at once race. Development keeps the convenience of a database
+    # that appears on first run.
+    if settings.environment == "development":
+        Base.metadata.create_all(bind=engine)
     yield
 
 
@@ -73,3 +79,8 @@ def health() -> dict[str, str]:
     """Liveness only. The environment name told an unauthenticated caller which deployment
     they had reached, which is free reconnaissance for no operational benefit."""
     return {"status": "ok"}
+
+
+# Last, so the catch-all route it registers can never shadow an API path.
+if settings.serves_frontend:
+    mount_spa(app, settings.frontend_dist_dir)

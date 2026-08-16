@@ -20,7 +20,21 @@ class Settings(BaseSettings):
 
     app_name: str = "askgrey.ai"
     environment: str = "development"
+    # SQLite by default so a clone runs with no services to install. A deployment must point
+    # this at a managed database instead: the host filesystem is replaced on every deploy,
+    # and the stored paper bytes live in this database, so a file-backed URL loses every saved
+    # workspace on the next release.
     database_url: str = "sqlite:///./askgrey.db"
+    # Connections are recycled well inside the idle timeout a managed Postgres or its pooler
+    # imposes, so a checked-out connection is never one the far end has already dropped.
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_recycle_seconds: int = 1800
+
+    # Path to the built frontend (`frontend/dist`). Set it to serve the app and the API from
+    # one origin, which removes CORS and third-party-cookie handling from the deployment
+    # entirely; left empty, this process serves only the API.
+    frontend_dist_dir: str = ""
 
     jwt_secret: str = DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
@@ -104,6 +118,26 @@ class Settings(BaseSettings):
     llm_daily_call_budget: int = 250
 
     @model_validator(mode="after")
+    def _reject_ephemeral_database_outside_development(self) -> "Settings":
+        """A file-backed SQLite database is data loss on a deployed platform, not a warning.
+
+        Containers get a fresh filesystem on each deploy and no sharing between replicas, so
+        the saved workspaces and the stored paper bytes would silently vanish on release and
+        differ per replica before that. `sqlite://` (in-memory) stays allowed because tests
+        construct settings with an explicit environment.
+        """
+        if self.environment == "development":
+            return self
+        url = self.database_url.strip()
+        if url.startswith("sqlite") and url not in ("sqlite://", "sqlite:///:memory:"):
+            raise ValueError(
+                "DATABASE_URL points at a SQLite file, whose contents are lost on every "
+                "deploy and are not shared between replicas; set a managed database URL "
+                f"(environment={self.environment!r})"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _reject_wildcard_cors_with_credentials(self) -> "Settings":
         """Sessions ride on a cookie, so a wildcard origin would let any site drive the API.
 
@@ -132,6 +166,24 @@ class Settings(BaseSettings):
                 f"outside the development environment (environment={self.environment!r})"
             )
         return self
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        """The URL with a driver SQLAlchemy 2 can actually load.
+
+        Managed providers hand out `postgres://` (Heroku-era) or bare `postgresql://`, which
+        SQLAlchemy resolves to psycopg2 — a driver this project does not install. Rewriting
+        the scheme here means a deployment can paste the provider's URL unchanged.
+        """
+        url = self.database_url.strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix) :]
+        return url
+
+    @property
+    def serves_frontend(self) -> bool:
+        return bool(self.frontend_dist_dir.strip())
 
     @property
     def entrez_rate_limit(self) -> float:

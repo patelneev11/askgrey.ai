@@ -87,9 +87,12 @@ snapshot before restarting anything.
 
 ## 6. Rollback
 
-Redeploy the previous commit — there is no automatic rollback, and no migrations, so reverting
-code is sufficient today. After a rollback, note that the dependency and cost counters restart
-from zero.
+Redeploy the previous commit — there is no automatic rollback. Reverting code is enough only
+when the release ran no migration: `alembic upgrade head` runs before the server starts, and an
+older image does not undo it. If the bad release migrated, downgrade explicitly
+(`alembic downgrade -1` against `DATABASE_URL`) before or after redeploying the older commit,
+depending on whether the old code can read the new schema. After a rollback, note that the
+dependency and cost counters restart from zero.
 
 ## Known blind spots when nothing here explains it
 

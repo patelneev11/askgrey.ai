@@ -83,10 +83,12 @@ describe('first-encounter tab notices', () => {
     );
   });
 
-  it('asks for expert review before a first Regulatory visit', () => {
+  it('asks for regulatory affairs review before a first Regulatory visit', () => {
     renderAt('/regulatory');
 
-    expect(screen.getByRole('dialog')).toHaveTextContent(/requires qualified expert review/i);
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      /Requires qualified regulatory affairs review before any regulatory use/i,
+    );
   });
 
   it('explains what a tab does even where there is no caveat to accept', () => {

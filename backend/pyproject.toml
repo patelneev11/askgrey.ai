@@ -36,6 +36,10 @@ dev = [
     "mypy==1.14.0",
 ]
 
+[tool.setuptools.package-data]
+# The eligibility thresholds are data, not code, and are read from the installed package.
+"app.services.grants.eligibility" = ["*.json"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

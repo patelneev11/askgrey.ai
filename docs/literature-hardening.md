@@ -40,8 +40,10 @@ and by a recorded end-to-end browser run against a live backend with a real open
    the frame width via `ResizeObserver` (now covered by a test).
 7. **Jargon leaked into the primary UI.** `p4` → `page 4`, `p4~` → `page 4, close wording`,
    `unverified` → `no source found`, and the match vocabulary is spelled out. The precision is
-   demoted, not deleted: the exact terms (`exact`/`normalized`/`fuzzy`, the `p1-b4` block
-   reference) live in hover titles and a `<details>` legend.
+   demoted, not deleted: hover titles now read as plain sentences too, and the exact terms
+   (`exact`/`normalized`/`fuzzy`, the `p1-b4` block reference) live in a `Technical details`
+   disclosure in the citation viewer. The exported Sources sheet is worded the same way
+   (`page 1`, `close wording, not exact (fuzzy)`), keeping the raw term in parentheses.
 8. **Nothing explained what was missing or what an export contains.** A disabled `Generate columns`
    now names what is absent (goal, papers, or both); `Export .xlsx` / `Export .csv` each carry a
    one-line description, with the xlsx line calling out the Sources sheet carrying quote and page
@@ -70,11 +72,11 @@ and by a recorded end-to-end browser run against a live backend with a real open
 
 ## What is now tested
 
-Backend: 570 tests pass. New coverage for workspace round-trip, cross-user isolation, clearing,
+Backend: 572 tests pass. New coverage for workspace round-trip, cross-user isolation, clearing,
 schema and quota rejection, oldest-first eviction, stored-byte serving including the cross-user
 404, re-extraction from a stored document, and the per-IP limiter.
 
-Frontend: 97 tests pass (lint, typecheck and build clean). New coverage for restore-on-mount, the
+Frontend: 98 tests pass (lint, typecheck and build clean). New coverage for restore-on-mount, the
 debounced save payload, stale-table clearing on removal, re-extraction of a restored upload,
 refresh de-duplication, all-warnings rendering, inline notes, the disabled-button explanation, the
 export descriptions, and the viewer's width tracking.
@@ -86,10 +88,11 @@ laptop viewport widths.
 ## Known limitations
 
 - Extraction requires `ANTHROPIC_API_KEY` in the backend environment; without it every extraction
-  returns 503. There is no offline fallback path.
-- Hover tooltips and the exported Sources sheet still contain the precise vocabulary (`normalized`,
-  `p2-b7`). That is deliberate — the export is the audit trail — but it means the jargon is
-  reachable, not gone.
+  returns 503, and there is no offline fallback path. The UI no longer walks the user into that
+  failure: `GET /api/status/capabilities` (authenticated, and it reports only a boolean) is read on
+  mount, and a deployment without credentials disables `Generate columns` and says why. A failed
+  capability check is treated as unknown, not unavailable, so a transient error does not lock the
+  tab.
 - The end-to-end run used a local static+proxy harness for single-origin serving; this branch's
   `main.py` does not serve the SPA, so the real deployment path was not exercised.
 - Every extracted value remains model-derived. The UNVALIDATED band above the grid and the caveat

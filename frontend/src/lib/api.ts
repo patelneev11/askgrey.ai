@@ -33,6 +33,11 @@ export interface SSOConfig {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+/** Mirrors `CapabilityReport` in `backend/app/api/system.py`. */
+export interface Capabilities {
+  extraction_available: boolean;
+}
+
 /** Mirrors `WorkspaceSource` in `backend/app/schemas/literature.py`. */
 export interface StoredSource {
   id: string;
@@ -262,6 +267,9 @@ export const api = {
       token,
       EXTRACTION_TIMEOUT_MS,
     ),
+
+  /** What the deployment can actually do — extraction needs model credentials server-side. */
+  capabilities: (token?: string) => request<Capabilities>('/status/capabilities', {}, token),
 
   /** The saved Literature workspace for the signed-in user. */
   loadWorkspace: (token?: string) => request<StoredWorkspace>('/literature/workspace', {}, token),

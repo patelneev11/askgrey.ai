@@ -33,6 +33,7 @@ export function LiteraturePage() {
     exportTable,
     selectCitation,
     fileFor,
+    extractionAvailable,
   } = useWorkspace();
   const [urlDraft, setUrlDraft] = useState('');
 
@@ -49,10 +50,11 @@ export function LiteraturePage() {
   const grounded = useMemo(() => groundedCount(table), [table]);
   const hasTable = table.rows.length > 0 && table.columns.length > 0;
   const hasGoal = goal.trim().length > 0;
-  const canRun = hasGoal && sources.length > 0 && !running;
+  const canRun = hasGoal && sources.length > 0 && !running && extractionAvailable;
   // A dimmed button is not an explanation: name every prerequisite that is actually missing.
-  const blocker =
-    sources.length === 0 && !hasGoal
+  const blocker = !extractionAvailable
+    ? 'Extraction is unavailable: this deployment has no model credentials configured, so no columns can be generated. Ask whoever runs the server to set ANTHROPIC_API_KEY.'
+    : sources.length === 0 && !hasGoal
       ? 'Two things are missing: add at least one paper, and describe what to pull out of them.'
       : sources.length === 0
         ? 'Add at least one paper to generate columns.'

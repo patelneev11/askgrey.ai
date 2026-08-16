@@ -85,17 +85,17 @@ describe('ReviewTable', () => {
     expect(screen.getByText('page 4, close wording')).toBeInTheDocument();
   });
 
-  it('keeps the exact page, block and match-quality detail on the value as a tooltip', () => {
+  it('explains the page and match quality in plain words as a tooltip', () => {
     render(<ReviewTable table={table()} onCitationSelect={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: /show source for/i })).toHaveAttribute(
+    const value = screen.getByRole('button', { name: /show source for/i });
+    expect(value).toHaveAttribute('title', expect.stringContaining('Page 4'));
+    expect(value).toHaveAttribute(
       'title',
-      expect.stringContaining('text block p4-b2'),
+      expect.stringContaining('appear on the page exactly as shown'),
     );
-    expect(screen.getByRole('button', { name: /show source for/i })).toHaveAttribute(
-      'title',
-      expect.stringContaining('"exact" match'),
-    );
+    // The raw locator belongs in the viewer's technical details, not in every cell tooltip.
+    expect(value).not.toHaveAttribute('title', expect.stringContaining('p4-b2'));
   });
 
   it("shows the backend's note under a cited value, not only in a tooltip", () => {

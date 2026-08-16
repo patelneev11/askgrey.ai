@@ -15,13 +15,15 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
 
-/** The exact matching rule behind the plain-language pill, kept as its tooltip. */
+// The matching rule behind the plain-language pill, kept as its tooltip. Plain language on the
+// surface: the precise terms live in the technical details below, where someone auditing the
+// extraction can find them without every reader having to learn them.
 const MATCH_DETAIL: Record<MatchQuality, string> = {
-  exact: 'The quote is present in the parsed page text character for character (an "exact" match).',
+  exact: 'The quoted words appear on this page character for character.',
   normalized:
-    'The quote matches the parsed page text once runs of spaces, line breaks and hyphenation are folded (a "normalized" match); the wording itself is unchanged.',
+    'The quoted words appear on this page; only spacing, line breaks and hyphenation differ.',
   fuzzy:
-    'Only a close match was found in the parsed page text (a "fuzzy" match), so the highlighted span is approximate.',
+    'Only a close match was found on this page, so the highlighted passage is approximate — read it before relying on the value.',
 };
 
 interface CitationViewerProps {
@@ -199,7 +201,7 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
         <div className={styles.headerMeta}>
           <span
             className={styles.page}
-            title={`Page ${citation.page_number} of the PDF, text block ${citation.block_id}.`}
+            title={`Page ${citation.page_number} of the PDF.`}
           >
             page {citation.page_number}
           </span>
@@ -245,6 +247,11 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
         Locating the quote does not check the value: read the highlighted passage and confirm it
         yourself before relying on the extracted value.
       </p>
+      <details className={styles.caveat}>
+        <summary>Technical details</summary>
+        page {citation.page_number} · text block {citation.block_id} · match quality &ldquo;
+        {citation.match}&rdquo;
+      </details>
     </div>
   );
 }

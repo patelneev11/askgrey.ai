@@ -15,6 +15,7 @@ const extractFromStoredDocument = vi.fn();
 const loadWorkspace = vi.fn();
 const saveWorkspace = vi.fn();
 const documentPdf = vi.fn();
+const capabilities = vi.fn();
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -27,6 +28,7 @@ vi.mock('@/lib/api', async () => {
       loadWorkspace: (...args: unknown[]) => loadWorkspace(...args),
       saveWorkspace: (...args: unknown[]) => saveWorkspace(...args),
       documentPdf: (...args: unknown[]) => documentPdf(...args),
+      capabilities: (...args: unknown[]) => capabilities(...args),
       exportTable: vi.fn(),
     },
   };
@@ -60,6 +62,7 @@ beforeEach(() => {
   loadWorkspace.mockResolvedValue(EMPTY_SAVED);
   saveWorkspace.mockResolvedValue(EMPTY_SAVED);
   documentPdf.mockRejectedValue(new Error('no stored copy'));
+  capabilities.mockResolvedValue({ extraction_available: true });
 });
 
 afterEach(() => {

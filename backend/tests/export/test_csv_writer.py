@@ -42,14 +42,14 @@ def test_cited_value_carries_page_and_quote() -> None:
         "extracted",
     ]
     assert rows[1][4] == "73 patients"
-    assert rows[1][5] == 'p1 · "73 patients were randomized"'
-    assert rows[1][7].startswith("p2 · ")
+    assert rows[1][5] == 'page 1 · "73 patients were randomized"'
+    assert rows[1][7].startswith("page 2 · ")
 
 
 def test_unverified_and_missing_cells_are_distinguishable() -> None:
     rows = read_back(write_csv(sample_table()).content)
 
-    assert rows[2][4] == "58 patients (unverified)"
+    assert rows[2][4] == "58 patients (no source found)"
     assert rows[2][5] == ""
     assert rows[2][6:] == ["", ""]
 
@@ -57,7 +57,7 @@ def test_unverified_and_missing_cells_are_distinguishable() -> None:
 def test_fuzzy_matches_are_labelled() -> None:
     fuzzy = table(paper(cells={"sample_size": grounded("73", match=MatchQuality.FUZZY)}))
 
-    assert "fuzzy match" in read_back(write_csv(fuzzy).content)[1][5]
+    assert "close wording, not exact (fuzzy)" in read_back(write_csv(fuzzy).content)[1][5]
 
 
 def test_citations_and_metadata_can_be_dropped() -> None:
@@ -117,7 +117,7 @@ def test_special_characters_survive_the_round_trip() -> None:
 def test_control_characters_are_stripped() -> None:
     row = table(paper(cells={"sample_size": ungrounded("73\x00 patients\x07")}))
 
-    assert read_back(write_csv(row).content)[1][4] == "73 patients (unverified)"
+    assert read_back(write_csv(row).content)[1][4] == "73 patients (no source found)"
 
 
 def test_five_hundred_rows_render() -> None:
@@ -136,7 +136,7 @@ def test_five_hundred_rows_render() -> None:
 
     assert len(rows) == 501
     assert rows[500][0] == "Paper 499"
-    assert rows[500][5].startswith("p1 · ")
+    assert rows[500][5].startswith("page 1 · ")
 
 
 def test_a_table_with_no_columns_at_all_is_rejected() -> None:

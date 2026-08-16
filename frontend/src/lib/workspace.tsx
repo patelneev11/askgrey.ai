@@ -79,6 +79,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<CitationTarget | null>(null);
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [extractionAvailable, setExtractionAvailable] = useState(true);
   // document_id -> the paper's bytes, so the viewer can render real pages. An upload lands
   // here directly; a paper reached by link is pulled back from the server's stored copy.
   const [filesByDocument, setFilesByDocument] = useState<ReadonlyMap<string, File>>(new Map());
@@ -290,6 +291,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [filesByDocument],
   );
 
+  // Extraction is a model pass, so a deployment without credentials cannot do it at all.
+  // Asking up front is the difference between a disabled button that explains itself and a
+  // failure after the user has uploaded a paper and written a goal.
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .capabilities(getAccessToken())
+      .then((report) => {
+        if (!cancelled) setExtractionAvailable(report.extraction_available);
+      })
+      .catch((cause: unknown) => {
+        // Unknown is not unavailable: let the attempt fail loudly rather than block the tab.
+        logger.warn('capabilities.unavailable', { message: errorMessage(cause) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Restore the saved workspace once, on sign-in: this provider mounts behind the auth gate,
   // so a reload and a fresh login both land here.
   useEffect(() => {
@@ -348,6 +368,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       target,
       activeCell,
       restored,
+      extractionAvailable,
       setGoal: updateGoal,
       addFiles,
       addUrl,
@@ -368,6 +389,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       target,
       activeCell,
       restored,
+      extractionAvailable,
       updateGoal,
       addFiles,
       addUrl,

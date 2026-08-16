@@ -21,15 +21,14 @@ describe('CitationViewer', () => {
     expect(screen.getByText('sample size')).toBeInTheDocument();
     expect(screen.getByText('page 4')).toBeInTheDocument();
     expect(screen.getByText('quote found on this page')).toBeInTheDocument();
-    // The exact locator and matching rule are demoted to tooltips, not dropped.
-    expect(screen.getByText('page 4')).toHaveAttribute(
-      'title',
-      expect.stringContaining('text block p4-b2'),
-    );
+    // The tooltip explains the match in plain words — the raw locator is one disclosure away.
     expect(screen.getByText('quote found on this page').parentElement).toHaveAttribute(
       'title',
-      expect.stringContaining('"exact" match'),
+      expect.stringContaining('character for character'),
     );
+    const details = screen.getByText('Technical details').parentElement;
+    expect(details).toHaveTextContent('text block p4-b2');
+    expect(details).toHaveTextContent('match quality “exact”');
     expect(
       screen.getByText('73 patients were randomized to ziprasidone or placebo'),
     ).toBeInTheDocument();
@@ -53,7 +52,10 @@ describe('CitationViewer', () => {
     expect(screen.getByText('wording is close, not exact')).toBeInTheDocument();
     expect(screen.getByText('wording is close, not exact').parentElement).toHaveAttribute(
       'title',
-      expect.stringContaining('"fuzzy" match'),
+      expect.stringContaining('approximate'),
+    );
+    expect(screen.getByText('Technical details').parentElement).toHaveTextContent(
+      'match quality “fuzzy”',
     );
   });
 

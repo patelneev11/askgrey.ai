@@ -75,13 +75,13 @@ def test_each_cited_cell_links_to_its_sources_row() -> None:
         "Column",
         "Value",
         "Page",
-        "Match",
+        "Quote match",
         "Quote",
     ]
     assert [sources[f"A{row}"].value for row in (2, 3)] == ["C1", "C2"]
     assert sources["C2"].value == "sample size"
     assert sources["E2"].value == 1
-    assert sources["F2"].value == "exact"
+    assert sources["F2"].value == "exact wording"
     assert sources["G2"].value == "73 patients were randomized"
     assert sources["H2"].value == "p1-b4"
     assert sources["I2"].value == "58.1, 300.4, 296.1, 312.2"
@@ -91,7 +91,7 @@ def test_each_cited_cell_links_to_its_sources_row() -> None:
 def test_uncited_values_are_marked_and_not_linked() -> None:
     data, sources = sheets(write_xlsx(sample_table()).content)
 
-    assert data["E3"].value == "58 patients (unverified)"
+    assert data["E3"].value == "58 patients (no source found)"
     assert data["E3"].hyperlink is None
     assert data["E3"].font.italic is True
     assert data["F3"].value is None  # a not-found cell is written blank
@@ -103,8 +103,8 @@ def test_fuzzy_matches_are_recorded_as_such() -> None:
 
     data, sources = sheets(write_xlsx(fuzzy).content)
 
-    assert sources["F2"].value == "fuzzy"
-    assert "fuzzy match" in data["E2"].hyperlink.tooltip
+    assert sources["F2"].value == "close wording, not exact (fuzzy)"
+    assert "close wording, not exact (fuzzy)" in data["E2"].hyperlink.tooltip
 
 
 def test_formula_like_values_stay_text() -> None:
@@ -113,7 +113,7 @@ def test_formula_like_values_stay_text() -> None:
     data, _ = sheets(write_xlsx(injected).content)
 
     assert data["E2"].data_type == "s"
-    assert data["E2"].value == '=HYPERLINK("http://evil") (unverified)'
+    assert data["E2"].value == '=HYPERLINK("http://evil") (no source found)'
 
 
 def test_special_characters_survive_the_round_trip() -> None:

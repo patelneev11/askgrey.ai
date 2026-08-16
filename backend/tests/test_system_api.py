@@ -3,6 +3,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.core.dependency_health import health
 from app.core.llm_cost import get_meter
 
@@ -34,6 +35,30 @@ def test_liveness_stays_public_so_an_uptime_monitor_can_reach_it(client: TestCli
 def test_operational_detail_is_not_free_reconnaissance(client: TestClient) -> None:
     assert client.get("/api/status/dependencies").status_code == 401
     assert client.get("/api/status/llm-cost").status_code == 401
+    assert client.get("/api/status/capabilities").status_code == 401
+
+
+def test_capabilities_report_whether_extraction_can_run_at_all(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = auth_header(client)
+    settings = get_settings()
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    assert client.get("/api/status/capabilities", headers=headers).json() == {
+        "extraction_available": False
+    }
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "a-key")
+    assert client.get("/api/status/capabilities", headers=headers).json() == {
+        "extraction_available": True
+    }
+
+
+def test_capabilities_do_not_leak_the_key_itself(client: TestClient) -> None:
+    body = client.get("/api/status/capabilities", headers=auth_header(client)).json()
+
+    assert set(body) == {"extraction_available"}
 
 
 def test_every_known_dependency_is_listed_even_before_it_is_called(client: TestClient) -> None:

@@ -20,21 +20,19 @@ interface ReviewTableProps {
   busy?: boolean;
 }
 
-/** How each match quality is stated in plain words, without losing the underlying term. */
+/** How each match quality is stated in plain words. */
 const MATCH_WORDING: Record<MatchQuality, string> = {
-  exact: 'the quoted words appear on the page exactly as shown (an "exact" match)',
-  normalized:
-    'the quoted words appear on the page, with only spaces and line breaks tidied up before comparing (a "normalized" match)',
-  fuzzy:
-    'the passage is a close but not word-for-word match, so read it before relying on the value (a "fuzzy" match)',
+  exact: 'the quoted words appear on the page exactly as shown',
+  normalized: 'the quoted words appear on the page, with only spacing and line breaks differing',
+  fuzzy: 'the passage is close but not word-for-word, so read it before relying on the value',
 };
 
 /**
- * The precise locator — page number, internal text-block id and match quality — kept as a
- * tooltip so the surface can read as plain language without the detail being lost.
+ * What the citation means, in plain words, as the cell's tooltip. The precise locator (text
+ * block id, raw match quality) lives in the viewer's technical details, one click away.
  */
 function citationDetail(citation: Citation): string {
-  return `Page ${citation.page_number} of the PDF, text block ${citation.block_id}: ${MATCH_WORDING[citation.match]}. Click to see the passage highlighted on the page.`;
+  return `Page ${citation.page_number}: ${MATCH_WORDING[citation.match]}. Click to see the passage highlighted on the page, with the exact locator under "Technical details".`;
 }
 
 function CellContent({

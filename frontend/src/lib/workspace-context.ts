@@ -39,6 +39,8 @@ export interface WorkspaceContextValue {
   activeCell: string | null;
   /** False until the saved workspace has been read back, so the UI can avoid a flash. */
   restored: boolean;
+  /** False when the deployment has no model credentials, so no extraction can run at all. */
+  extractionAvailable: boolean;
   setGoal: (goal: string) => void;
   addFiles: (files: FileList | null) => void;
   addUrl: (url: string) => void;

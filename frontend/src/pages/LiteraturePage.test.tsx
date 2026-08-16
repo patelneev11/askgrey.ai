@@ -15,6 +15,7 @@ const exportTable = vi.fn();
 const loadWorkspace = vi.fn().mockResolvedValue({ goal: '', sources: [], table: null });
 const saveWorkspace = vi.fn().mockResolvedValue({ goal: '', sources: [], table: null });
 const documentPdf = vi.fn().mockRejectedValue(new Error('no stored copy'));
+const capabilities = vi.fn().mockResolvedValue({ extraction_available: true });
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -28,6 +29,7 @@ vi.mock('@/lib/api', async () => {
       loadWorkspace: (...args: unknown[]) => loadWorkspace(...args),
       saveWorkspace: (...args: unknown[]) => saveWorkspace(...args),
       documentPdf: (...args: unknown[]) => documentPdf(...args),
+      capabilities: (...args: unknown[]) => capabilities(...args),
     },
   };
 });
@@ -161,6 +163,21 @@ describe('LiteraturePage — dynamic column generation', () => {
     await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
     await user.click(screen.getByRole('button', { name: `Remove ${PAPER_URL}` }));
     expect(screen.getByText('Add at least one paper to generate columns.')).toBeInTheDocument();
+  });
+
+  it('says extraction is unconfigured up front rather than failing after the work is done', async () => {
+    capabilities.mockResolvedValueOnce({ extraction_available: false });
+    const user = userEvent.setup();
+    renderPage();
+
+    await addUrlSource(user);
+    await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
+
+    await waitFor(() =>
+      expect(screen.getByText(/no model credentials configured/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Generate columns' })).toBeDisabled();
+    expect(extractFromUrl).not.toHaveBeenCalled();
   });
 
   it('keeps the goal → column → citation explanation available once a table exists', async () => {

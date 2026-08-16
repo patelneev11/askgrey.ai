@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from "react";
 
-import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
-import { EmptyState } from '@/components/EmptyState';
-import { Panel } from '@/components/Panel';
-import { StatusPill } from '@/components/StatusPill';
-import { api } from '@/lib/api';
+import { Button } from "@/components/Button";
+import { CaveatBand } from "@/components/CaveatBand";
+import { EmptyState } from "@/components/EmptyState";
+import { Panel } from "@/components/Panel";
+import { StatusPill } from "@/components/StatusPill";
+import { api } from "@/lib/api";
 import {
   SOURCE_LABELS,
   daysUntilClose,
@@ -16,17 +16,17 @@ import {
   type GrantSearchQuery,
   type OpportunityMatch,
   type SourceStatus,
-} from '@/lib/grants';
-import { getAccessToken } from '@/lib/session';
+} from "@/lib/grants";
+import { getAccessToken } from "@/lib/session";
 
-import styles from './grants.module.css';
+import styles from "./grants.module.css";
 
 const EMPTY_QUERY: GrantSearchQuery = {
-  keyword: '',
-  agency: '',
-  program: '',
+  keyword: "",
+  agency: "",
+  program: "",
   open_only: true,
-  closing_before: '',
+  closing_before: "",
 };
 
 interface Results {
@@ -46,7 +46,7 @@ function key(opportunity: GrantOpportunity): string {
 }
 
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'The search failed.';
+  return cause instanceof Error ? cause.message : "The search failed.";
 }
 
 function ProviderStatus({ sources }: { sources: SourceStatus[] }) {
@@ -57,19 +57,29 @@ function ProviderStatus({ sources }: { sources: SourceStatus[] }) {
         <li key={status.source}>
           {status.ok ? (
             <StatusPill tone="validated">
-              {SOURCE_LABELS[status.source]} · {status.returned} of {status.total_count}
+              {SOURCE_LABELS[status.source]} · {status.returned} of{" "}
+              {status.total_count}
             </StatusPill>
           ) : (
             <StatusPill tone="warning">
-              {SOURCE_LABELS[status.source]} unavailable · {status.error || 'no response'}
+              {SOURCE_LABELS[status.source]} unavailable
             </StatusPill>
           )}
         </li>
       ))}
-      {sources.some((status) => status.source === 'sbir' && !status.ok) && (
+      {/* A pill cannot wrap, so the reason lives here, where the whole sentence stays readable. */}
+      {sources
+        .filter((status) => !status.ok)
+        .map((status) => (
+          <li key={`${status.source}-why`} className={styles.providerNote}>
+            {SOURCE_LABELS[status.source]}: {status.error || "no response"}
+          </li>
+        ))}
+      {sources.some((status) => status.source === "sbir" && !status.ok) && (
         <li className={styles.providerNote}>
-          SBIR/STTR solicitations that are cross-posted to grants.gov still appear above; those
-          only carried by SBIR.gov are missing from this result set.
+          SBIR/STTR solicitations that are cross-posted to grants.gov still
+          appear above; those only carried by SBIR.gov are missing from this
+          result set.
         </li>
       )}
     </ul>
@@ -84,7 +94,7 @@ function ProviderStatus({ sources }: { sources: SourceStatus[] }) {
  * calling a term-overlap count a model prediction would be a false claim about provenance.
  */
 function rankedByModel(matcher: string): boolean {
-  return matcher === 'claude';
+  return matcher === "claude";
 }
 
 function OpportunityCard({
@@ -102,19 +112,21 @@ function OpportunityCard({
     <article className={styles.opportunity}>
       <div className={styles.opportunityHead}>
         <span className={styles.eyebrow}>
-          {[opportunity.agency, opportunity.branch].filter(Boolean).join(' / ') ||
-            SOURCE_LABELS[opportunity.source]}
+          {[opportunity.agency, opportunity.branch]
+            .filter(Boolean)
+            .join(" / ") || SOURCE_LABELS[opportunity.source]}
         </span>
         {match && (
           <span
             className={styles.matchScore}
             title={
               semantic
-                ? 'Predicted fit from a language model reading the topic text'
-                : `Keyword overlap on ${match.matched_terms.join(', ') || 'no matched terms'}`
+                ? "Predicted fit from a language model reading the topic text"
+                : `Keyword overlap on ${match.matched_terms.join(", ") || "no matched terms"}`
             }
           >
-            {Math.round(match.score * 100)}% {semantic ? 'predicted fit' : 'term overlap'}
+            {Math.round(match.score * 100)}%{" "}
+            {semantic ? "predicted fit" : "term overlap"}
           </span>
         )}
       </div>
@@ -127,7 +139,9 @@ function OpportunityCard({
           opportunity.title
         )}
       </h3>
-      {opportunity.number && <code className={styles.code}>{opportunity.number}</code>}
+      {opportunity.number && (
+        <code className={styles.code}>{opportunity.number}</code>
+      )}
       <dl className={styles.facts}>
         <div>
           <dt>Ceiling</dt>
@@ -141,8 +155,8 @@ function OpportunityCard({
           <dt>Program</dt>
           <dd
             title={
-              opportunity.program_provenance === 'inferred'
-                ? 'grants.gov publishes no set-aside field; this was read out of the title and synopsis'
+              opportunity.program_provenance === "inferred"
+                ? "grants.gov publishes no set-aside field; this was read out of the title and synopsis"
                 : undefined
             }
           >
@@ -152,10 +166,14 @@ function OpportunityCard({
       </dl>
       {days !== null && (
         <span className={days < 30 ? styles.urgent : styles.calm}>
-          {days < 0 ? `closed ${Math.abs(days)} days ago` : `${days} days remaining`}
+          {days < 0
+            ? `closed ${Math.abs(days)} days ago`
+            : `${days} days remaining`}
         </span>
       )}
-      {match?.rationale && <p className={styles.rationale}>{match.rationale}</p>}
+      {match?.rationale && (
+        <p className={styles.rationale}>{match.rationale}</p>
+      )}
     </article>
   );
 }
@@ -169,22 +187,24 @@ function OpportunityCard({
  */
 export function OpportunityFinder() {
   const [query, setQuery] = useState<GrantSearchQuery>(EMPTY_QUERY);
-  const [focus, setFocus] = useState('');
+  const [focus, setFocus] = useState("");
   const [results, setResults] = useState<Results | null>(null);
-  const [running, setRunning] = useState<'search' | 'match' | null>(null);
+  const [running, setRunning] = useState<"search" | "match" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const update = <K extends keyof GrantSearchQuery>(field: K, value: GrantSearchQuery[K]) =>
-    setQuery((current) => ({ ...current, [field]: value }));
+  const update = <K extends keyof GrantSearchQuery>(
+    field: K,
+    value: GrantSearchQuery[K],
+  ) => setQuery((current) => ({ ...current, [field]: value }));
 
   const search = async () => {
-    setRunning('search');
+    setRunning("search");
     setError(null);
     try {
       const page = await api.searchGrants(query, getAccessToken());
       setResults({
         matched: false,
-        matcher: '',
+        matcher: "",
         opportunities: page.opportunities,
         scores: new Map(),
         sources: page.sources,
@@ -200,15 +220,21 @@ export function OpportunityFinder() {
   };
 
   const rank = async () => {
-    setRunning('match');
+    setRunning("match");
     setError(null);
     try {
-      const result = await api.matchGrants(focus.trim(), query, getAccessToken());
+      const result = await api.matchGrants(
+        focus.trim(),
+        query,
+        getAccessToken(),
+      );
       setResults({
         matched: true,
         matcher: result.matcher,
         opportunities: result.matches.map((match) => match.opportunity),
-        scores: new Map(result.matches.map((match) => [key(match.opportunity), match])),
+        scores: new Map(
+          result.matches.map((match) => [key(match.opportunity), match]),
+        ),
         sources: result.sources,
         totalCount: result.matches.length,
         candidatesConsidered: result.candidates_considered,
@@ -249,7 +275,7 @@ export function OpportunityFinder() {
             className={styles.input}
             value={query.keyword}
             maxLength={200}
-            onChange={(event) => update('keyword', event.target.value)}
+            onChange={(event) => update("keyword", event.target.value)}
             placeholder="metabolic disease therapeutics"
             autoComplete="off"
           />
@@ -263,7 +289,7 @@ export function OpportunityFinder() {
             className={styles.input}
             value={query.agency}
             maxLength={200}
-            onChange={(event) => update('agency', event.target.value)}
+            onChange={(event) => update("agency", event.target.value)}
             placeholder="NIH, BARDA, DoD"
             autoComplete="off"
           />
@@ -276,7 +302,12 @@ export function OpportunityFinder() {
             id="grants-program"
             className={styles.input}
             value={query.program}
-            onChange={(event) => update('program', event.target.value as GrantSearchQuery['program'])}
+            onChange={(event) =>
+              update(
+                "program",
+                event.target.value as GrantSearchQuery["program"],
+              )
+            }
           >
             <option value="">Any</option>
             <option value="SBIR">SBIR</option>
@@ -293,14 +324,14 @@ export function OpportunityFinder() {
             className={styles.input}
             type="date"
             value={query.closing_before}
-            onChange={(event) => update('closing_before', event.target.value)}
+            onChange={(event) => update("closing_before", event.target.value)}
           />
         </div>
         <label className={styles.checkbox}>
           <input
             type="checkbox"
             checked={query.open_only}
-            onChange={(event) => update('open_only', event.target.checked)}
+            onChange={(event) => update("open_only", event.target.checked)}
           />
           Open only
         </label>
@@ -320,13 +351,13 @@ export function OpportunityFinder() {
         </div>
         <div className={styles.searchActions}>
           <Button type="submit" variant="primary" disabled={running !== null}>
-            {running === 'match'
-              ? 'Ranking…'
-              : running === 'search'
-                ? 'Searching…'
+            {running === "match"
+              ? "Ranking…"
+              : running === "search"
+                ? "Searching…"
                 : focus.trim()
-                  ? 'Search and rank by focus'
-                  : 'Search'}
+                  ? "Search and rank by focus"
+                  : "Search"}
           </Button>
         </div>
       </form>
@@ -342,31 +373,34 @@ export function OpportunityFinder() {
       {results?.matched &&
         (rankedByModel(results.matcher) ? (
           <CaveatBand label="Unvalidated prediction.">
-            Fit percentages and the reasoning beside them are produced by a language model reading
-            each opportunity's topic text. They are not an agency assessment — read the solicitation
-            before deciding what to apply for.
+            Fit percentages and the reasoning beside them are produced by a
+            language model reading each opportunity's topic text. They are not
+            an agency assessment — read the solicitation before deciding what to
+            apply for.
           </CaveatBand>
         ) : (
           <CaveatBand label="Keyword ranking, not a semantic match.">
-            No language model ranked these{' '}
-            {results.matcher === 'claude+lexical'
-              ? 'because the model call failed'
-              : 'because none is configured'}
-            . The percentages are how many of your focus terms appear in each topic description —
-            they are not a prediction of fit and not an agency assessment. Read the solicitation
-            before deciding what to apply for.
+            No language model ranked these{" "}
+            {results.matcher === "claude+lexical"
+              ? "because the model call failed"
+              : "because none is configured"}
+            . The percentages are how many of your focus terms appear in each
+            topic description — they are not a prediction of fit and not an
+            agency assessment. Read the solicitation before deciding what to
+            apply for.
           </CaveatBand>
         ))}
 
       {results === null ? (
         <EmptyState title="No search run yet">
-          Filter by keyword, agency, set-aside or deadline and search. Results come from the
-          providers live; add a research focus to have the topics ranked against it.
+          Filter by keyword, agency, set-aside or deadline and search. Results
+          come from the providers live; add a research focus to have the topics
+          ranked against it.
         </EmptyState>
       ) : results.opportunities.length === 0 ? (
         <EmptyState title="No opportunities matched those filters">
-          The providers answered with nothing for this combination. Widen the keyword or clear the
-          deadline bound.
+          The providers answered with nothing for this combination. Widen the
+          keyword or clear the deadline bound.
         </EmptyState>
       ) : (
         <div className={styles.opportunities}>

@@ -338,11 +338,19 @@ def summarize(reviews: list[PersonaReview]) -> str:
         key=lambda score: -score.score,
     )
     weakest = ", ".join(dict.fromkeys(score.criterion for score in concerns[:3]))
+    if len(reviews) == 1:
+        # Naming the one persona as both extremes reads as a bug.
+        spread = f"scored by {harshest.persona_name} ({harshest.overall_score})"
+    elif harshest.overall_score == kindest.overall_score:
+        spread = f"every persona scored {harshest.overall_score}"
+    else:
+        spread = (
+            f"hardest from {harshest.persona_name} ({harshest.overall_score}), most favourable "
+            f"from {kindest.persona_name} ({kindest.overall_score})"
+        )
     return (
         f"{len(reviews)} persona(s) scored this section, mean overall {mean_overall} on the NIH "
-        f"1-9 scale where 1 is exceptional: hardest from {harshest.persona_name} "
-        f"({harshest.overall_score}), most favourable from {kindest.persona_name} "
-        f"({kindest.overall_score}). Weakest criteria: {weakest}. "
+        f"1-9 scale where 1 is exceptional: {spread}. Weakest criteria: {weakest}. "
         "These are LLM-generated scores, uncalibrated against real reviewer scores, and need a "
         "qualified human reviewer before they are relied on."
     )

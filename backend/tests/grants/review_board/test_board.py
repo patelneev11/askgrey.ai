@@ -48,6 +48,26 @@ async def test_the_report_carries_the_config_version_the_model_and_a_summary() -
     assert "NIH" in report.summary
 
 
+async def test_a_single_persona_summary_does_not_name_it_as_both_extremes() -> None:
+    report = await make_board().review(section(), [BIOSTATISTICIAN])
+
+    review = report.reviews[0]
+    assert f"scored by {review.persona_name} ({review.overall_score})" in report.summary
+    assert "most favourable" not in report.summary
+
+
+async def test_a_multi_persona_summary_reports_the_spread_across_personas() -> None:
+    report = await make_board().review(section())
+
+    scores = {review.overall_score for review in report.reviews}
+    if len(scores) == 1:
+        assert f"every persona scored {scores.pop()}" in report.summary
+    else:
+        assert "hardest from" in report.summary
+        assert "most favourable from" in report.summary
+    assert "scored by" not in report.summary
+
+
 async def test_the_report_states_in_the_payload_that_the_scores_are_unvalidated() -> None:
     report = await make_board().review(section())
     payload = report.model_dump()

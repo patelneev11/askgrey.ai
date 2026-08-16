@@ -222,3 +222,8 @@ class PreclinicalReport(BaseModel):
     audit: AuditSummary
     requires_expert_review: bool = True
     review_notice: str = REVIEW_NOTICE
+    # What wrote the narrative. `fixture_draft` is true only for the development-only fixture
+    # drafter, whose text contains deliberately wrong numbers; the UI has to be able to say so
+    # rather than presenting fixture output as a draft.
+    drafter: str = ""
+    fixture_draft: bool = False

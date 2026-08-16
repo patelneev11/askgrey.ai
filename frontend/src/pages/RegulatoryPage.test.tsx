@@ -67,6 +67,8 @@ const report = {
   },
   requires_expert_review: true,
   review_notice: NOTICE,
+  drafter: 'claude',
+  fixture_draft: false,
 };
 
 const structure = {
@@ -265,6 +267,42 @@ describe('Regulatory · preclinical', () => {
     expect(output.getByText(/Toxicokinetic exposure margins are not reported/)).toBeInTheDocument();
     // The notice the service attached to the section, not one the UI invented.
     expect(output.getAllByText(NOTICE).length).toBeGreaterThan(0);
+  });
+
+  it('marks a fixture draft as fixture output rather than showing it as a draft', async () => {
+    // The backend's development-only fixture drafter writes wrong numbers on purpose, which is
+    // the only way the flagged view is reachable through the running app.
+    preclinicalReport.mockResolvedValue({
+      ...report,
+      drafter: 'fixture-contradiction',
+      fixture_draft: true,
+    });
+    const user = userEvent.setup();
+    render(<RegulatoryPage />);
+
+    const inputs = region('Preclinical inputs');
+    await user.type(inputs.getByLabelText('Study id'), 'TOX-1');
+    await user.click(inputs.getByRole('button', { name: 'Draft narrative and audit numbers' }));
+
+    const output = region('Preclinical output');
+    expect(await output.findByText(/Fixture output, not a draft/)).toBeInTheDocument();
+    expect(output.getByText(/deliberately incorrect numbers/)).toBeInTheDocument();
+    expect(output.getByText(/fixture-contradiction/)).toBeInTheDocument();
+    // The flags it exists to surface are still rendered.
+    expect(output.getByText(/contradicted value/)).toBeInTheDocument();
+  });
+
+  it('does not call a model-drafted report fixture output', async () => {
+    const user = userEvent.setup();
+    render(<RegulatoryPage />);
+
+    const inputs = region('Preclinical inputs');
+    await user.type(inputs.getByLabelText('Study id'), 'TOX-1');
+    await user.click(inputs.getByRole('button', { name: 'Draft narrative and audit numbers' }));
+
+    const output = region('Preclinical output');
+    expect(await output.findByText('Results')).toBeInTheDocument();
+    expect(output.queryByText(/Fixture output/)).not.toBeInTheDocument();
   });
 
   it('shows a safe message when the draft fails and keeps the warning on screen', async () => {

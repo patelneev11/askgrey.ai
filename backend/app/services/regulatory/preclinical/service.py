@@ -5,6 +5,7 @@ from app.core.config import Settings, get_settings
 from .audit import AUDITOR_VERSION, audit_narrative
 from .drafter import ClaudeNarrativeDrafter, DraftedSection, NarrativeDrafter
 from .errors import DrafterUnavailableError, PreclinicalRequestError
+from .fixture import FIXTURE_DRAFTER_NAME, FixtureNarrativeDrafter
 from .models import SECTION_HEADINGS, NarrativeSection, PreclinicalReport, StudyTable
 
 
@@ -25,6 +26,9 @@ class PreclinicalService:
     def from_settings(cls, settings: Settings | None = None) -> PreclinicalService:
         settings = settings or get_settings()
         drafter: NarrativeDrafter | None = None
+        if settings.regulatory_fixture_drafter:
+            # Development only; `Settings` refuses this flag in any other environment.
+            return cls(FixtureNarrativeDrafter())
         if settings.anthropic_api_key:
             drafter = ClaudeNarrativeDrafter(
                 api_key=settings.anthropic_api_key,
@@ -79,11 +83,14 @@ class PreclinicalService:
             )
 
         discrepancies, summary = audit_narrative(sections, table)
+        drafter_name = self.drafter.name if self.drafter is not None else ""
         return PreclinicalReport(
             study_id=table.study_id,
             sections=sections,
             discrepancies=discrepancies,
             audit=summary,
+            drafter=drafter_name,
+            fixture_draft=drafter_name == FIXTURE_DRAFTER_NAME,
         )
 
 

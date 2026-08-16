@@ -8,9 +8,11 @@ from fastapi.testclient import TestClient
 
 from app.api import deps
 from app.api.regulatory import get_preclinical_service
+from app.core.config import Settings
 from app.main import app
 from app.services.regulatory import REVIEW_NOTICE
 from app.services.regulatory.preclinical import (
+    FIXTURE_DRAFTER_NAME,
     DraftedSection,
     DrafterError,
     PreclinicalService,
@@ -160,3 +162,45 @@ def test_the_endpoint_is_rate_limited_like_other_llm_endpoints(
 
     assert codes[:limit] == [200] * limit
     assert codes[-1] == 429
+
+
+def test_the_fixture_drafter_serves_a_flagged_report_through_the_endpoint(
+    client: TestClient,
+) -> None:
+    """
+    The audit's flagged view is otherwise unreachable through the app.
+
+    The model is instructed to copy the record verbatim and does, so a real request produces no
+    flags and the discrepancy UI never renders. With the development-only fixture drafter the
+    whole path — endpoint, audit, flags — is exercised, and the response says in its own body
+    that the narrative is fixture output rather than a draft.
+    """
+    settings = Settings(environment="development", regulatory_fixture_drafter=True)
+    app.dependency_overrides[get_preclinical_service] = lambda: PreclinicalService.from_settings(
+        settings
+    )
+    try:
+        response = client.post(ENDPOINT, json=TABLE, headers=auth_header(client))
+    finally:
+        app.dependency_overrides.pop(get_preclinical_service, None)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["fixture_draft"] is True
+    assert body["drafter"] == FIXTURE_DRAFTER_NAME
+    assert body["discrepancies"]
+    assert "contradicted_value" in {flag["kind"] for flag in body["discrepancies"]}
+    assert body["audit"]["numbers_flagged"] == len(body["discrepancies"])
+    assert all(
+        any("fixture" in gap.lower() for gap in section["gaps"]) for section in body["sections"]
+    )
+
+
+def test_a_real_report_is_not_marked_as_fixture_output(
+    client: TestClient, install: Callable[..., StubDrafter]
+) -> None:
+    install(DESIGN)
+
+    body = client.post(ENDPOINT, json=TABLE, headers=auth_header(client)).json()
+
+    assert body["fixture_draft"] is False

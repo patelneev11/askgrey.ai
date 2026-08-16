@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # token ceiling; the audit of what comes back is local and costs nothing.
     regulatory_max_tokens: int = 3072
     regulatory_timeout_seconds: float = 90.0
+    # Replaces the preclinical narrative drafter with a fixture that writes deliberately wrong
+    # numbers, so the audit's flagged view can be exercised through the running app. Refused
+    # outside development below: it produces text that is not a draft of anything.
+    regulatory_fixture_drafter: bool = False
 
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
@@ -117,6 +121,17 @@ class Settings(BaseSettings):
             raise ValueError(
                 "CORS_ORIGINS must list explicit origins outside development; '*' cannot be "
                 f"combined with credentialed requests (environment={self.environment!r})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_fixture_drafter_outside_development(self) -> "Settings":
+        """The fixture drafter fabricates numbers; a deployed process must not serve them."""
+        if self.regulatory_fixture_drafter and self.environment != "development":
+            raise ValueError(
+                "REGULATORY_FIXTURE_DRAFTER is a development-only test fixture that returns "
+                "deliberately incorrect numbers; it cannot be enabled when "
+                f"environment={self.environment!r}"
             )
         return self
 

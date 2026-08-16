@@ -8,6 +8,7 @@ from .errors import (
     PreclinicalError,
     PreclinicalRequestError,
 )
+from .fixture import FIXTURE_DRAFTER_NAME, FIXTURE_GAP, FixtureNarrativeDrafter
 from .models import (
     SECTION_HEADINGS,
     AuditSummary,
@@ -31,6 +32,8 @@ from .service import PreclinicalService
 
 __all__ = [
     "AUDITOR_VERSION",
+    "FIXTURE_DRAFTER_NAME",
+    "FIXTURE_GAP",
     "SECTION_HEADINGS",
     "AuditSummary",
     "ClaudeNarrativeDrafter",
@@ -42,6 +45,7 @@ __all__ = [
     "DrafterUnavailableError",
     "DraftedSection",
     "Finding",
+    "FixtureNarrativeDrafter",
     "GlpStatus",
     "Incidence",
     "Measurement",

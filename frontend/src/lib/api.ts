@@ -128,6 +128,14 @@ export interface PreclinicalReport {
   };
   requires_expert_review: boolean;
   review_notice: string;
+  /** What wrote the narrative. */
+  drafter: string;
+  /**
+   * True only for the backend's development-only fixture drafter, whose narrative contains
+   * deliberately wrong numbers so the audit's flagged view can be exercised. The UI must say so
+   * rather than presenting fixture output as a draft.
+   */
+  fixture_draft: boolean;
 }
 
 export type EvidenceKind =

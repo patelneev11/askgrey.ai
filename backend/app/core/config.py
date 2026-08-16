@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     sbir_rate_limit: float = 2.0
     grants_match_max_tokens: int = 2048
     grants_match_timeout_seconds: float = 45.0
+    # The mock review board makes one call per persona, each writing a scored review, so it
+    # gets a larger token allowance and a longer timeout than ranking does.
+    grants_review_max_tokens: int = 2048
+    grants_review_timeout_seconds: float = 60.0
 
     # PDF extraction. Documents are parsed locally; only the extracted text reaches the LLM.
     pdf_fetch_timeout_seconds: float = 30.0

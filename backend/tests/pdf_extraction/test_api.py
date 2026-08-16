@@ -6,6 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api import deps
 from app.api.pdf_extraction import MAX_UPLOAD_BYTES, get_pdf_extraction_service
 from app.main import app
 from app.services.pdf_extraction import PdfExtractionService, PdfFetcher, RawDataPoint
@@ -203,3 +204,112 @@ def test_missing_llm_credentials_is_503(
     response = upload(client, "trial_ziprasidone", headers=auth_header(client))
 
     assert response.status_code == 503
+
+
+OTHER_CREDENTIALS = {"email": "second@askgrey.ai", "password": "obsidian-workspace-2"}
+
+
+def second_user(client: TestClient) -> dict[str, str]:
+    tokens = client.post("/api/auth/register", json=OTHER_CREDENTIALS).json()
+    return {"Authorization": f"Bearer {tokens['access_token']}"}
+
+
+def test_an_uploaded_paper_can_be_read_back_for_its_citations(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT)
+    headers = auth_header(client)
+
+    document_id = upload(client, "trial_ziprasidone", headers=headers).json()["rows"][0][
+        "document_id"
+    ]
+    served = client.get(f"/api/literature/documents/{document_id}/pdf", headers=headers)
+
+    assert served.status_code == 200
+    assert served.headers["content-type"] == "application/pdf"
+    assert served.content == fixture_bytes("trial_ziprasidone")
+
+
+def test_a_linked_paper_is_stored_so_its_pages_render_like_an_upload(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT, fetch=httpx.Response(200, content=fixture_bytes("trial_ziprasidone")))
+    headers = auth_header(client)
+
+    response = client.post(
+        "/api/pdf-extraction/url",
+        json={"url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1234567/", "goal": GOAL},
+        headers=headers,
+    )
+    document_id = response.json()["rows"][0]["document_id"]
+
+    served = client.get(f"/api/literature/documents/{document_id}/pdf", headers=headers)
+    assert served.status_code == 200
+    assert served.content.startswith(b"%PDF-")
+
+
+def test_another_users_stored_paper_is_not_served(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT)
+    owner = auth_header(client)
+    document_id = upload(client, "trial_ziprasidone", headers=owner).json()["rows"][0][
+        "document_id"
+    ]
+
+    served = client.get(f"/api/literature/documents/{document_id}/pdf", headers=second_user(client))
+
+    assert served.status_code == 404
+
+
+def test_a_stored_paper_can_be_re_extracted_after_the_browser_forgot_it(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT)
+    headers = auth_header(client)
+    document_id = upload(client, "trial_ziprasidone", headers=headers).json()["rows"][0][
+        "document_id"
+    ]
+
+    response = client.post(
+        f"/api/pdf-extraction/documents/{document_id}",
+        json={"goal": "sample size"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["rows"][0]["document_id"] == document_id
+
+
+def test_re_extracting_someone_elses_document_is_404(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    install(POINT)
+    document_id = upload(client, "trial_ziprasidone", headers=auth_header(client)).json()["rows"][
+        0
+    ]["document_id"]
+
+    response = client.post(
+        f"/api/pdf-extraction/documents/{document_id}",
+        json={"goal": "sample size"},
+        headers=second_user(client),
+    )
+
+    assert response.status_code == 404
+
+
+def test_extraction_is_rate_limited_by_source_address_not_just_by_account(
+    client: TestClient, install: Callable[..., FetchTransport]
+) -> None:
+    """A second account from the same host must not reset the expensive-endpoint budget."""
+    install(POINT)
+    deps.llm_ip_limiter.limit = 2
+    try:
+        first = auth_header(client)
+        upload(client, "trial_ziprasidone", headers=first)
+        upload(client, "trial_ziprasidone", headers=first)
+        response = upload(client, "trial_ziprasidone", headers=second_user(client))
+    finally:
+        deps.llm_ip_limiter.limit = deps._settings.llm_ip_rate_limit_per_minute
+
+    assert response.status_code == 429

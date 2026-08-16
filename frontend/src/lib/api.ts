@@ -1,5 +1,16 @@
 import type { ExtractionTable } from './extraction';
 import { logger } from './observability';
+import type {
+  CalculationEntry,
+  ChecklistItem,
+  DraftRequest,
+  ElnExportPayload,
+  ProtocolDraft,
+  ProtocolHistory,
+  ProtocolReview,
+  RecalculationResponse,
+  SavedProtocol,
+} from './protocols';
 
 export type ExportFormat = 'xlsx' | 'csv';
 
@@ -39,6 +50,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
  */
 const DEFAULT_TIMEOUT_MS = 30_000;
 const EXTRACTION_TIMEOUT_MS = 180_000;
+// Drafting and control review each run a full model pass over a whole protocol.
+const DRAFT_TIMEOUT_MS = 120_000;
 
 export class ApiError extends Error {
   constructor(
@@ -235,4 +248,69 @@ export const api = {
       token,
       `review-table.${format}`,
     ),
+
+  /** Draft a protocol from a natural-language goal. LLM-backed and rate-limited server-side. */
+  draftProtocol: (body: DraftRequest, token?: string) =>
+    request<ProtocolDraft>(
+      '/protocols/draft',
+      { method: 'POST', body: JSON.stringify(body) },
+      token,
+      DRAFT_TIMEOUT_MS,
+    ),
+
+  /** Agent-drafted control findings plus the extracted reagent checklist. */
+  reviewControls: (protocol: ProtocolDraft, token?: string) =>
+    request<ProtocolReview>(
+      '/protocols/controls/review',
+      { method: 'POST', body: JSON.stringify({ protocol }) },
+      token,
+      DRAFT_TIMEOUT_MS,
+    ),
+
+  /** Deterministic extraction; available even when no model is configured. */
+  reagentChecklist: (protocol: ProtocolDraft, token?: string) =>
+    request<ChecklistItem[]>(
+      '/protocols/checklist',
+      { method: 'POST', body: JSON.stringify({ protocol }) },
+      token,
+    ),
+
+  /** Recalculate every inline calculator field in one batch; pure arithmetic, no model. */
+  recalculate: (entries: CalculationEntry[], batchScale: number | null, token?: string) =>
+    request<RecalculationResponse>(
+      '/protocols/calculator/recalculate',
+      { method: 'POST', body: JSON.stringify({ entries, batch_scale: batchScale }) },
+      token,
+    ),
+
+  saveProtocol: (protocol: ProtocolDraft, changeSummary: string, token?: string) =>
+    request<SavedProtocol>(
+      '/protocols',
+      { method: 'POST', body: JSON.stringify({ protocol, change_summary: changeSummary }) },
+      token,
+    ),
+
+  updateProtocol: (id: string, protocol: ProtocolDraft, changeSummary: string, token?: string) =>
+    request<SavedProtocol>(
+      `/protocols/${encodeURIComponent(id)}`,
+      { method: 'PUT', body: JSON.stringify({ protocol, change_summary: changeSummary }) },
+      token,
+    ),
+
+  protocolHistory: (id: string, token?: string) =>
+    request<ProtocolHistory>(`/protocols/${encodeURIComponent(id)}/history`, {}, token),
+
+  /**
+   * Build the Benchling entry payload for a protocol.
+   *
+   * Schema-ready and untested against a live Benchling account: the response carries
+   * `integration_status`, which the UI must surface rather than presenting this as a real export.
+   */
+  exportEln: (protocol: ProtocolDraft, folderId: string, token?: string) =>
+    request<ElnExportPayload>(
+      '/protocols/export/eln',
+      { method: 'POST', body: JSON.stringify({ protocol, folder_id: folderId }) },
+      token,
+    ),
 };
+

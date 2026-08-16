@@ -1,6 +1,11 @@
 import type { ExtractionTable } from './extraction';
 import { logger } from './observability';
-import type { AdmetProfile, DescriptorProfile, SuggestionSet } from './screening';
+import type {
+  AdmetProfile,
+  DescriptorProfile,
+  PatentLandscape,
+  SuggestionSet,
+} from './screening';
 
 export type ExportFormat = 'xlsx' | 'csv';
 
@@ -41,6 +46,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const EXTRACTION_TIMEOUT_MS = 180_000;
 const SUGGESTION_TIMEOUT_MS = 60_000;
+// The patent route talks to USPTO, which retries upstream before giving up.
+const PATENT_SEARCH_TIMEOUT_MS = 45_000;
 
 export class ApiError extends Error {
   constructor(
@@ -247,6 +254,20 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ smiles }) },
       token,
       SUGGESTION_TIMEOUT_MS,
+    ),
+
+  /**
+   * Keyword prior-art search over USPTO patent applications.
+   *
+   * Calls an external API, so it gets the longer allowance. Only the structure and keywords are
+   * sent: the endpoint takes no URL, and the upstream host is fixed server-side.
+   */
+  screeningPatents: (smiles: string, keywords: string, token?: string) =>
+    request<PatentLandscape>(
+      '/screening/patents/search',
+      { method: 'POST', body: JSON.stringify({ smiles, keywords }) },
+      token,
+      PATENT_SEARCH_TIMEOUT_MS,
     ),
 
   /** Render the review table as a workbook or CSV and hand back the file (Ticket 1.5). */

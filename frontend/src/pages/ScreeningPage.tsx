@@ -10,12 +10,14 @@ import { api } from '@/lib/api';
 import { logger } from '@/lib/observability';
 import {
   EXAMPLE_STRUCTURES,
+  PATENT_KEYWORDS_MAX_LENGTH,
   liabilityFlags,
   outcomeTone,
   smilesInputError,
   type AdmetEstimate,
   type AdmetProfile,
   type DescriptorProfile,
+  type PatentLandscape,
   type SuggestionSet,
 } from '@/lib/screening';
 import { getAccessToken } from '@/lib/session';
@@ -99,6 +101,10 @@ export function ScreeningPage() {
   const [suggesting, setSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [keywords, setKeywords] = useState('');
+  const [patents, setPatents] = useState<PatentLandscape | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [patentError, setPatentError] = useState<string | null>(null);
 
   const analyse = useCallback(async (smiles: string) => {
     const invalid = smilesInputError(smiles);
@@ -112,6 +118,8 @@ export function ScreeningPage() {
     setError(null);
     setSuggestionError(null);
     setSuggestions(null);
+    setPatentError(null);
+    setPatents(null);
     try {
       // Descriptors and ADMET are independent reads of the same structure, so they go together.
       const token = getAccessToken();
@@ -144,6 +152,20 @@ export function ScreeningPage() {
       setSuggesting(false);
     }
   }, [submitted]);
+
+  const searchPatents = useCallback(async () => {
+    if (!submitted) return;
+    setSearching(true);
+    setPatentError(null);
+    try {
+      setPatents(await api.screeningPatents(submitted, keywords.trim(), getAccessToken()));
+    } catch (cause) {
+      logger.warn('screening.patent_search_failed', {});
+      setPatentError(errorMessage(cause, 'Could not run the patent search.'));
+    } finally {
+      setSearching(false);
+    }
+  }, [keywords, submitted]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -396,6 +418,119 @@ export function ScreeningPage() {
                   ))}
                 </div>
                 <p className={styles.estimateNote}>{admet.alert_caveat}</p>
+              </section>
+
+              <section>
+                <h3 className={styles.sectionTitle}>Patent &amp; prior-art landscape</h3>
+                <CaveatBand label="Keyword search only">
+                  These are keyword matches in USPTO patent text — not a structural similarity
+                  search, not a novelty assessment and not freedom to operate. A registered patent
+                  attorney must review the landscape before any filing, licensing or FTO decision.
+                </CaveatBand>
+                <div className={styles.patentForm}>
+                  <label className={styles.label} htmlFor="screening-keywords">
+                    Scaffold or indication keywords (optional)
+                  </label>
+                  <input
+                    id="screening-keywords"
+                    className={styles.keywordInput}
+                    value={keywords}
+                    onChange={(event) => setKeywords(event.target.value)}
+                    maxLength={PATENT_KEYWORDS_MAX_LENGTH}
+                    autoComplete="off"
+                    placeholder="benzodioxole, antihistamine"
+                  />
+                  <Button size="sm" onClick={() => void searchPatents()} disabled={searching}>
+                    {searching ? 'Searching…' : 'Search prior art'}
+                  </Button>
+                </div>
+
+                {patents ? (
+                  <div className={styles.patents}>
+                    {/* What was actually sent upstream, so the hit list can be read as a
+                        function of those words rather than of the structure. */}
+                    <p className={styles.basis}>
+                      <span className={styles.noteLead}>Query used</span>
+                      <code className={styles.mono}>{patents.query.query_used}</code>
+                    </p>
+                    <p className={styles.estimateNote}>{patents.query.derivation}</p>
+                    <p className={styles.estimateNote}>{patents.query.field_scope}</p>
+                    {patents.query.structure && (
+                      <p className={styles.estimateNote}>{patents.query.structure.note}</p>
+                    )}
+                    <p className={styles.citation}>{patents.source}</p>
+
+                    {!patents.source_available ? (
+                      <p className={styles.unavailable}>
+                        <span className={styles.noteLead}>Source unavailable</span>
+                        {patents.source_status}
+                      </p>
+                    ) : patents.hits.length === 0 ? (
+                      <p className={styles.unavailable}>{patents.no_match_statement}</p>
+                    ) : (
+                      <>
+                        <p className={styles.estimateNote}>
+                          Showing {patents.returned}
+                          {patents.total_found !== null && ` of ${patents.total_found}`} keyword
+                          matches.
+                        </p>
+                        <ul className={styles.hits}>
+                          {patents.hits.map((hit) => (
+                            <li
+                              key={hit.application_number || hit.publication_number || hit.title}
+                              className={styles.hit}
+                            >
+                              <span className={styles.hitTitle}>{hit.title || 'untitled record'}</span>
+                              <span className={styles.hitMeta}>
+                                {[
+                                  hit.patent_number && `patent ${hit.patent_number}`,
+                                  hit.application_number && `application ${hit.application_number}`,
+                                  hit.filing_date && `filed ${hit.filing_date}`,
+                                  hit.status,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                              {hit.applicants.length > 0 && (
+                                <span className={styles.hitMeta}>
+                                  {hit.applicants.join(', ')}
+                                </span>
+                              )}
+                              {hit.url && (
+                                <a
+                                  className={styles.hitLink}
+                                  href={hit.url}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                >
+                                  Open the USPTO record
+                                </a>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+
+                    {patents.unavailable.map((entry) => (
+                      <p key={entry.key} className={styles.unavailable}>
+                        <span className={styles.noteLead}>{entry.label}: unavailable</span>
+                        {entry.reason} Requires: {entry.requires}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.estimateNote}>
+                    Run on request because it calls an external API. The search uses the molecular
+                    formula computed from this structure plus any keywords you add — the structure
+                    itself is never searched, because the source indexes text.
+                  </p>
+                )}
+                {patentError && (
+                  <p className={styles.error} role="alert">
+                    {patentError}
+                  </p>
+                )}
               </section>
 
               <section>

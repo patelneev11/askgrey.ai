@@ -243,3 +243,69 @@ export const EXAMPLE_STRUCTURES: ExampleStructure[] = [
     note: 'Large and polar — outside the passive-absorption region',
   },
 ];
+
+/* ---- Patents: keyword prior art, never structural novelty ---- */
+
+/** Mirrors `patents.models.QueryDerivation`. */
+export type QueryDerivation = 'keywords' | 'structure_formula' | 'structure_formula_and_keywords';
+
+export interface StructureBasis {
+  input_smiles: string;
+  canonical_smiles: string;
+  molecular_formula: string;
+  inchikey: string;
+  /** Always false on this source: it indexes text, not structures. */
+  searched_by_structure: boolean;
+  note: string;
+}
+
+export interface DerivedQuery {
+  query_used: string;
+  derived_from: QueryDerivation;
+  terms: string[];
+  derivation: string;
+  field_scope: string;
+  structure: StructureBasis | null;
+}
+
+export interface PatentHit {
+  application_number: string;
+  patent_number: string;
+  publication_number: string;
+  title: string;
+  abstract: string;
+  filing_date: string;
+  grant_date: string;
+  publication_date: string;
+  status: string;
+  applicants: string[];
+  inventors: string[];
+  cpc_classifications: string[];
+  url: string;
+}
+
+/**
+ * Mirrors `patents.models.PatentLandscape`.
+ *
+ * `source_available: false` is a normal outcome (the upstream API needs a key), and the UI must
+ * render `source_status` for it — an empty hit list from an unavailable source is not a finding.
+ */
+export interface PatentLandscape {
+  source: string;
+  source_available: boolean;
+  source_status: string;
+  query: DerivedQuery;
+  sort: string;
+  page_size: number;
+  offset: number;
+  returned: number;
+  total_found: number | null;
+  hits: PatentHit[];
+  /** Non-empty only when the search actually ran and matched nothing. */
+  no_match_statement: string;
+  caveat: string;
+  unavailable: UnavailableProperty[];
+}
+
+/** Matches `patents.query.MAX_KEYWORD_LENGTH`, so the box stops at the bound the server enforces. */
+export const PATENT_KEYWORDS_MAX_LENGTH = 200;

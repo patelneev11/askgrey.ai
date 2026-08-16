@@ -9,6 +9,7 @@ import type {
   AdmetEstimate,
   AdmetProfile,
   DescriptorProfile,
+  PatentLandscape,
   SuggestionSet,
 } from '@/lib/screening';
 
@@ -229,6 +230,73 @@ export function suggestionSet(overrides: Partial<SuggestionSet> = {}): Suggestio
     caveat:
       'Unvalidated heuristic suggestions, not predictions of activity or a synthesis route. Requires medicinal-chemist review.',
     validated: false,
+    ...overrides,
+  };
+}
+
+export function patentLandscape(overrides: Partial<PatentLandscape> = {}): PatentLandscape {
+  return {
+    source: 'USPTO Open Data Portal — Patent Search (patent applications)',
+    source_available: true,
+    source_status: '',
+    query: {
+      query_used: 'C32H41NO2 AND antihistamine',
+      derived_from: 'structure_formula_and_keywords',
+      terms: ['C32H41NO2', 'antihistamine'],
+      derivation:
+        'A structure was submitted, but the upstream index holds text rather than chemical structures. The search ran on the molecular formula RDKit computed from the structure (C32H41NO2) AND the keywords antihistamine — not on the structure itself.',
+      field_scope:
+        'Free-form text search across the indexed USPTO application fields (title, abstract and bibliographic metadata). Full claim text is not searched.',
+      structure: {
+        input_smiles: 'CC(C)(C)c1ccc(cc1)C(O)CCCN1CCC(CC1)C(O)(c1ccccc1)c1ccccc1',
+        canonical_smiles: 'CC(C)(C)c1ccc(C(O)CCCN2CCC(C(O)(c3ccccc3)c3ccccc3)CC2)cc1',
+        molecular_formula: 'C32H41NO2',
+        inchikey: 'GUGOEEXESWIERI-UHFFFAOYSA-N',
+        searched_by_structure: false,
+        note: 'The upstream API indexes text, not chemical structures, so the structure itself was never searched.',
+      },
+    },
+    sort: 'relevance',
+    page_size: 25,
+    offset: 0,
+    returned: 1,
+    total_found: 3,
+    hits: [
+      {
+        application_number: '10123456',
+        patent_number: '6242460',
+        publication_number: '',
+        title: 'Piperidine derivatives useful as antihistamines',
+        abstract: '',
+        filing_date: '1999-04-15',
+        grant_date: '2001-06-05',
+        publication_date: '',
+        status: 'Patented Case',
+        applicants: ['Example Pharma Inc.'],
+        inventors: [],
+        cpc_classifications: ['C07D211/22'],
+        url: 'https://ppubs.uspto.gov/dirsearch-public/patents/html/fullText?patentNumber=6242460',
+      },
+    ],
+    no_match_statement: '',
+    caveat:
+      'Keyword-based prior-art results from a text search of USPTO patent application titles, abstracts and bibliographic metadata. This is not a structural similarity search, not a novelty assessment and not a freedom-to-operate analysis.',
+    unavailable: [
+      {
+        key: 'structural_similarity_search',
+        label: 'Structural similarity / substructure prior-art search',
+        available: false,
+        reason: 'The integrated source is a keyword index over patent text and metadata.',
+        requires: 'A structure-searchable patent chemistry database plus a licence for it.',
+      },
+      {
+        key: 'novelty_score',
+        label: 'Novelty score',
+        available: false,
+        reason: 'Novelty is a legal determination over the whole body of prior art.',
+        requires: 'Claim-level analysis by a registered patent practitioner.',
+      },
+    ],
     ...overrides,
   };
 }

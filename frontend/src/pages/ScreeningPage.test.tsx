@@ -4,13 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api';
 import { setAccessToken } from '@/lib/session';
-import { admetProfile, descriptorProfile, suggestionSet } from '@/test/fixtures';
+import { admetProfile, descriptorProfile, patentLandscape, suggestionSet } from '@/test/fixtures';
 
 import { ScreeningPage } from './ScreeningPage';
 
 const screeningDescriptors = vi.fn();
 const screeningAdmet = vi.fn();
 const screeningSuggestions = vi.fn();
+const screeningPatents = vi.fn();
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -20,6 +21,7 @@ vi.mock('@/lib/api', async () => {
       screeningDescriptors: (...args: unknown[]) => screeningDescriptors(...args),
       screeningAdmet: (...args: unknown[]) => screeningAdmet(...args),
       screeningSuggestions: (...args: unknown[]) => screeningSuggestions(...args),
+      screeningPatents: (...args: unknown[]) => screeningPatents(...args),
     },
   };
 });
@@ -31,6 +33,7 @@ beforeEach(() => {
   screeningDescriptors.mockResolvedValue(descriptorProfile());
   screeningAdmet.mockResolvedValue(admetProfile());
   screeningSuggestions.mockResolvedValue(suggestionSet());
+  screeningPatents.mockResolvedValue(patentLandscape());
 });
 
 afterEach(() => {
@@ -235,5 +238,85 @@ describe('substituent suggestions', () => {
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Rate limit exceeded'));
     expect(screen.getAllByText('471.69 g/mol').length).toBeGreaterThan(0);
+  });
+});
+
+describe('the patent landscape', () => {
+  it('runs the keyword search on request and shows what was actually searched', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    expect(screeningPatents).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText(/keywords/i), 'antihistamine');
+    await user.click(screen.getByRole('button', { name: 'Search prior art' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Piperidine derivatives useful as antihistamines')).toBeInTheDocument(),
+    );
+    expect(screeningPatents).toHaveBeenCalledWith(TERFENADINE, 'antihistamine', 'token-123');
+    expect(screen.getByText('C32H41NO2 AND antihistamine')).toBeInTheDocument();
+    expect(screen.getByText(/not on the structure itself/)).toBeInTheDocument();
+    expect(screen.getByText('Showing 1 of 3 keyword matches.')).toBeInTheDocument();
+  });
+
+  it('never presents the hits as novelty or a structural search', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+    await user.click(screen.getByRole('button', { name: 'Search prior art' }));
+
+    await waitFor(() => expect(screen.getByText(/Novelty score: unavailable/)).toBeInTheDocument());
+    expect(
+      screen.getByText(/Structural similarity \/ substructure prior-art search: unavailable/),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('note')
+        .some((band) => /not a structural similarity\s+search, not a novelty assessment/i.test(band.textContent ?? '')),
+    ).toBe(true);
+  });
+
+  it('says the source was unavailable rather than letting an empty list read as no prior art', async () => {
+    screeningPatents.mockResolvedValue(
+      patentLandscape({
+        source_available: false,
+        source_status:
+          'The USPTO Open Data Portal search API requires a free API key (X-API-KEY) and none is configured for this deployment, so no patent search was performed. Nothing below is a search result.',
+        hits: [],
+        returned: 0,
+        total_found: null,
+        no_match_statement: '',
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+    await user.click(screen.getByRole('button', { name: 'Search prior art' }));
+
+    await waitFor(() => expect(screen.getByText('Source unavailable')).toBeInTheDocument());
+    expect(screen.getByText(/no patent search was performed/)).toBeInTheDocument();
+    expect(screen.queryByText(/keyword matches\./)).not.toBeInTheDocument();
+  });
+
+  it('spells out that no keyword match is not evidence of novelty', async () => {
+    screeningPatents.mockResolvedValue(
+      patentLandscape({
+        hits: [],
+        returned: 0,
+        total_found: 0,
+        no_match_statement:
+          'No keyword matches found for this query. This is not evidence of novelty: prior art may exist under different wording.',
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+    await user.click(screen.getByRole('button', { name: 'Search prior art' }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/This is not evidence of novelty/)).toBeInTheDocument(),
+    );
   });
 });

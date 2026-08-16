@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     pdf_extraction_context_chars: int = 40000
     pdf_extraction_max_pages: int = 40
 
+    # Screening. Descriptors are computed locally by RDKit; only the SMILES string and the
+    # descriptors computed from it are sent to Claude for substituent suggestions.
+    sar_suggestion_max_tokens: int = 2048
+    sar_suggestion_timeout_seconds: float = 45.0
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

@@ -6,6 +6,14 @@ from pydantic import BaseModel, Field
 from app.api.deps import LlmUser, ThrottledUser
 from app.services.screening import MAX_SMILES_LENGTH, InvalidStructureError
 from app.services.screening.admet import AdmetProfile, AdmetService
+from app.services.screening.patents import (
+    InvalidFilterError,
+    InvalidKeywordError,
+    PatentLandscape,
+    PatentRequestError,
+    PatentSearch,
+    PatentsService,
+)
 from app.services.screening.sar import DescriptorProfile, SarService, SuggestionSet
 
 router = APIRouter(prefix="/screening", tags=["screening"])
@@ -19,8 +27,13 @@ def get_admet_service() -> AdmetService:
     return AdmetService()
 
 
+def get_patents_service() -> PatentsService:
+    return PatentsService.from_settings()
+
+
 Sar = Annotated[SarService, Depends(get_sar_service)]
 Admet = Annotated[AdmetService, Depends(get_admet_service)]
+Patents = Annotated[PatentsService, Depends(get_patents_service)]
 
 
 class StructureRequest(BaseModel):
@@ -66,5 +79,29 @@ async def suggestions(
         return await service.suggestions(request.smiles)
     except InvalidStructureError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    finally:
+        await service.aclose()
+
+
+@router.post("/patents/search", response_model=PatentLandscape)
+async def patent_search(
+    _user: ThrottledUser,
+    service: Patents,
+    request: PatentSearch,
+) -> PatentLandscape:
+    """
+    Keyword prior-art search over USPTO patent applications. External HTTP, so throttled.
+
+    Not a structural search and not a novelty or FTO assessment: the response carries the
+    derived text query, a caveat, and an explicit unavailable entry for each of those.
+    """
+    try:
+        return await service.search(request)
+    except (InvalidStructureError, InvalidKeywordError, InvalidFilterError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    except PatentRequestError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "the patent search API rejected the derived query"
+        ) from exc
     finally:
         await service.aclose()

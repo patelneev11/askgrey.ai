@@ -4,6 +4,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from ..models import UnavailableProperty
+
 # One sentence, carried in the payload rather than left to the frontend, so the caveat cannot be
 # lost by a client that forgets to add it. The descriptor caveat is deliberately weaker than the
 # ADMET one: these values are deterministic calculations, not predictions of behaviour.
@@ -55,22 +57,6 @@ class RuleSet(BaseModel):
     compliant: bool
     violations: int
     checks: list[RuleCheck] = Field(default_factory=list)
-
-
-class UnavailableProperty(BaseModel):
-    """
-    A property this service refuses to estimate, and what it would take to produce it.
-
-    Modelled explicitly rather than omitted: a missing key reads as an oversight, while an
-    entry saying binding affinity needs a target structure and a docking pipeline is the
-    honest answer, and the frontend can render it.
-    """
-
-    key: str
-    label: str
-    available: bool = False
-    reason: str
-    requires: str
 
 
 class SuggestionSource(str, Enum):

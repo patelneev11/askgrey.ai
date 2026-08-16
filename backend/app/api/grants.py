@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import ClientIp, LlmUser, ThrottledUser
 from app.api.export import download_response
 from app.core import audit
+from app.core.config import get_settings
 from app.services.export import ExportError, ExportFormat
 from app.services.grants import (
     MAX_PAGE_SIZE,
@@ -37,6 +38,16 @@ from app.services.grants.eligibility import (
     EligibilityReport,
     RuleConfig,
 )
+from app.services.grants.review_board import (
+    MAX_TEXT_CHARS,
+    MIN_TEXT_CHARS,
+    BoardReport,
+    PersonaSummary,
+    ProposalSection,
+    ReviewBoard,
+    ReviewBoardError,
+    ReviewBoardUnavailableError,
+)
 
 router = APIRouter(prefix="/grants", tags=["grants"])
 
@@ -65,9 +76,14 @@ def get_budget_calculator() -> BudgetCalculator:
         ) from exc
 
 
+def get_review_board() -> ReviewBoard:
+    return ReviewBoard.from_settings()
+
+
 Service = Annotated[GrantsService, Depends(get_grants_service)]
 Checker = Annotated[EligibilityChecker, Depends(get_eligibility_checker)]
 Calculator = Annotated[BudgetCalculator, Depends(get_budget_calculator)]
+Board = Annotated[ReviewBoard, Depends(get_review_board)]
 
 
 class MatchRequest(BaseModel):
@@ -105,11 +121,38 @@ class EligibilityRequest(BaseModel):
     program: GrantProgram = GrantProgram.SBIR
 
 
+class ReviewBoardRequest(BaseModel):
+    """
+    Put one draft proposal section in front of the configured reviewer personas.
+
+    `text` is bounded at both ends: below the floor there is nothing for a persona to review,
+    and the ceiling is what one Claude call per persona is sized for.
+    """
+
+    section_name: str = Field(min_length=1, max_length=200)
+    program: str = Field(default="", max_length=100)
+    phase: str = Field(default="", max_length=100)
+    text: str = Field(min_length=MIN_TEXT_CHARS, max_length=MAX_TEXT_CHARS)
+    personas: list[str] = Field(default_factory=list, max_length=10)
+
+    def to_section(self) -> ProposalSection:
+        return ProposalSection(
+            section_name=self.section_name,
+            program=self.program,
+            phase=self.phase,
+            text=self.text,
+        )
+
+
 def _handle(exc: Exception) -> HTTPException:
     if isinstance(exc, InvalidQueryError):
         return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+    if isinstance(exc, ReviewBoardUnavailableError):
+        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     if isinstance(exc, MatchingError):
         return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    if isinstance(exc, ReviewBoardError):
+        return HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
     return HTTPException(status.HTTP_502_BAD_GATEWAY, f"grants request failed: {exc}")
 
 
@@ -221,3 +264,44 @@ def export_budget(
         detail={"format": fmt.value, "program": budget.program.value},
     )
     return response
+
+
+@router.get("/review-board/personas", response_model=list[PersonaSummary])
+def review_board_personas(_user: ThrottledUser, board: Board) -> list[PersonaSummary]:
+    """The enabled reviewer personas and what each scores. Their system prompts are not served."""
+    return board.personas()
+
+
+@router.post("/review-board", response_model=BoardReport)
+async def review_board(
+    user: LlmUser,
+    ip: ClientIp,
+    board: Board,
+    request: ReviewBoardRequest,
+) -> BoardReport:
+    """
+    Score a draft section against the configured personas.
+
+    The report carries `validation_status` and `caveat`, and it is 503 rather than a heuristic
+    score when no LLM is configured: nothing here invents a review.
+    """
+    try:
+        personas = board.select(request.personas or None)
+        # Note that draft proposal text left the deployment for the model vendor. Provenance
+        # only — never the draft itself, the persona prompts, or the scores.
+        audit.record(
+            "grant_section.sent_to_llm",
+            actor=str(user.id),
+            client_ip=ip,
+            detail={
+                "chars": len(request.text),
+                "personas": ",".join(persona.id for persona in personas),
+                "vendor": "anthropic",
+                "model": get_settings().llm_model,
+            },
+        )
+        return await board.review(request.to_section(), request.personas or None)
+    except (InvalidQueryError, ReviewBoardError) as exc:
+        raise _handle(exc) from exc
+    finally:
+        await board.aclose()

@@ -1,0 +1,146 @@
+{
+  "jurisdiction": "ema",
+  "version": "2026-08-ema-1",
+  "retrieved": "2026-08-16",
+  "notes": "Transcribed from Regulation (EU) No 536/2014 Annex I (IMPD contents, paragraphs 40-45) and from EMA/CHMP/QWP/545525/2017 Rev. 2 on chemical and pharmaceutical quality documentation for investigational medicinal products, both listed in docs/regulatory-sources.md. The EU asks for some things in terms FDA does not use - a critical analysis rather than a factual summary, an explicit GLP status statement, and representativeness of the test material - and those are the requirements most worth flagging on a draft written for an IND.",
+  "requirements": [
+    {
+      "id": "ema.quality.impd_module3_form",
+      "title": "Quality data presented in the CTD Module 3 structure",
+      "ctd_sections": ["3.2"],
+      "citation": {
+        "document": "Regulation (EU) No 536/2014, Annex I, paragraph 40 (IMPD quality data in Module 3 form)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32014R0536",
+        "document_date": "OJ L 158, 27.5.2014"
+      },
+      "expectation": "The quality part of an IMPD is expected in the logical structure of CTD Module 3, with the drug substance and drug product parts identifiable as such.",
+      "signals": [
+        { "all_of": ["drug substance", "drug product"] },
+        { "all_of": ["module 3"] },
+        { "all_of": ["impd", "quality"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "ema.quality.specification_and_batch_analysis",
+      "title": "Specification with analytical procedures and batch analysis data",
+      "ctd_sections": ["3.2.S.4", "3.2.P.5"],
+      "citation": {
+        "document": "EMA/CHMP/QWP/545525/2017 Rev. 2 - Guideline on the requirements for the chemical and pharmaceutical quality documentation concerning investigational medicinal products in clinical trials",
+        "url": "https://www.ema.europa.eu/en/requirements-chemical-pharmaceutical-quality-documentation-concerning-investigational-medicinal-products-clinical-trials-scientific-guideline",
+        "document_date": "Rev. 2, effective 31 January 2022"
+      },
+      "expectation": "The specification with its analytical procedures, plus batch analysis results for the batches used in the trial, so the stated limits can be seen to be met in practice.",
+      "signals": [
+        { "all_of": ["specification", "batch analysis"] },
+        { "all_of": ["certificate of analysis"] },
+        { "all_of": ["acceptance criteria", "batch"] },
+        { "all_of": ["analytical procedure", "validation"] }
+      ],
+      "negative_signals": ["batch data to be provided"]
+    },
+    {
+      "id": "ema.quality.impurity_profile",
+      "title": "Impurity profile with limits and their qualification",
+      "ctd_sections": ["3.2.S.3", "3.2.P.5"],
+      "citation": {
+        "document": "EMA/CHMP/QWP/545525/2017 Rev. 2 - chemical and pharmaceutical quality documentation for investigational medicinal products",
+        "url": "https://www.ema.europa.eu/en/requirements-chemical-pharmaceutical-quality-documentation-concerning-investigational-medicinal-products-clinical-trials-scientific-guideline",
+        "document_date": "Rev. 2, effective 31 January 2022"
+      },
+      "expectation": "The impurities actually observed, the limits proposed for them, and the basis on which those limits are qualified - including degradation products and residual solvents where relevant.",
+      "signals": [
+        { "all_of": ["impurity profile"] },
+        { "all_of": ["impurities", "limit"] },
+        { "all_of": ["degradation products", "specification"] },
+        { "all_of": ["residual solvents"] }
+      ],
+      "negative_signals": ["impurity data to be provided"]
+    },
+    {
+      "id": "ema.quality.manufacturing_process_and_controls",
+      "title": "Manufacturing process description with sites and in-process controls",
+      "ctd_sections": ["3.2.S.2", "3.2.P.3"],
+      "citation": {
+        "document": "EMA/CHMP/QWP/545525/2017 Rev. 2 - chemical and pharmaceutical quality documentation for investigational medicinal products",
+        "url": "https://www.ema.europa.eu/en/requirements-chemical-pharmaceutical-quality-documentation-concerning-investigational-medicinal-products-clinical-trials-scientific-guideline",
+        "document_date": "Rev. 2, effective 31 January 2022"
+      },
+      "expectation": "A description of the manufacturing process with the manufacturing sites named and the in-process controls that keep it within its intended range.",
+      "signals": [
+        { "all_of": ["manufacturing process", "in process control"] },
+        { "all_of": ["manufacturing site", "process"] },
+        { "all_of": ["process description", "control"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "ema.quality.test_material_representative",
+      "title": "Test material's impurity profile confirmed representative of clinical material",
+      "ctd_sections": ["3.2.S", "3.2.P", "4.2"],
+      "citation": {
+        "document": "Regulation (EU) No 536/2014, Annex I, paragraph 45 (representativeness of the test material)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32014R0536",
+        "document_date": "OJ L 158, 27.5.2014"
+      },
+      "expectation": "An explicit statement that the material used in the nonclinical studies is representative of the clinical trial material, in particular that its impurity profile is representative - a bridge FDA-oriented drafts frequently leave implicit.",
+      "signals": [
+        { "all_of": ["representative", "clinical material"] },
+        { "all_of": ["impurity profile", "representative"] },
+        { "all_of": ["batches used", "toxicology", "clinical"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "ema.nonclinical.module4_form",
+      "title": "Non-clinical pharmacology and toxicology data presented in Module 4 form",
+      "ctd_sections": ["4.2", "4.3"],
+      "citation": {
+        "document": "Regulation (EU) No 536/2014, Annex I, paragraphs 41-42 (non-clinical data in Module 4 form)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32014R0536",
+        "document_date": "OJ L 158, 27.5.2014"
+      },
+      "expectation": "The pharmacology and toxicology data organised as Module 4 would organise it: primary and secondary pharmacodynamics, pharmacokinetics, and toxicology, each identifiable.",
+      "signals": [
+        { "all_of": ["non clinical", "pharmacology", "toxicology"] },
+        { "all_of": ["module 4"] },
+        { "all_of": ["pharmacodynamics", "toxicology"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "ema.nonclinical.critical_analysis",
+      "title": "Critical analysis of the non-clinical data, including justification for omitted data",
+      "ctd_sections": ["4.2", "2.4", "2.6"],
+      "citation": {
+        "document": "Regulation (EU) No 536/2014, Annex I, paragraph 43 (critical analysis; a factual summary is not sufficient)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32014R0536",
+        "document_date": "OJ L 158, 27.5.2014"
+      },
+      "expectation": "A critical analysis of the data, including a justification for data that were omitted and for departures from the expected package. Annex I is explicit that a factual summary of the studies performed is not sufficient.",
+      "signals": [
+        { "all_of": ["critical analysis"] },
+        { "all_of": ["critical assessment", "justification"] },
+        { "all_of": ["justification", "omitted"] },
+        { "all_of": ["justification", "absence of"] }
+      ],
+      "negative_signals": []
+    },
+    {
+      "id": "ema.nonclinical.glp_status",
+      "title": "GLP status stated for the non-clinical studies",
+      "ctd_sections": ["4.2", "4.3", "2.6"],
+      "citation": {
+        "document": "Regulation (EU) No 536/2014, Annex I, paragraph 44 (statement of the GLP status of the studies)",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32014R0536",
+        "document_date": "OJ L 158, 27.5.2014"
+      },
+      "expectation": "A statement of the GLP status of each non-clinical study referred to, not merely a general assurance that studies were well conducted.",
+      "signals": [
+        { "all_of": ["glp"] },
+        { "all_of": ["good laboratory practice"] }
+      ],
+      "negative_signals": ["glp status to be confirmed"]
+    }
+  ]
+}

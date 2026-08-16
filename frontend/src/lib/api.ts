@@ -1,4 +1,14 @@
 import type { ExtractionTable } from './extraction';
+import type {
+  BudgetRequest,
+  CompanyProfile,
+  EligibilityReport,
+  GrantBudget,
+  GrantPage,
+  GrantProgram,
+  GrantSearchQuery,
+  MatchResult,
+} from './grants';
 import { logger } from './observability';
 
 export type ExportFormat = 'xlsx' | 'csv';
@@ -39,6 +49,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
  */
 const DEFAULT_TIMEOUT_MS = 30_000;
 const EXTRACTION_TIMEOUT_MS = 180_000;
+/** Semantic matching is one LLM pass over a page of opportunities, not a full paper. */
+const LLM_TIMEOUT_MS = 120_000;
 
 export class ApiError extends Error {
   constructor(
@@ -234,5 +246,60 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ table, options }) },
       token,
       `review-table.${format}`,
+    ),
+
+  /** Filtered opportunity search across the enabled providers (Ticket 4.1). */
+  searchGrants: (query: GrantSearchQuery, token?: string) => {
+    const params = new URLSearchParams();
+    if (query.keyword.trim()) params.set('keyword', query.keyword.trim());
+    if (query.agency.trim()) params.set('agency', query.agency.trim());
+    if (query.program) params.set('program', query.program);
+    if (query.closing_before) params.set('closing_before', query.closing_before);
+    params.set('open_only', String(query.open_only));
+    return request<GrantPage>(`/grants/search?${params.toString()}`, {}, token);
+  },
+
+  /** Rank the same search by how well each topic matches a research focus (LLM-backed). */
+  matchGrants: (focus: string, query: GrantSearchQuery, token?: string) =>
+    request<MatchResult>(
+      '/grants/match',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          focus,
+          keyword: query.keyword.trim(),
+          agency: query.agency.trim(),
+          program: query.program || null,
+          open_only: query.open_only,
+          closing_before: query.closing_before || null,
+        }),
+      },
+      token,
+      LLM_TIMEOUT_MS,
+    ),
+
+  /** Deterministic SBIR/STTR eligibility screen against the editable rule set (Ticket 4.2). */
+  checkEligibility: (profile: CompanyProfile, program: GrantProgram, token?: string) =>
+    request<EligibilityReport>(
+      '/grants/eligibility',
+      { method: 'POST', body: JSON.stringify({ profile, program }) },
+      token,
+    ),
+
+  /** Cost line items into SF-424 (R&R) shape under the configured federal rules (Ticket 4.3). */
+  buildBudget: (budget: BudgetRequest, token?: string) =>
+    request<GrantBudget>(
+      '/grants/budget',
+      { method: 'POST', body: JSON.stringify(budget) },
+      token,
+    ),
+
+  /** The same budget as a file, rendered by the shared exporter. */
+  exportBudget: (budget: BudgetRequest, format: ExportFormat, token?: string) =>
+    download(
+      `/grants/budget/export?format=${format}`,
+      { method: 'POST', body: JSON.stringify(budget) },
+      token,
+      `grant-budget.${format}`,
     ),
 };

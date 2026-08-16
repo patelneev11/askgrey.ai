@@ -58,10 +58,10 @@ function page(overrides: Partial<GrantPage> = {}): GrantPage {
   };
 }
 
-function matchResult(): MatchResult {
+function matchResult(overrides: Partial<MatchResult> = {}): MatchResult {
   return {
     focus: 'GLP-1 co-agonists',
-    matcher: 'claude-sonnet-4-5',
+    matcher: 'claude',
     candidates_considered: 12,
     matches: [
       {
@@ -72,6 +72,7 @@ function matchResult(): MatchResult {
       },
     ],
     sources: [{ source: 'grants_gov', ok: true, total_count: 41, returned: 12, error: '' }],
+    ...overrides,
   };
 }
 
@@ -154,6 +155,33 @@ describe('opportunity search', () => {
       /Unvalidated prediction.*produced by a language model/i,
     );
     expect(searchGrants).not.toHaveBeenCalled();
+  });
+
+  it('does not attribute a keyword ranking to a language model', async () => {
+    const user = userEvent.setup();
+    matchGrants.mockResolvedValue(matchResult({ matcher: 'lexical' }));
+    render(<OpportunityFinder />);
+
+    await user.type(screen.getByLabelText(/Research focus/), 'GLP-1 co-agonists');
+    await user.click(screen.getByRole('button', { name: 'Search and rank by focus' }));
+
+    expect(await screen.findByText('92% term overlap')).toBeInTheDocument();
+    expect(screen.queryByText(/predicted fit/)).not.toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(
+      /Keyword ranking, not a semantic match.*because none is configured/is,
+    );
+  });
+
+  it('says so when the model call failed and the keyword ranker stood in', async () => {
+    const user = userEvent.setup();
+    matchGrants.mockResolvedValue(matchResult({ matcher: 'claude+lexical' }));
+    render(<OpportunityFinder />);
+
+    await user.type(screen.getByLabelText(/Research focus/), 'GLP-1 co-agonists');
+    await user.click(screen.getByRole('button', { name: 'Search and rank by focus' }));
+
+    expect(await screen.findByText('92% term overlap')).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(/because the model call failed/i);
   });
 
   it('reports a failed search instead of showing stale or invented results', async () => {

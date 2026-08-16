@@ -300,8 +300,8 @@ class ReviewBoard:
         reviewer = self.reviewer
         if reviewer is None:
             raise ReviewBoardUnavailableError(
-                "the mock review board requires an LLM key; set ANTHROPIC_API_KEY. No scores "
-                "are produced without one."
+                "the mock review board requires an LLM key (ANTHROPIC_API_KEY); no scores are "
+                "produced without one"
             )
         # Concurrent because the personas are independent; a persona that fails fails the
         # report, since a board missing a reviewer is not the board that was asked for.

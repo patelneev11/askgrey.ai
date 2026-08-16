@@ -31,6 +31,8 @@ const EMPTY_QUERY: GrantSearchQuery = {
 interface Results {
   /** Present only when the ranking came from the matcher, so nothing else claims a fit score. */
   matched: boolean;
+  /** `"claude"`, `"lexical"` or `"claude+lexical"` — what actually produced the scores. */
+  matcher: string;
   opportunities: GrantOpportunity[];
   scores: Map<string, OpportunityMatch>;
   sources: SourceStatus[];
@@ -67,12 +69,25 @@ function ProviderStatus({ sources }: { sources: SourceStatus[] }) {
   );
 }
 
+/**
+ * Whether a language model actually ranked this result set.
+ *
+ * The backend falls through to a keyword ranker when no key is configured or Claude fails, and
+ * reports that as `lexical` / `claude+lexical`. The label and the caveat both have to follow it:
+ * calling a term-overlap count a model prediction would be a false claim about provenance.
+ */
+function rankedByModel(matcher: string): boolean {
+  return matcher === 'claude';
+}
+
 function OpportunityCard({
   opportunity,
   match,
+  semantic,
 }: {
   opportunity: GrantOpportunity;
   match?: OpportunityMatch;
+  semantic: boolean;
 }) {
   const days = daysUntilClose(opportunity);
 
@@ -84,8 +99,15 @@ function OpportunityCard({
             SOURCE_LABELS[opportunity.source]}
         </span>
         {match && (
-          <span className={styles.matchScore} title={`Predicted fit from ${match.matched_terms.length} matched terms`}>
-            {Math.round(match.score * 100)}% predicted fit
+          <span
+            className={styles.matchScore}
+            title={
+              semantic
+                ? 'Predicted fit from a language model reading the topic text'
+                : `Keyword overlap on ${match.matched_terms.join(', ') || 'no matched terms'}`
+            }
+          >
+            {Math.round(match.score * 100)}% {semantic ? 'predicted fit' : 'term overlap'}
           </span>
         )}
       </div>
@@ -147,6 +169,7 @@ export function OpportunityFinder() {
       const page = await api.searchGrants(query, getAccessToken());
       setResults({
         matched: false,
+        matcher: '',
         opportunities: page.opportunities,
         scores: new Map(),
         sources: page.sources,
@@ -168,6 +191,7 @@ export function OpportunityFinder() {
       const result = await api.matchGrants(focus.trim(), query, getAccessToken());
       setResults({
         matched: true,
+        matcher: result.matcher,
         opportunities: result.matches.map((match) => match.opportunity),
         scores: new Map(result.matches.map((match) => [key(match.opportunity), match])),
         sources: result.sources,
@@ -300,13 +324,24 @@ export function OpportunityFinder() {
 
       {results && <ProviderStatus sources={results.sources} />}
 
-      {results?.matched && (
-        <CaveatBand label="Unvalidated prediction.">
-          Fit percentages and the reasoning beside them are produced by a language model reading
-          each opportunity's topic text. They are not an agency assessment — read the solicitation
-          before deciding what to apply for.
-        </CaveatBand>
-      )}
+      {results?.matched &&
+        (rankedByModel(results.matcher) ? (
+          <CaveatBand label="Unvalidated prediction.">
+            Fit percentages and the reasoning beside them are produced by a language model reading
+            each opportunity's topic text. They are not an agency assessment — read the solicitation
+            before deciding what to apply for.
+          </CaveatBand>
+        ) : (
+          <CaveatBand label="Keyword ranking, not a semantic match.">
+            No language model ranked these{' '}
+            {results.matcher === 'claude+lexical'
+              ? 'because the model call failed'
+              : 'because none is configured'}
+            . The percentages are how many of your focus terms appear in each topic description —
+            they are not a prediction of fit and not an agency assessment. Read the solicitation
+            before deciding what to apply for.
+          </CaveatBand>
+        ))}
 
       {results === null ? (
         <EmptyState title="No search run yet">
@@ -325,6 +360,7 @@ export function OpportunityFinder() {
               key={key(opportunity)}
               opportunity={opportunity}
               match={results.scores.get(key(opportunity))}
+              semantic={rankedByModel(results.matcher)}
             />
           ))}
         </div>

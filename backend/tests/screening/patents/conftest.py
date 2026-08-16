@@ -58,6 +58,11 @@ def status_handler(status_code: int) -> Handler:
     return lambda _query: httpx.Response(status_code, json={"error": "upstream said no"})
 
 
+def no_match_handler() -> Handler:
+    """Upstream's real answer to a search that matched nothing: 404, not an empty 200."""
+    return lambda _query: httpx.Response(404, json=load_json_fixture("search_no_match_404.json"))
+
+
 def timeout_handler() -> Handler:
     def handle(_query: Query) -> httpx.Response:
         raise httpx.ConnectTimeout("timed out")

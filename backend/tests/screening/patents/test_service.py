@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
+import httpx
 import pytest
 
+from app.core.config import get_settings
 from app.services.rate_limit import RateLimiter
 from app.services.screening.patents import (
     NO_MATCH_STATEMENT,
@@ -20,6 +22,7 @@ from tests.screening.patents.conftest import (
     fixture_handler,
     json_handler,
     make_service,
+    no_match_handler,
     status_handler,
     timeout_handler,
 )
@@ -31,15 +34,18 @@ ASPIRIN = "CC(=O)OC1=CC=CC=C1C(=O)O"
 async def test_search_returns_the_parsed_upstream_page() -> None:
     service, transport = make_service(fixture_handler("search_page1.json"))
 
-    landscape = await service.search(PatentSearch(keywords="salicylate prodrug"))
+    landscape = await service.search(PatentSearch(keywords="salicylate composition"))
     await service.aclose()
 
     assert landscape.source_available is True
-    assert landscape.returned == 2
-    assert landscape.total_found == 37
-    assert landscape.hits[0].patent_number == "10945998"
+    assert landscape.returned == 3
+    # Upstream's `count` is the whole match set, not this page: 16 matches, 3 records returned.
+    assert landscape.total_found == 16
+    assert landscape.hits[0].title == "Salicylate Compound Composition"
     assert landscape.no_match_statement == ""
-    assert transport.last_query()["q"] == ["salicylate AND prodrug"]
+    # Every term required, in the upstream's own operator: a literal `AND` would be searched
+    # as a word, since this API defaults to OR.
+    assert transport.last_query()["q"] == ["+salicylate +composition"]
 
 
 @pytest.mark.asyncio
@@ -55,18 +61,61 @@ async def test_search_sends_only_query_parameters_to_the_configured_host() -> No
 
 
 @pytest.mark.asyncio
-async def test_empty_results_carry_the_no_match_statement() -> None:
-    service, _ = make_service(fixture_handler("search_empty.json"))
+async def test_granted_records_carry_the_grant_metadata_upstream_reported() -> None:
+    service, _ = make_service(fixture_handler("search_granted.json"))
 
-    landscape = await service.search(PatentSearch(keywords="unobtainium widget"))
+    landscape = await service.search(PatentSearch(keywords="aspirin crystalline"))
+    await service.aclose()
+
+    hit = landscape.hits[0]
+    assert (hit.patent_number, hit.grant_date) == ("12048708", "2024-07-30")
+    assert hit.applicants == ["RHOSHAN PHARMACEUTICALS, INC."]
+    assert hit.url == "https://data.uspto.gov/ui/patent/applications/17406285"
+    # Two records off a seven-match set, so the landscape must report seven.
+    assert (landscape.returned, landscape.total_found) == (2, 7)
+
+
+@pytest.mark.asyncio
+async def test_a_search_that_matched_nothing_is_a_result_not_a_degraded_source() -> None:
+    """Upstream reports a zero-hit search as 404; reporting that as an outage would be a lie."""
+    service, _ = make_service(no_match_handler())
+
+    landscape = await service.search(PatentSearch(keywords="zzqxwvtherm nonexistentterm"))
     await service.aclose()
 
     assert landscape.source_available is True
+    assert landscape.source_status == ""
     assert landscape.returned == 0
     assert landscape.total_found == 0
     assert landscape.hits == []
     assert landscape.no_match_statement == NO_MATCH_STATEMENT
     assert "not evidence of novelty" in landscape.no_match_statement
+
+
+@pytest.mark.asyncio
+async def test_a_404_that_is_not_a_no_match_answer_degrades_instead_of_reporting_zero_hits() -> (
+    None
+):
+    """A 404 from a moved endpoint must never read as "no prior art found"."""
+    service, _ = make_service(status_handler(404))
+
+    landscape = await service.search(PatentSearch(keywords="salicylate"))
+    await service.aclose()
+
+    assert landscape.source_available is False
+    assert landscape.no_match_statement == ""
+    assert "did not answer" in landscape.source_status
+
+
+@pytest.mark.asyncio
+async def test_a_404_with_an_unreadable_body_degrades_too() -> None:
+    service, _ = make_service(lambda _query: httpx.Response(404, text="<html>gone</html>"))
+
+    landscape = await service.search(PatentSearch(keywords="salicylate"))
+    await service.aclose()
+
+    assert landscape.source_available is False
+    assert landscape.no_match_statement == ""
 
 
 @pytest.mark.asyncio
@@ -86,7 +135,7 @@ async def test_an_unconfigured_key_reports_the_source_unavailable_without_callin
     # No search ran, so nothing may be described as "no matches found".
     assert landscape.no_match_statement == ""
     # The derived query is still reported, so the UI can show what would have been searched.
-    assert landscape.query.query_used == "salicylate"
+    assert landscape.query.query_used == "+salicylate"
 
 
 @pytest.mark.parametrize("status_code", [401, 403, 404, 429, 500, 503])
@@ -170,7 +219,10 @@ async def test_the_outbound_rate_limiter_spaces_requests(no_sleep: list[float]) 
 
 @pytest.mark.asyncio
 async def test_from_settings_leaves_the_source_unavailable_without_a_key() -> None:
-    service = PatentsService.from_settings()
+    # An explicit empty key rather than the ambient settings, so a key in a developer's local
+    # .env cannot make this pass or fail for the wrong reason.
+    settings = get_settings().model_copy(update={"uspto_odp_api_key": ""})
+    service = PatentsService.from_settings(settings)
 
     assert service.client.configured is False
     assert service.client.base_url == "https://api.uspto.gov/api/v1"
@@ -185,7 +237,7 @@ def test_params_carry_paging_and_the_sort_expression() -> None:
     params = build_params(search, build_query(search).query_used)
 
     assert params == {
-        "q": "salicylate",
+        "q": "+salicylate",
         "limit": "10",
         "offset": "20",
         "sort": "applicationMetaData.filingDate desc",

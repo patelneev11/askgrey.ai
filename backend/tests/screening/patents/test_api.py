@@ -14,6 +14,7 @@ from tests.screening.patents.conftest import (
     Handler,
     fixture_handler,
     make_service,
+    no_match_handler,
     status_handler,
 )
 
@@ -55,17 +56,20 @@ def test_search_requires_authentication(
 def test_search_returns_hits_with_the_derived_query(
     client: TestClient, stub_service: Callable[..., None]
 ) -> None:
-    response = search(client, {"keywords": "salicylate prodrug", "page_size": 10})
+    response = search(client, {"keywords": "salicylate composition", "page_size": 10})
 
     assert response.status_code == 200
     body = response.json()
     assert body["source_available"] is True
-    assert body["query"]["query_used"] == "salicylate AND prodrug"
+    assert body["query"]["query_used"] == "+salicylate +composition"
     assert body["query"]["derived_from"] == "keywords"
-    assert body["returned"] == 2
-    assert body["total_found"] == 37
-    assert body["hits"][0]["application_number"] == "16123456"
+    assert body["returned"] == 3
+    assert body["total_found"] == 16
+    assert body["hits"][0]["application_number"] == "19389155"
     assert body["page_size"] == 10
+    # No abstract column: this dataset carries none, and an always-empty one would suggest the
+    # search read abstracts.
+    assert "abstract" not in body["hits"][0]
 
 
 def test_a_smiles_search_says_the_structure_itself_was_not_searched(
@@ -73,7 +77,7 @@ def test_a_smiles_search_says_the_structure_itself_was_not_searched(
 ) -> None:
     body = search(client, {"smiles": ASPIRIN}).json()
 
-    assert body["query"]["query_used"] == "C9H8O4"
+    assert body["query"]["query_used"] == "+C9H8O4"
     assert body["query"]["derived_from"] == "structure_formula"
     assert body["query"]["structure"]["searched_by_structure"] is False
     assert body["query"]["structure"]["molecular_formula"] == "C9H8O4"
@@ -97,11 +101,14 @@ def test_the_response_always_carries_the_caveat_and_the_unavailable_analyses(
 def test_no_matches_is_reported_as_no_matches_not_as_novelty(
     client: TestClient, stub_service: Callable[..., None]
 ) -> None:
-    stub_service(fixture_handler("search_empty.json"))
+    stub_service(no_match_handler())
 
     body = search(client, {"keywords": "unobtainium widget"}).json()
 
+    # Upstream answers a zero-hit search with 404; the route still reports a completed search.
+    assert body["source_available"] is True
     assert body["hits"] == []
+    assert body["total_found"] == 0
     assert "not evidence of novelty" in body["no_match_statement"]
 
 

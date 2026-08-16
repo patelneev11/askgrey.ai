@@ -1,0 +1,86 @@
+{
+  "count": 7,
+  "patentFileWrapperDataBag": [
+    {
+      "applicationMetaData": {
+        "filingDate": "2021-08-19",
+        "firstInventorName": "Nagesh R. PALEPU",
+        "cpcClassificationBag": [
+          "A61K  31/616",
+          "A61P  29/00",
+          "A61K   9/0019",
+          "A61K   9/0024",
+          "A61K   9/08",
+          "A61K   9/10",
+          "A61K   9/19",
+          "A61K  47/02",
+          "A61K  47/10",
+          "A61K  47/18",
+          "A61K  47/183",
+          "A61K  47/26"
+        ],
+        "earliestPublicationDate": "2022-12-29",
+        "inventorBag": [
+          {
+            "firstName": "Nagesh",
+            "lastName": "PALEPU",
+            "inventorNameText": "Nagesh R. PALEPU",
+            "middleName": "R."
+          }
+        ],
+        "applicationStatusDescriptionText": "Patented Case",
+        "patentNumber": "12048708",
+        "grantDate": "2024-07-30",
+        "applicantBag": [
+          {
+            "applicantNameText": "RHOSHAN PHARMACEUTICALS, INC."
+          }
+        ],
+        "firstApplicantName": "RHOSHAN PHARMACEUTICALS, INC.",
+        "earliestPublicationNumber": "US20220409636A1",
+        "inventionTitle": "IN-VIAL DEPOSITION OF A STABLE, STERILE AND CRYSTALLINE O-ACETYL SALICYLIC ACID (ASPIRIN)"
+      },
+      "applicationNumberText": "17406285"
+    },
+    {
+      "applicationMetaData": {
+        "filingDate": "2021-03-17",
+        "firstInventorName": "Nagesh R. PALEPU",
+        "cpcClassificationBag": [
+          "A61K  31/616",
+          "A61P  29/00",
+          "A61K   9/0019",
+          "A61K   9/0024",
+          "A61K   9/08",
+          "A61K   9/10",
+          "A61K   9/19",
+          "A61K  47/02",
+          "A61K  47/10",
+          "A61K  47/18",
+          "A61K  47/183",
+          "A61K  47/26"
+        ],
+        "inventorBag": [
+          {
+            "firstName": "Nagesh",
+            "lastName": "PALEPU",
+            "inventorNameText": "Nagesh R. PALEPU",
+            "middleName": "R."
+          }
+        ],
+        "applicationStatusDescriptionText": "Patented Case",
+        "patentNumber": "11911400",
+        "grantDate": "2024-02-27",
+        "applicantBag": [
+          {
+            "applicantNameText": "RHOSHAN PHARMACEUTICALS, INC."
+          }
+        ],
+        "firstApplicantName": "RHOSHAN PHARMACEUTICALS, INC.",
+        "inventionTitle": "IN-VIAL DEPOSITION OF A STABLE, STERILE AND CRYSTALLINE O-ACETYL SALICYLIC ACID (ASPIRIN)"
+      },
+      "applicationNumberText": "17204559"
+    }
+  ],
+  "requestIdentifier": "fb6024dd-d41a-4dcb-b059-7d8db6e8555d"
+}

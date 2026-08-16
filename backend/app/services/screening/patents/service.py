@@ -56,6 +56,12 @@ def degraded_status(status_code: int | None) -> str:
             "The USPTO Open Data Portal rate-limited this deployment, so no patent search was "
             "performed. Nothing below is a search result; retry shortly."
         )
+    if status_code == 404:
+        return (
+            "The USPTO Open Data Portal answered 404 without saying the query matched no "
+            "records, which means the search endpoint itself did not answer. No patent search "
+            "was performed. Nothing below is a search result."
+        )
     detail = f"HTTP {status_code}" if status_code is not None else "was unreachable"
     return (
         f"The USPTO Open Data Portal search API {detail} after retries, so no patent search was "
@@ -75,6 +81,10 @@ class PatentsService:
     with `source_available=False` and an empty hit list rather than raising, so the Screening tab
     can render the reason. Only a query the upstream API itself rejects (HTTP 400) raises, since
     that is a bug in query construction rather than a source outage.
+
+    A search that matched nothing is a *success*, not an outage, even though upstream answers it
+    with 404: the client turns that one case into an empty result set, so the response carries
+    `source_available=True` and the no-match statement rather than a degraded-source notice.
     """
 
     def __init__(self, client: UsptoOdpClient | None = None) -> None:
@@ -163,8 +173,10 @@ def build_query(search: PatentSearch) -> DerivedQuery:
     structure = derived.structure
     if structure is None:
         derivation = (
-            "Searched the keywords supplied, AND-ed together, as a free-form text query. No "
-            "structure was submitted."
+            "Searched the keywords supplied as a free-form text query in which every term is "
+            "required: the `+` prefix on each term in query_used is the upstream operator for "
+            "that, since the API would otherwise return the union of the terms. No structure "
+            "was submitted."
         )
         derived_from = QueryDerivation.KEYWORDS
         basis = None
@@ -176,11 +188,12 @@ def build_query(search: PatentSearch) -> DerivedQuery:
             if keyword_part
             else QueryDerivation.STRUCTURE_FORMULA
         )
-        extra = f" AND the keywords {', '.join(keyword_part)}" if keyword_part else ""
+        extra = f" and the keywords {', '.join(keyword_part)}" if keyword_part else ""
         derivation = (
             f"A structure was submitted, but the upstream index holds text rather than chemical "
             f"structures. The search ran on the molecular formula RDKit computed from the "
-            f"structure ({formula}){extra} — not on the structure itself."
+            f"structure ({formula}){extra} — not on the structure itself. Every term is "
+            f"required; the `+` prefix in query_used is the upstream operator for that."
         )
         basis = StructureBasis(
             input_smiles=structure.input_smiles,

@@ -51,8 +51,15 @@ def test_keyword_terms_drops_one_character_tokens() -> None:
     assert keyword_terms("a b3 cd") == ["b3", "cd"]
 
 
-def test_query_string_ands_terms() -> None:
-    assert query_string(["C9H8O4", "salicylate"]) == "C9H8O4 AND salicylate"
+def test_query_string_marks_every_term_required() -> None:
+    # The live API defaults to OR and searches a literal `AND` as a word, so `+` is the operator.
+    assert query_string(["C9H8O4", "salicylate"]) == "+C9H8O4 +salicylate"
+
+
+def test_a_term_can_never_carry_the_required_operator_itself() -> None:
+    # `+` passes the keyword gate but is not a term character, so it cannot reach the query DSL.
+    assert keyword_terms("anti+inflammatory") == ["anti", "inflammatory"]
+    assert query_string(keyword_terms("anti+inflammatory")) == "+anti +inflammatory"
 
 
 def test_derive_terms_from_a_structure_uses_the_molecular_formula() -> None:
@@ -83,7 +90,7 @@ def test_build_query_from_keywords_states_that_no_structure_was_submitted() -> N
     query = build_query(PatentSearch(keywords="salicylate prodrug"))
 
     assert query.derived_from is QueryDerivation.KEYWORDS
-    assert query.query_used == "salicylate AND prodrug"
+    assert query.query_used == "+salicylate +prodrug"
     assert query.structure is None
     assert "No structure was submitted" in query.derivation
 
@@ -92,10 +99,13 @@ def test_build_query_from_a_structure_says_the_structure_itself_was_not_searched
     query = build_query(PatentSearch(smiles=ASPIRIN))
 
     assert query.derived_from is QueryDerivation.STRUCTURE_FORMULA
-    assert query.query_used == "C9H8O4"
+    assert query.query_used == "+C9H8O4"
     assert query.structure is not None
     assert query.structure.searched_by_structure is False
     assert query.structure.canonical_smiles
+    # A formula-only query is honest about usually matching nothing, so a zero-hit landscape
+    # cannot be read as "nobody has patented this compound".
+    assert "formula-only query usually returns nothing" in query.structure.note
     assert "not on the structure itself" in query.derivation
     assert "not chemical structures" in query.structure.note
 
@@ -104,12 +114,12 @@ def test_build_query_from_both_reports_the_combined_derivation() -> None:
     query = build_query(PatentSearch(smiles=ASPIRIN, keywords="co-crystal"))
 
     assert query.derived_from is QueryDerivation.STRUCTURE_FORMULA_AND_KEYWORDS
-    assert query.query_used == "C9H8O4 AND co-crystal"
+    assert query.query_used == "+C9H8O4 +co-crystal"
     assert "co-crystal" in query.derivation
 
 
 def test_build_query_never_carries_user_query_syntax_into_the_query_string() -> None:
     query = build_query(PatentSearch(keywords="kinase inhibitor, EGFR/HER2"))
 
-    assert query.query_used == "kinase AND inhibitor AND EGFR AND HER2"
+    assert query.query_used == "+kinase +inhibitor +EGFR +HER2"
     assert not set('":()*[]') & set(query.query_used)

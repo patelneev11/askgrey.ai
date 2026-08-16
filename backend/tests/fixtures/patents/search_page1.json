@@ -1,62 +1,116 @@
 {
-  "count": 2,
-  "totalNumFound": 37,
-  "requestIdentifier": "f0f1b0e6-2a4e-4a0e-9f2f-6d6f0c1b2a3d",
+  "count": 16,
   "patentFileWrapperDataBag": [
     {
-      "applicationNumberText": "16123456",
       "applicationMetaData": {
-        "inventionTitle": "Acetylsalicylic acid co-crystal formulations for reduced gastric irritation",
-        "abstractText": "Co-crystal forms of acetylsalicylic acid with a coformer are described, together with pharmaceutical compositions comprising the co-crystal and methods of treating inflammation.",
-        "filingDate": "2018-09-06",
-        "grantDate": "2021-03-16",
-        "patentNumber": "10945998",
-        "earliestPublicationNumber": "US20200078317A1",
-        "earliestPublicationDate": "2020-03-12",
-        "applicationStatusDescriptionText": "Patented Case",
+        "filingDate": "2025-11-14",
+        "firstInventorName": "James Stuart",
+        "cpcClassificationBag": [
+          "A61K  31/616",
+          "A61P  43/00",
+          "A61K   9/08",
+          "A61K  47/10",
+          "A61K  47/14",
+          "A61K  47/22",
+          "A61K  47/44"
+        ],
+        "earliestPublicationDate": "2026-05-21",
+        "inventorBag": [
+          {
+            "firstName": "James",
+            "lastName": "Stuart",
+            "inventorNameText": "James Stuart"
+          },
+          {
+            "firstName": "Simon",
+            "lastName": "Cohen",
+            "inventorNameText": "Simon Cohen"
+          },
+          {
+            "firstName": "Jan",
+            "lastName": "Cohen",
+            "inventorNameText": "Jan Cohen"
+          }
+        ],
+        "applicationStatusDescriptionText": "Docketed New Case - Ready for Examination",
         "applicantBag": [
           {
-            "applicantNameText": "",
-            "organizationNameText": "Example Therapeutics, Inc."
+            "applicantNameText": "Innovate (EU) Limited"
           }
         ],
-        "inventorBag": [
-          {
-            "inventorNameText": "Dana R. Whitfield"
-          },
-          {
-            "firstName": "Priya",
-            "lastName": "Raghavan"
-          }
-        ],
-        "cpcClassificationBag": [
-          {
-            "cpcSymbol": "A61K31/616"
-          },
-          {
-            "cpcClassificationSymbol": "C07C69/157"
-          }
-        ]
-      }
+        "firstApplicantName": "Innovate (EU) Limited",
+        "earliestPublicationNumber": "US20260137702A1",
+        "inventionTitle": "Salicylate Compound Composition"
+      },
+      "applicationNumberText": "19389155"
     },
     {
-      "applicationNumberText": "17654321",
       "applicationMetaData": {
-        "inventionTitle": "Salicylate prodrugs bearing a cleavable amide linker",
-        "abstractText": "Prodrugs of salicylate derivatives are provided in which the phenolic ester is replaced by an amide linker cleavable by intestinal amidases.",
-        "filingDate": "2022-03-15",
-        "earliestPublicationNumber": "US20220298108A1",
-        "earliestPublicationDate": "2022-09-22",
-        "applicationStatusDescriptionText": "Non Final Action Mailed",
-        "applicantBag": ["Example University"],
+        "filingDate": "2024-12-18",
+        "firstInventorName": "Michael Russell",
+        "cpcClassificationBag": [
+          "A61K   8/9789",
+          "A61K   8/37",
+          "A61K2800/31",
+          "A61Q  17/04"
+        ],
+        "earliestPublicationDate": "2025-12-04",
         "inventorBag": [
           {
-            "firstName": "Marcus",
-            "lastName": "Oyelaran"
+            "firstName": "Michael",
+            "lastName": "Russell",
+            "inventorNameText": "Michael Russell"
+          },
+          {
+            "firstName": "Sairohit",
+            "lastName": "Raghupathy",
+            "inventorNameText": "Sairohit Raghupathy"
           }
         ],
-        "cpcClassificationBag": ["A61K31/60"]
-      }
+        "applicationStatusDescriptionText": "Docketed New Case - Ready for Examination",
+        "applicantBag": [
+          {
+            "applicantNameText": "Edgewell Personal Care Brands, LLC"
+          }
+        ],
+        "firstApplicantName": "Edgewell Personal Care Brands, LLC",
+        "earliestPublicationNumber": "US20250367107A1",
+        "inventionTitle": "SUNSCREEN COMPOSITION INCLUDING A SALICYLATE AND PONGAMIA PINNATA SEED EXTRACT"
+      },
+      "applicationNumberText": "18876408"
+    },
+    {
+      "applicationMetaData": {
+        "filingDate": "2024-11-15",
+        "inventorBag": [
+          {
+            "firstName": "James",
+            "lastName": "Stuart",
+            "inventorNameText": "James Stuart"
+          },
+          {
+            "firstName": "Simon",
+            "lastName": "Cohen",
+            "inventorNameText": "Simon Cohen"
+          },
+          {
+            "firstName": "Jan",
+            "lastName": "Cohen",
+            "inventorNameText": "Jan Cohen"
+          }
+        ],
+        "applicationStatusDescriptionText": "Provisional Application Expired",
+        "applicantBag": [
+          {
+            "applicantNameText": "Innovate (EU) Limited"
+          }
+        ],
+        "firstApplicantName": "Innovate (EU) Limited",
+        "inventionTitle": "Salicylate Compound Composition",
+        "firstInventorName": "James Stuart"
+      },
+      "applicationNumberText": "63720982"
     }
-  ]
+  ],
+  "requestIdentifier": "af1b78b3-2fb1-4925-bf0d-33b2be40b01a"
 }

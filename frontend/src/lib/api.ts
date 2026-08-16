@@ -191,6 +191,22 @@ async function download(
   };
 }
 
+// Refresh tokens rotate on use, so the server treats a replayed one as theft and revokes the
+// session. Two overlapping refreshes are therefore never two requests: they share one.
+let refreshing: Promise<TokenResponse> | null = null;
+
+function refresh(): Promise<TokenResponse> {
+  if (!refreshing) {
+    refreshing = request<TokenResponse>('/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    }).finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
 export const api = {
   // `credentials: 'include'` is what carries the HttpOnly refresh cookie; without it the
   // browser drops the cookie on a cross-origin call and every reload signs the user out.
@@ -208,8 +224,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  refresh: () =>
-    request<TokenResponse>('/auth/refresh', { method: 'POST', credentials: 'include' }),
+  refresh,
 
   logout: () => send('/auth/logout', { method: 'POST', credentials: 'include' }),
 

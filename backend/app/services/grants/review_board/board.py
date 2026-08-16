@@ -269,6 +269,11 @@ class ReviewBoard:
         if isinstance(reviewer, ClaudePersonaReviewer):
             await reviewer.aclose()
 
+    @property
+    def available(self) -> bool:
+        """Whether a reviewer is configured. Nothing reaches a vendor while this is false."""
+        return self.reviewer is not None
+
     def personas(self) -> list[PersonaSummary]:
         """The enabled personas, without their prompts: a prompt is not a client's business."""
         return [

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -199,6 +201,38 @@ def test_without_an_llm_key_the_endpoint_is_503_and_invents_nothing(
     detail = response.json()["detail"]
     assert "ANTHROPIC_API_KEY" in detail
     assert "score" in detail
+
+
+def test_nothing_is_audited_as_sent_when_no_reviewer_can_send_it(
+    client: TestClient, install: Install, caplog: pytest.LogCaptureFixture
+) -> None:
+    install(with_llm=False)
+
+    with caplog.at_level(logging.INFO, logger="askgrey.audit"):
+        client.post("/api/grants/review-board", json=body(), headers=auth_header(client))
+
+    assert "grant_section.sent_to_llm" not in caplog.text
+
+
+def test_a_review_that_is_sent_is_audited_with_provenance_only(
+    client: TestClient, install: Install, caplog: pytest.LogCaptureFixture
+) -> None:
+    install()
+
+    with caplog.at_level(logging.INFO, logger="askgrey.audit"):
+        client.post("/api/grants/review-board", json=body(), headers=auth_header(client))
+
+    event = next(
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if "grant_section.sent_to_llm" in record.getMessage()
+    )
+    assert event["chars"] == len(APPROACH_TEXT)
+    assert (
+        event["personas"]
+        == f"{BIOSTATISTICIAN},commercialization_critic,translational_safety_reviewer"
+    )
+    assert APPROACH_TEXT[:40] not in caplog.text
 
 
 def test_a_claude_failure_is_surfaced_rather_than_scored_around(

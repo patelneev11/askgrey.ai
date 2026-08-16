@@ -287,19 +287,21 @@ async def review_board(
     """
     try:
         personas = board.select(request.personas or None)
-        # Note that draft proposal text left the deployment for the model vendor. Provenance
-        # only — never the draft itself, the persona prompts, or the scores.
-        audit.record(
-            "grant_section.sent_to_llm",
-            actor=str(user.id),
-            client_ip=ip,
-            detail={
-                "chars": len(request.text),
-                "personas": ",".join(persona.id for persona in personas),
-                "vendor": "anthropic",
-                "model": get_settings().llm_model,
-            },
-        )
+        if board.available:
+            # Note that draft proposal text left the deployment for the model vendor. Provenance
+            # only — never the draft itself, the persona prompts, or the scores. Not recorded
+            # when no reviewer is configured, since then nothing is sent.
+            audit.record(
+                "grant_section.sent_to_llm",
+                actor=str(user.id),
+                client_ip=ip,
+                detail={
+                    "chars": len(request.text),
+                    "personas": ",".join(persona.id for persona in personas),
+                    "vendor": "anthropic",
+                    "model": get_settings().llm_model,
+                },
+            )
         return await board.review(request.to_section(), request.personas or None)
     except (InvalidQueryError, ReviewBoardError) as exc:
         raise _handle(exc) from exc

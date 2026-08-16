@@ -48,8 +48,16 @@
 }
 
 .heading {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-2);
   font-size: var(--font-size-xl);
+}
+
+/* Says what the product does before anyone has an account to look behind. */
+.tagline {
+  margin: 0 0 var(--space-6);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
 }
 
 .form {

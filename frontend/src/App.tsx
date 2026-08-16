@@ -4,17 +4,17 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AppShell } from '@/layouts/AppShell';
 import { AuthProvider } from '@/lib/auth';
 import { useAuth } from '@/lib/auth-context';
+import { OnboardingProvider } from '@/lib/onboarding';
+import { WorkspaceProvider } from '@/lib/workspace';
+import { AuditPage } from '@/pages/AuditPage';
+import { GrantsPage } from '@/pages/GrantsPage';
+import { LiteraturePage } from '@/pages/LiteraturePage';
 import { LoginPage } from '@/pages/LoginPage';
-import {
-  AuditPage,
-  GrantsPage,
-  LiteraturePage,
-  ProtocolPage,
-  RegulatoryPage,
-  ScreeningPage,
-  SettingsPage,
-  WorkspacePage,
-} from '@/pages/tabs';
+import { ProtocolPage } from '@/pages/ProtocolPage';
+import { RegulatoryPage } from '@/pages/RegulatoryPage';
+import { ScreeningPage } from '@/pages/ScreeningPage';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { WorkspacePage } from '@/pages/WorkspacePage';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -36,7 +36,11 @@ export function AppRoutes() {
       <Route
         element={
           <RequireAuth>
-            <AppShell />
+            <OnboardingProvider>
+              <WorkspaceProvider>
+                <AppShell />
+              </WorkspaceProvider>
+            </OnboardingProvider>
           </RequireAuth>
         }
       >

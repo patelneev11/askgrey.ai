@@ -151,14 +151,58 @@ distinct `storageKey` so users keep a per-tab split.
 The standard bordered container with an optional header for a title and actions. Use
 `flush` when the panel hosts a table or editor that manages its own padding.
 
+### `PageCanvas` — `src/components/PageCanvas.tsx`
+
+The alternative to the split: a scrolling single-column frame with a page title, description and
+actions. Used by destinations that are documents to read rather than workspaces to work in.
+
+### `ReviewTable` — `src/components/ReviewTable.tsx`
+
+The Dynamic Column Generator surface: rows are papers, columns are the fields the user asked
+for, cells are `{value, citation}` straight off `/api/pdf-extraction/*`. Provenance is legible
+without opening anything — a grounded value is a button carrying its page ref in acid blue, an
+approximate (`fuzzy`) match wears an amber `p4~`, an ungrounded value is tagged `unverified`,
+and a missing one is an em dash rather than a blank.
+
+```tsx
+<ReviewTable
+  table={table}                              // ExtractionTable, see src/lib/extraction.ts
+  activeCell={cellKey(documentId, columnKey)} // the citation currently open in the viewer
+  pendingColumns={['adverse events']}         // headers to show while a run is in flight
+  onCitationSelect={(row, columnKey, cell) => open(cell.citation)}
+/>
+```
+
+### `CitationViewer` — `src/components/CitationViewer.tsx`
+
+The right-pane counterpart. For a PDF uploaded in this session it renders the cited page with
+pdf.js and paints `citation.rects` over it, scaled by `renderedWidth / citation.page_width`,
+then scrolls the highlight into view. A paper fetched server-side from a PMC link cannot be
+re-fetched cross-origin, so it falls back to the verbatim quote plus a `#page=` deep link until
+a proxy endpoint exists. pdf.js is imported lazily and ships as its own chunk.
+
+### Page layouts
+
+Each destination composes the shared primitives differently, so no two tabs read the same. The
+split ratio and the right pane's job are what distinguish the agent tabs:
+
+| Page | Frame | Left | Right |
+| --- | --- | --- | --- |
+| Literature | split, 0.58 | goal composer over the dynamic review table | cited passage viewer |
+| Screening | split, 0.32 | compound queue rail | profile: structure, Lipinski grid, ADMET meters, toxicity flags |
+| Protocol | split, 0.28 | numbered step timeline | document surface with materials table and inline reagent calcs |
+| Regulatory | split, 0.30 | eCTD module tree with completeness rings | draft with margin discrepancy annotations |
+| Grants | board | — | opportunity cards over a mock review board and budget breakdown |
+| Workspace / Audit / Settings | `PageCanvas` | — | members and seats / event timeline / grouped settings form |
+
 ### Building a new tab
 
 1. Add the route to `src/layouts/navigation.ts` and `src/App.tsx`.
-2. Render a `DualPaneWorkspace` with a unique `storageKey`.
-3. Put content in `Panel`s; express state with `StatusPill`; use `Button` for actions.
-4. Style with CSS modules that reference tokens only.
+2. Choose the frame: `DualPaneWorkspace` with a unique `storageKey`, or `PageCanvas`.
+3. Put content in `Panel`s; express state with `StatusPill`; use `Meter` for scored properties.
+4. Style with a CSS module that references tokens only.
 
-`src/pages/TabPlaceholder.tsx` is a working example of steps 2–4.
+`src/pages/ScreeningPage.tsx` is a worked example of steps 2–4.
 
 ---
 
@@ -172,12 +216,30 @@ the login screen renders the provider button only when it is. Set `OIDC_ISSUER` 
 `OIDC_CLIENT_ID` to enable it. **The authorization-code exchange is not implemented yet** — the
 endpoint exists so the frontend contract is stable before tenant onboarding lands.
 
+## Backend services
+
+`backend/app/services/pubmed/` wraps the NCBI Entrez E-utilities: natural-language →
+Boolean/MeSH Entrez translation, rate limiting (3/s, or 10/s with `NCBI_API_KEY`), retry with
+backoff, and normalized records behind `GET /api/pubmed/search`. See
+[its README](backend/app/services/pubmed/README.md) for the public interface and configuration.
+
 ## Deployment
 
 Frontend deploys to Vercel (`frontend/vercel.json`), backend to Railway
-(`backend/railway.toml`, health-checked at `/api/health`). Both jobs in
-`.github/workflows/deploy.yml` skip themselves until `VERCEL_TOKEN` / `RAILWAY_TOKEN` are added
-to repository secrets.
+(`backend/railway.toml`, health-checked at `/api/health`). `.github/workflows/deploy.yml`
+deploys `main` to **staging** automatically and to **production** only on a manual dispatch,
+reading each environment's credentials from the GitHub Environment of the same name; steps skip
+themselves until those secrets exist.
 
-Set at minimum in production: `JWT_SECRET` (required — the default is a development placeholder),
-`DATABASE_URL` (Postgres; SQLite is development only), and `CORS_ORIGINS`.
+Set at minimum in a deployed environment: `JWT_SECRET` (required — the app refuses to boot on
+the development placeholder), `DATABASE_URL` (Postgres; SQLite is development only), and
+`CORS_ORIGINS`. Full variable and secret handling: [docs/deployment.md](docs/deployment.md).
+
+## Operations
+
+Logs are one JSON object per line, keyed by the `request_id` also returned as `X-Request-ID`;
+`GET /api/status/dependencies` and `GET /api/status/llm-cost` (both authenticated) show upstream
+API health and today's metered Claude spend. Sentry is off until a DSN is set.
+
+- [docs/monitoring.md](docs/monitoring.md) — what is monitored and, just as importantly, what is not.
+- [docs/on-call-runbook.md](docs/on-call-runbook.md) — where to look first when something breaks.

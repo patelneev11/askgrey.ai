@@ -1,0 +1,122 @@
+.group {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.group:last-child {
+  border-bottom: none;
+}
+
+.groupHeader {
+  position: sticky;
+  top: 0;
+}
+
+.groupTitle {
+  font-size: var(--font-size-md);
+}
+
+.groupSummary {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-panel);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-4);
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.rowLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.rowHelp {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
+}
+
+.select,
+.textValue {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.textValue {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+}
+
+.toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  cursor: not-allowed;
+  opacity: 0.7;
+  transition:
+    background var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+
+.toggleOn {
+  background: var(--color-accent-pipeline-surface);
+  border-color: var(--color-accent-pipeline-muted);
+}
+
+.knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--color-text-tertiary);
+  border-radius: var(--radius-full);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    background var(--duration-fast) var(--easing-standard);
+}
+
+.toggleOn .knob {
+  background: var(--color-accent-pipeline);
+  transform: translateX(16px);
+}

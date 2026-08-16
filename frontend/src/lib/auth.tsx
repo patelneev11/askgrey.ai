@@ -1,20 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { api, type TokenPair, type User } from './api';
+import { api, type TokenResponse, type User } from './api';
 import { AuthContext } from './auth-context';
-
-const ACCESS_KEY = 'askgrey:access-token';
-const REFRESH_KEY = 'askgrey:refresh-token';
-
-function storeTokens(tokens: TokenPair): void {
-  window.localStorage.setItem(ACCESS_KEY, tokens.access_token);
-  window.localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
-}
-
-function clearTokens(): void {
-  window.localStorage.removeItem(ACCESS_KEY);
-  window.localStorage.removeItem(REFRESH_KEY);
-}
+import { identify, logger } from './observability';
+import { setAccessToken } from './session';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -23,31 +12,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    // Nothing survives a reload in memory, so the session is restored from the refresh
+    // cookie the browser still holds. A 401 here simply means no session.
     const restore = async () => {
-      const accessToken = window.localStorage.getItem(ACCESS_KEY);
-      const refreshToken = window.localStorage.getItem(REFRESH_KEY);
-      if (!accessToken) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
-
       try {
-        const current = await api.me(accessToken);
+        const tokens = await api.refresh();
+        setAccessToken(tokens.access_token);
+        const current = await api.me(tokens.access_token);
+        identify(current.id);
         if (!cancelled) setUser(current);
       } catch {
-        // The access token expired; fall back to the refresh token before signing out.
-        if (refreshToken) {
-          try {
-            const tokens = await api.refresh(refreshToken);
-            storeTokens(tokens);
-            const current = await api.me(tokens.access_token);
-            if (!cancelled) setUser(current);
-          } catch {
-            clearTokens();
-          }
-        } else {
-          clearTokens();
-        }
+        setAccessToken(undefined);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,9 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const completeSignIn = useCallback(async (tokens: TokenPair) => {
-    storeTokens(tokens);
-    setUser(await api.me(tokens.access_token));
+  const completeSignIn = useCallback(async (tokens: TokenResponse) => {
+    setAccessToken(tokens.access_token);
+    const current = await api.me(tokens.access_token);
+    identify(current.id);
+    logger.info('auth.signed_in', { user_id: current.id, provider: current.provider });
+    setUser(current);
   }, []);
 
   const login = useCallback(
@@ -79,7 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    clearTokens();
+    // Revoking server-side matters more than clearing memory: the cookie is what an
+    // attacker with the device would otherwise keep replaying for two weeks.
+    void api.logout().catch(() => undefined);
+    logger.info('auth.signed_out');
+    identify(null);
+    setAccessToken(undefined);
     setUser(null);
   }, []);
 

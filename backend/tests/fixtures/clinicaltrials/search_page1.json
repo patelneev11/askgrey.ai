@@ -1,0 +1,234 @@
+{
+  "totalCount": 29,
+  "studies": [
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT03553836",
+          "briefTitle": "Safety and Efficacy of Pembrolizumab Compared to Placebo in Resected High-risk Stage II Melanoma (MK-3475-716/KEYNOTE-716)",
+          "officialTitle": "Adjuvant Therapy With Pembrolizumab Versus Placebo in Resected High-risk Stage II Melanoma: A Randomized, Double-blind Phase 3 Study (KEYNOTE-716)"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2024-11",
+          "overallStatus": "ACTIVE_NOT_RECRUITING",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2018-09-12",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2021-06-21",
+            "type": "ACTUAL"
+          },
+          "completionDateStruct": {
+            "date": "2033-10-12",
+            "type": "ESTIMATED"
+          },
+          "studyFirstSubmitDate": "2018-06-01",
+          "studyFirstSubmitQcDate": "2018-06-01",
+          "studyFirstPostDateStruct": {
+            "date": "2018-06-12",
+            "type": "ACTUAL"
+          },
+          "resultsFirstSubmitDate": "2022-05-26",
+          "resultsFirstSubmitQcDate": "2022-05-26",
+          "resultsFirstPostDateStruct": {
+            "date": "2022-06-24",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2024-11-12",
+          "lastUpdatePostDateStruct": {
+            "date": "2024-11-29",
+            "type": "ACTUAL"
+          }
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "SPONSOR"
+          },
+          "leadSponsor": {
+            "name": "Merck Sharp & Dohme LLC",
+            "class": "INDUSTRY"
+          }
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Melanoma"
+          ]
+        },
+        "designModule": {
+          "studyType": "INTERVENTIONAL",
+          "phases": [
+            "PHASE3"
+          ],
+          "designInfo": {
+            "allocation": "RANDOMIZED",
+            "interventionModel": "PARALLEL",
+            "primaryPurpose": "TREATMENT",
+            "maskingInfo": {
+              "masking": "DOUBLE",
+              "maskingDescription": "Participants and Investigators will be blinded in Part 1 and unblinded in Part 2, if done.",
+              "whoMasked": [
+                "PARTICIPANT",
+                "INVESTIGATOR"
+              ]
+            }
+          },
+          "enrollmentInfo": {
+            "count": 976,
+            "type": "ACTUAL"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "BIOLOGICAL",
+              "name": "Pembrolizumab",
+              "description": "Administered as an intravenous (IV) infusion every 3 weeks (Q3W)",
+              "armGroupLabels": [
+                "Pembrolizumab",
+                "Placebo"
+              ],
+              "otherNames": [
+                "KEYTRUDA\u00ae",
+                "MK-3475"
+              ]
+            },
+            {
+              "type": "OTHER",
+              "name": "Placebo",
+              "description": "Administered as an IV infusion every 3 weeks (Q3W)",
+              "armGroupLabels": [
+                "Placebo"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT04657991",
+          "briefTitle": "A Clinical Trial of Three Study Medicines (Encorafenib, Binimetinib, and Pembrolizumab) in Patients With Advanced or Metastatic Melanoma",
+          "officialTitle": "A PHASE 3, RANDOMIZED, DOUBLE-BLIND STUDY OF ENCORAFENIB AND BINIMETINIB PLUS PEMBROLIZUMAB VERSUS PLACEBO PLUS PEMBROLIZUMAB IN PARTICIPANTS WITH BRAF V600E/K MUTATION-POSITIVE METASTATIC OR UNRESECTABLE LOCALLY ADVANCED MELANOMA"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2026-04",
+          "overallStatus": "ACTIVE_NOT_RECRUITING",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2021-01-15",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2026-01-12",
+            "type": "ACTUAL"
+          },
+          "completionDateStruct": {
+            "date": "2026-08-31",
+            "type": "ESTIMATED"
+          },
+          "studyFirstSubmitDate": "2020-12-01",
+          "studyFirstSubmitQcDate": "2020-12-01",
+          "studyFirstPostDateStruct": {
+            "date": "2020-12-08",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2026-04-06",
+          "lastUpdatePostDateStruct": {
+            "date": "2026-04-07",
+            "type": "ACTUAL"
+          }
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "SPONSOR"
+          },
+          "leadSponsor": {
+            "name": "Pfizer",
+            "class": "INDUSTRY"
+          },
+          "collaborators": [
+            {
+              "name": "Merck Sharp & Dohme LLC",
+              "class": "INDUSTRY"
+            }
+          ]
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Melanoma"
+          ]
+        },
+        "designModule": {
+          "studyType": "INTERVENTIONAL",
+          "phases": [
+            "PHASE3"
+          ],
+          "designInfo": {
+            "allocation": "RANDOMIZED",
+            "interventionModel": "PARALLEL",
+            "primaryPurpose": "TREATMENT",
+            "maskingInfo": {
+              "masking": "QUADRUPLE",
+              "whoMasked": [
+                "PARTICIPANT",
+                "CARE_PROVIDER",
+                "INVESTIGATOR",
+                "OUTCOMES_ASSESSOR"
+              ]
+            }
+          },
+          "enrollmentInfo": {
+            "count": 257,
+            "type": "ACTUAL"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "DRUG",
+              "name": "Encorafenib",
+              "description": "Encorafenib",
+              "armGroupLabels": [
+                "Triplet Arm"
+              ],
+              "otherNames": [
+                "BRAFTOVI"
+              ]
+            },
+            {
+              "type": "DRUG",
+              "name": "Binimetinib",
+              "description": "Binimetinib",
+              "armGroupLabels": [
+                "Triplet Arm"
+              ],
+              "otherNames": [
+                "MEKTOVI"
+              ]
+            },
+            {
+              "type": "DRUG",
+              "name": "Pembrolizumab",
+              "description": "Pembrolizumab",
+              "armGroupLabels": [
+                "Control Arm",
+                "Triplet Arm"
+              ],
+              "otherNames": [
+                "KEYTRUDA"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "nextPageToken": "ZVt07cGHkvI2wRk2CJf6_LLqy5DbMtMod7KrgP4ZmDySuPow"
+}

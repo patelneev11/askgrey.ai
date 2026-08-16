@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
+import { FirstRunTour } from '@/components/FirstRunTour';
+import { TabIntroHost } from '@/components/TabIntro';
 import { useAuth } from '@/lib/auth-context';
 
 import styles from './AppShell.module.css';
@@ -38,6 +40,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <FirstRunTour />
+      <TabIntroHost />
     </div>
   );
 }

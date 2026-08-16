@@ -1,0 +1,95 @@
+{
+  "version": "2026-08",
+  "notes": "SBIR/STTR eligibility thresholds as published by SBA (13 CFR part 121 and the SBIR/STTR Policy Directive). These are legal thresholds: edit them here when the authority changes, never in a prompt. Percentages are 0-100. Removing a rule from this file removes it from every report, so prefer setting enabled=false, which keeps it visible in review.",
+  "rules": [
+    {
+      "id": "organization_type",
+      "title": "Applicant is a for-profit business concern",
+      "citation": "13 CFR 121.702(a)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": {}
+    },
+    {
+      "id": "place_of_business",
+      "title": "Principal place of business is in the United States",
+      "citation": "13 CFR 121.702(a)(1)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": {}
+    },
+    {
+      "id": "size_standard",
+      "title": "Fewer than the size-standard number of employees, counting affiliates",
+      "citation": "13 CFR 121.702(c)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": { "max_employees": 500 }
+    },
+    {
+      "id": "us_ownership",
+      "title": "Majority US-owned and controlled",
+      "citation": "13 CFR 121.702(b)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": { "min_ownership_percent": 51, "max_foreign_percent": 49 }
+    },
+    {
+      "id": "investment_company_ownership",
+      "title": "Majority ownership by investment companies",
+      "citation": "13 CFR 121.702(c)(1)(ii); SBIR/STTR Policy Directive s3(c)",
+      "applies_to": ["SBIR"],
+      "parameters": { "majority_percent": 50 }
+    },
+    {
+      "id": "pi_employment",
+      "title": "Principal investigator's primary employment",
+      "citation": "SBIR/STTR Policy Directive s3(t), s7(b)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": { "min_company_time_percent": 50 }
+    },
+    {
+      "id": "research_institution_partner",
+      "title": "Formal partnership with a research institution",
+      "citation": "15 USC 638(e)(6); Policy Directive s3(x)",
+      "applies_to": ["STTR"],
+      "parameters": {}
+    },
+    {
+      "id": "work_split",
+      "title": "Share of the work performed by the applicant",
+      "citation": "13 CFR 121.702; Policy Directive s4(c)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": {
+        "sbir_phase_i_min_company_percent": 66.7,
+        "sbir_phase_ii_min_company_percent": 50,
+        "sttr_min_company_percent": 40,
+        "sttr_min_research_institution_percent": 30
+      }
+    },
+    {
+      "id": "phase_progression",
+      "title": "Phase II follows a Phase I award on the same topic",
+      "citation": "SBIR/STTR Policy Directive s4(b)(2)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": {}
+    },
+    {
+      "id": "performance_benchmarks",
+      "title": "SBA performance benchmarks for repeat awardees",
+      "citation": "SBIR/STTR Policy Directive s7(f)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": { "phase_i_awards_triggering_review": 20 }
+    },
+    {
+      "id": "registrations",
+      "title": "SAM and SBA Company Registry registrations",
+      "citation": "SBIR/STTR Policy Directive s6(a)",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": {}
+    },
+    {
+      "id": "topic_fit",
+      "title": "Research focus falls within the solicitation's topic",
+      "citation": "Agency solicitation",
+      "applies_to": ["SBIR", "STTR"],
+      "parameters": {}
+    }
+  ]
+}

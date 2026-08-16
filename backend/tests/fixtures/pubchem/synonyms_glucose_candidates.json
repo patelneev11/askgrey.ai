@@ -1,0 +1,50 @@
+{
+  "InformationList": {
+    "Information": [
+      {
+        "CID": 53477858,
+        "Synonym": [
+          "Lewis a",
+          "Lea tri",
+          "Lea trisaccharide",
+          "7D99WWU6HB",
+          "UNII-7D99WWU6HB",
+          "N-[(2R,3R,4R,5R)-5,6-dihydroxy-1-oxo-3-{[(2R,3R,4S,5R,6R)-3,4,5-trihydroxy-6-(hydroxymethyl)oxan-2-yl]oxy}-4-{[(2S,3S,4R,5S,6S)-3,4,5-trihydroxy-6-methyloxan-2-yl]oxy}hexan-2-yl]acetamide"
+        ]
+      },
+      {
+        "CID": 5793,
+        "Synonym": [
+          "D-Glucopyranose",
+          "glucose",
+          "Glucopyranose",
+          "Blood sugar",
+          "(3R,4S,5S,6R)-6-(hydroxymethyl)oxane-2,3,4,5-tetrol",
+          "Grape sugar"
+        ]
+      },
+      {
+        "CID": 8629,
+        "Synonym": [
+          "UDP-glucose",
+          "URIDINE DIPHOSPHATE GLUCOSE",
+          "133-89-1",
+          "UDPG",
+          "Uridine diphosphoglucose",
+          "co-waldenase"
+        ]
+      },
+      {
+        "CID": 11347237,
+        "Synonym": [
+          "56401-20-8",
+          "U4HFF7E3PM",
+          "alpha-D-Glucose 1-phosphate disodium salt",
+          "alpha-Glucose-1-phosphate disodium",
+          "EINECS 260-154-1",
+          "DISODIUM GLUCOSE PHOSPHATE"
+        ]
+      }
+    ]
+  }
+}

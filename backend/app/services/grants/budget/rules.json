@@ -1,0 +1,29 @@
+{
+  "version": "2026-08",
+  "notes": "Federal budget rules applied to every SBIR/STTR budget. Amounts are dollars and rates are percentages, both written as strings so they parse as exact decimals rather than floats. These are published figures that change on a schedule — the salary cap and the award guidelines are revised annually — so they live here and the version is stamped onto every budget produced.",
+  "salary_cap": {
+    "enabled": true,
+    "annual_amount": "225700.00",
+    "authority": "Executive Level II of the Federal Executive Pay Schedule"
+  },
+  "fringe": {
+    "default_rate_percent": "30.0",
+    "authority": "Organization's own rate; 30% is a placeholder for planning only"
+  },
+  "indirect": {
+    "de_minimis_rate_percent": "15.0",
+    "subaward_mtdc_cap": "25000.00",
+    "excluded_categories": ["equipment", "participant_support"],
+    "authority": "2 CFR 200.414 and 2 CFR 200 Appendix III (MTDC base)"
+  },
+  "fee": {
+    "default_percent": "7.0",
+    "max_percent": "7.0",
+    "authority": "SBIR/STTR Policy Directive, profit/fee on total direct and indirect costs"
+  },
+  "award_guidelines": [
+    { "phase": "phase_i", "ceiling": "314363.00", "period_months": 6 },
+    { "phase": "phase_ii", "ceiling": "2095748.00", "period_months": 24 },
+    { "phase": "direct_phase_ii", "ceiling": "2095748.00", "period_months": 24 }
+  ]
+}

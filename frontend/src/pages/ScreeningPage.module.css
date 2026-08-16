@@ -1,0 +1,216 @@
+.fill {
+  height: 100%;
+}
+
+/* ---- Left rail: compound queue ---- */
+
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+
+.cardSelected {
+  border-left-color: var(--color-accent-pipeline);
+  background: var(--color-surface-overlay);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cardId {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+.affinity {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+}
+
+.cardName {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.smiles {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Right pane: profile ---- */
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.identity {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.structure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  background: var(--color-surface-inset);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.structureHint {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.identityFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+}
+
+.identityFacts dt {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.identityFacts dd {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.strong {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+}
+
+/* Travels with the number, so a screenshot of the field alone still carries the caveat. */
+.predictedMark {
+  color: var(--color-accent-warning);
+  font-family: var(--font-family-text);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  margin-bottom: var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.propertyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--space-2);
+}
+
+.property {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.propertyFail {
+  border-color: var(--color-accent-warning-muted);
+  background: var(--color-accent-warning-surface);
+}
+
+.propertyLabel {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+
+.propertyValue {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-md);
+}
+
+.propertyLimit {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+
+.meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4) var(--space-8);
+}
+
+.flags {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flag {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent-warning-surface);
+  border: 1px solid var(--color-accent-warning-muted);
+  border-radius: var(--radius-sm);
+}
+
+.flagTitle {
+  color: var(--color-accent-warning);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.flagBody {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}

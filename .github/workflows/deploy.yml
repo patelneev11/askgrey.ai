@@ -1,46 +1,74 @@
 name: Deploy
 
+# Staging deploys itself from `main`; production is a deliberate act. Both read their
+# credentials from a GitHub Environment of the same name, so the production token is not
+# available to a run that only meant to touch staging — see docs/deployment.md.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
 
-# The deploy steps are skipped until the corresponding token is added to repository
-# secrets, so the workflow stays green on a fresh clone.
+concurrency:
+  group: deploy-${{ inputs.target || 'staging' }}
+  cancel-in-progress: false
+
 jobs:
-  frontend:
-    name: Frontend → Vercel
+  deploy:
+    name: Deploy ${{ inputs.target || 'staging' }}
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.target || 'staging' }}
     env:
+      # Secrets resolve from the selected environment; nothing here is a literal value.
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'askgrey-backend' }}
+      HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+      TARGET: ${{ inputs.target || 'staging' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Deploy
-        if: env.VERCEL_TOKEN != ''
-        working-directory: frontend
-        run: npx --yes vercel@39 deploy --prod --yes --token "$VERCEL_TOKEN"
-      - name: Skip notice
-        if: env.VERCEL_TOKEN == ''
-        run: echo "VERCEL_TOKEN is not configured; skipping frontend deploy."
+          node-version: '22'
 
-  backend:
-    name: Backend → Railway
-    runs-on: ubuntu-latest
-    environment: production
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy
+      # Backend first: a frontend that expects an endpoint the API has not shipped yet is the
+      # more visible half of a partial deploy.
+      - name: Backend → Railway
         if: env.RAILWAY_TOKEN != ''
         working-directory: backend
-        run: npx --yes @railway/cli@3 up --service askgrey-backend --detach
-      - name: Skip notice
-        if: env.RAILWAY_TOKEN == ''
-        run: echo "RAILWAY_TOKEN is not configured; skipping backend deploy."
+        run: npx --yes @railway/cli@3 up --service "$RAILWAY_SERVICE" --detach
+
+      - name: Frontend → Vercel
+        if: env.VERCEL_TOKEN != ''
+        working-directory: frontend
+        env:
+          # Production is the only Vercel deployment that takes the project's domain.
+          PROD_FLAG: ${{ (inputs.target || 'staging') == 'production' && '--prod' || '' }}
+        run: npx --yes vercel@39 deploy $PROD_FLAG --yes --token "$VERCEL_TOKEN"
+
+      # A deploy that returned success and a service that is answering are different claims.
+      - name: Verify the deployment answers
+        if: env.HEALTHCHECK_URL != ''
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 10 "$HEALTHCHECK_URL" | grep -q '"status":"ok"'; then
+              echo "Healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::$TARGET did not report healthy at $HEALTHCHECK_URL within 5 minutes."
+          exit 1
+
+      - name: Report what was skipped
+        run: |
+          [ -n "$RAILWAY_TOKEN" ] || echo "::warning::RAILWAY_TOKEN unset; backend deploy skipped."
+          [ -n "$VERCEL_TOKEN" ] || echo "::warning::VERCEL_TOKEN unset; frontend deploy skipped."
+          [ -n "$HEALTHCHECK_URL" ] || echo "::warning::HEALTHCHECK_URL unset; deploy unverified."

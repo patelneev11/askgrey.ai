@@ -1,0 +1,102 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  /* Derived from the workspace surface rather than a new colour: the tour dims the app it is
+     describing instead of covering it. */
+  background: color-mix(in srgb, var(--color-surface-workspace) 86%, transparent);
+}
+
+.dialog {
+  width: min(34rem, 100%);
+  padding: var(--space-6);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+}
+
+.dialog:focus {
+  outline: none;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.eyebrow,
+.count {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: var(--color-accent-pipeline);
+}
+
+.title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.caveat {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3);
+  background: var(--color-accent-warning-surface);
+  border: 1px solid var(--color-accent-warning-muted);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent-warning);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+.progress {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-6) 0 var(--space-4);
+}
+
+.dot {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border-default);
+  border-radius: var(--radius-full);
+  transition: background var(--duration-normal) var(--easing-standard);
+}
+
+.dotActive {
+  background: var(--color-accent-pipeline);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.advance {
+  display: flex;
+  gap: var(--space-2);
+}

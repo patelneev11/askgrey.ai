@@ -1,0 +1,114 @@
+{
+  "errorcode": 0,
+  "msg": "Webservice Succeeds",
+  "token": "redacted",
+  "data": {
+    "id": 300997,
+    "revision": 0,
+    "opportunityNumber": "NNH18ZHA002N-MUSIC",
+    "opportunityTitle": "EONS 2018: Appendix E Minority University Research and Education Project (MUREP) for Sustainability and Innovation Collaborative &ndash; (MUSIC) ",
+    "owningAgencyCode": "NASA",
+    "listed": "L",
+    "publisherUid": "Thaffelfinger",
+    "flag2006": "N",
+    "opportunityCategory": {
+      "category": "D",
+      "description": "Discretionary"
+    },
+    "synopsis": {
+      "opportunityId": 300997,
+      "version": 1,
+      "agencyCode": "NASA",
+      "agencyAddressDesc": ".",
+      "agencyDetails": {
+        "code": "NASA",
+        "seed": "NASA",
+        "agencyName": "National Aeronautics and Space Administration",
+        "agencyCode": "NASA",
+        "topAgencyCode": "NASA"
+      },
+      "topAgencyDetails": {
+        "code": "NASA",
+        "seed": "NASA",
+        "agencyName": "National Aeronautics and Space Administration",
+        "agencyCode": "NASA",
+        "topAgencyCode": "NASA"
+      },
+      "agencyContactDesc": "Clarence Bostic\r\nActivity Manager,  NASA MUSIC\r\n757-864-7836\r\n",
+      "agencyContactEmail": "NASAMUSIC@nasaprs.com",
+      "agencyContactEmailDesc": ".",
+      "synopsisDesc": "Awards will be made as cooperative agreements to accredited Minority Serving Institutions (MSIs) partnered with non-profit organizations in the United States that are eligible to apply for this NASA Research Announcement (NRA). The period of performance for an award is up to 2 years. Prospective proposers are requested to submit any questions in writing to NASAMUSIC@nasaprs.com no later than 10 business days before the proposal due date so that NASA will have sufficient time to respond. Proposers to this NRA are required to have the following, no later than the due date: 1) a Data Universal Numbering System (DUNS) number, \r\n2) a valid registration with the System for Award Management (SAM) [formerly known as the Central Contractor Registry (CCR)], 3) a valid Commercial And Government Entity (CAGE) Code, 4) a valid registration with NASA Solicitation and Proposal Integrated Review and Evaluation System (NSPIRES) (this also applies to any entities proposed for sub-awards or subcontracts.) Consult Appendix H Section H.3.1 for more eligibility information. \r\nConsult Appendix H Section 2.2 regarding teaming requirements and partnership guidelines.\r\nThe goal of NASA MUSIC is: to provide strategic effort that will leverage research and contract relationships of MSIs and NASA through relationships developed by non-profit organizations that may include collaboration of subject matter experts and access to NASA research facilities; An effort to improve STEM education and research at MSIs; A funded activity that seeks to build institutional capacity of MSIs; An activity to support long-term sustainability of STEM research at MSIs. MUSIC seeks to address the agency goals and objectives through:  Increasing the institutional awareness of NASA competitive resources that can build the capacity of MSIs to offer and conduct STEM undergraduate and graduate research with a focus on NASA opportunities. Assembling MSIs and their stakeholders with common interests, and challenges then provide common tools for MSIs to increase efficiency and optimize resources including opportunities to develop formal and informal partnerships. Connecting MSI administrators and university STEM leaders to cutting-edge initiatives at NASA that can increase interest in securing research and contracting opportunities while supporting NASA\u2019s policy to achieve an Agency-wide goal of providing one percent of total contract value of prime and subcontracting awards to MSIs.     https://www.hq.nasa.gov/office/procurement/regs/1826.htm\r\nTo achieve these goals, MUSIC seeks to increase university program capacity about practical uses of research to drive institution sustainability through the following targets:  Advance the understanding of MSIs on how to effectively develop institutional administrative support by competing at the university level for funding opportunities, which will result in successful application to, and management of these funding opportunities (including those at NASA).  Extend MSI\u2019s capabilities by: A.   Leveraging the MSIs research capabilities with NASA research to develop Small Business Innovation Research (SBIR) and Small Business Technology Transfer (STTR) projects that develop and demonstrate innovative technologies that fulfill NASA needs and have significant potential for successful commercialization. B.  Increasing the preparation of undergraduate and graduate science, technology, engineering, and mathematics faculty with opportunities to participate with NASA researchers and missions through grants and contracts. To achieve these goals and objectives, NASA solicits proposals from MSIs to implement the NASA MUSIC; to engage MSIs in authentic STEM experiences related to NASA missions; and to inspire and captivate learners utilizing NASA\u2019s unique assets to develop a keen interest in STEM. Every institution that intends to submit a proposal to this NRA, including the proposed prime award or any partner whether an education institution, other non-profit institutions, and other organizations that will serve as sub-awardees or contractors, must be registered in NSPIRES. Electronic submission of proposals is required by the due date and must be submitted by an authorized official of the proposing organization. Such registration must identify the authorized organizational representative(s) who will submit the electronic proposal. All principal investigators and other participants (e.g. co-investigators) must be registered in NSPIRES regardless of submission system. Potential proposers and proposing organizations are urged to access the system(s) well in advance of the proposal due date(s) of interest to familiarize themselves with its structure and enter the requested information. Electronic proposals may be submitted via the NASA proposal data system NSPIRES or via Grants.gov. Organizations that intend to submit proposals via Grants.gov must be registered 1) with Grants.gov and 2) with NSPIRES.  Additional programmatic information for this NRA may develop before the proposal due date. If so, such information will be added as a Frequently Asked Question (FAQ) or formal amendment to this NRA and posted on http://nspires.nasaprs.com. It is the proposer\u2019s responsibility to regularly check NSPIRES for updates to this NRA. \r\n",
+      "responseDateDesc": "Notice of Intent Due:  March 23, 2018; Proposals Due: May 22, 2018 11:59 PM EST",
+      "fundingDescLinkUrl": "http://nspires.nasaprs.com",
+      "fundingDescLinkDesc": "Link to Full Announcement",
+      "postingDate": "Feb 22, 2018 12:00:00 AM EST",
+      "fundingActivityCategoryDesc": "Education and Training Services",
+      "costSharing": false,
+      "numberOfAwards": "3",
+      "estimatedFunding": "900000",
+      "estimatedFundingFormatted": "900,000",
+      "awardCeiling": "450000",
+      "awardCeilingFormatted": "450,000",
+      "awardFloor": "0",
+      "awardFloorFormatted": "0",
+      "applicantEligibilityDesc": "Minority Serving Institutions (MSIs), Non-profit Organizations with missions to support MSIs",
+      "createTimeStamp": "Feb 22, 2018 10:34:53 AM EST",
+      "createdDate": "Feb 22, 2018 10:34:53 AM EST",
+      "applicantTypes": [
+        {
+          "id": "99",
+          "description": "Unrestricted (i.e., open to any type of entity above), subject to any clarification in text field entitled \"Additional Information on Eligibility\""
+        }
+      ],
+      "fundingInstruments": [
+        {
+          "id": "CA",
+          "description": "Cooperative Agreement"
+        }
+      ],
+      "fundingActivityCategories": [
+        {
+          "id": "ED",
+          "description": "Education"
+        }
+      ],
+      "postingDateStr": "2018-02-22-00-00-00",
+      "createTimeStampStr": "2018-02-22-10-34-53"
+    },
+    "agencyDetails": {
+      "code": "NASA",
+      "seed": "NASA",
+      "agencyName": "National Aeronautics and Space Administration",
+      "agencyCode": "NASA",
+      "topAgencyCode": "NASA"
+    },
+    "topAgencyDetails": {
+      "code": "NASA",
+      "seed": "NASA",
+      "agencyName": "National Aeronautics and Space Administration",
+      "agencyCode": "NASA",
+      "topAgencyCode": "NASA"
+    },
+    "synAttChangeComments": [],
+    "cfdas": [
+      {
+        "id": 349093,
+        "opportunityId": 300997,
+        "cfdaNumber": "43.008",
+        "programTitle": "Education"
+      }
+    ],
+    "originalDueDateDesc": "Notice of Intent Due:  March 23, 2018; Proposals Due: May 22, 2018 11:59 PM EST",
+    "synopsisModifiedFields": [],
+    "forecastModifiedFields": [],
+    "errorMessages": [],
+    "synPostDateInPast": true,
+    "docType": "synopsis",
+    "forecastHistCount": 0,
+    "synopsisHistCount": 0,
+    "assistCompatible": false,
+    "assistURL": "",
+    "draftMode": "N",
+    "ost": "POSTED"
+  }
+}

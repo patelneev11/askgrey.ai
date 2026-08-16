@@ -22,6 +22,9 @@ auth_ip_limiter = SlidingWindowLimiter(_settings.auth_rate_limit_per_minute, 60.
 auth_account_limiter = SlidingWindowLimiter(_settings.auth_account_rate_limit_per_hour, 3600.0)
 api_limiter = SlidingWindowLimiter(_settings.api_rate_limit_per_minute, 60.0)
 llm_limiter = SlidingWindowLimiter(_settings.llm_rate_limit_per_minute, 60.0)
+# Per-account limits alone are only as strong as the cost of an account, so the expensive
+# endpoints are also capped by source address: one host cannot register its way around them.
+llm_ip_limiter = SlidingWindowLimiter(_settings.llm_ip_rate_limit_per_minute, 60.0)
 llm_budget = DailyBudget(_settings.llm_daily_call_budget)
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -99,6 +102,7 @@ def throttle_llm(request: Request, user: CurrentUser) -> User:
     actor = str(user.id)
     _enforce(api_limiter, actor, event="api", actor=actor, ip=ip)
     _enforce(llm_limiter, actor, event="llm", actor=actor, ip=ip)
+    _enforce(llm_ip_limiter, ip, event="llm.ip", actor=actor, ip=ip)
     if get_settings().rate_limit_enabled and not llm_budget.consume(actor):
         audit.record("llm.budget_exhausted", outcome="denied", actor=actor, client_ip=ip)
         raise HTTPException(

@@ -11,6 +11,13 @@ export interface Source {
   label: string;
   file?: File;
   url?: string;
+  /**
+   * The documents this source produced, once it has been extracted.
+   *
+   * A restored upload has ids but no `file` — its bytes live on the server, which is both
+   * how it can be re-extracted and how its citations still render after a reload.
+   */
+  documentIds?: string[];
 }
 
 /**
@@ -30,6 +37,8 @@ export interface WorkspaceContextValue {
   error: string | null;
   target: CitationTarget | null;
   activeCell: string | null;
+  /** False until the saved workspace has been read back, so the UI can avoid a flash. */
+  restored: boolean;
   setGoal: (goal: string) => void;
   addFiles: (files: FileList | null) => void;
   addUrl: (url: string) => void;

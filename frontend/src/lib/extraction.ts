@@ -115,6 +115,18 @@ export function mergeTables(base: ExtractionTable, incoming: ExtractionTable): E
   return { goal: [...new Set(goals)].join('; '), columns, rows };
 }
 
+/**
+ * Drop the given papers from the table.
+ *
+ * Removing the last paper empties the table rather than leaving its headers behind: columns
+ * describe what was pulled out of papers, so columns without papers describe nothing.
+ */
+export function withoutRows(table: ExtractionTable, documentIds: Set<string>): ExtractionTable {
+  const rows = table.rows.filter((row) => !documentIds.has(row.document_id));
+  if (rows.length === table.rows.length) return table;
+  return rows.length === 0 ? EMPTY_TABLE : { ...table, rows };
+}
+
 export function groundedCount(table: ExtractionTable): number {
   return table.rows.reduce(
     (total, row) =>

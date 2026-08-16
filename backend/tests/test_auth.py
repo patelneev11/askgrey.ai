@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from app.main import app
+
 CREDENTIALS = {"email": "researcher@askgrey.ai", "password": "obsidian-workspace-1"}
 
 
@@ -127,6 +129,50 @@ def test_logout_all_ends_sessions_created_elsewhere(client: TestClient) -> None:
 
 def test_refresh_without_a_cookie_is_rejected(client: TestClient) -> None:
     assert client.post("/api/auth/refresh").status_code == 401
+
+
+def test_a_rejected_refresh_actually_clears_the_browser_cookie(client: TestClient) -> None:
+    """A revoked session must leave the browser signed out, not holding a dead credential.
+
+    The deletion rides on the exception's headers: a `Set-Cookie` written to the injected
+    `Response` is discarded once the endpoint raises, so this is the regression guard.
+    """
+    access = register(client)["access_token"]
+    # Revoked from another device, so this client keeps the cookie the server gave it.
+    with TestClient(app) as elsewhere:
+        elsewhere.post("/api/auth/login", json=CREDENTIALS)
+        revoked = elsewhere.post(
+            "/api/auth/logout-all", headers={"Authorization": f"Bearer {access}"}
+        )
+        assert revoked.status_code == 204
+
+    response = client.post("/api/auth/refresh")
+
+    assert response.status_code == 401
+    cookie = response.headers["set-cookie"]
+    assert 'askgrey_refresh=""' in cookie or "Max-Age=0" in cookie
+    # The path has to match the one the cookie was set with or the browser keeps its copy.
+    assert "Path=/api/auth" in cookie
+    assert "askgrey_refresh" not in client.cookies
+
+
+def test_a_replayed_refresh_token_clears_the_cookie(client: TestClient) -> None:
+    register(client)
+    spent = client.cookies["askgrey_refresh"]
+    assert client.post("/api/auth/refresh").status_code == 200
+
+    client.cookies.clear()
+    replayed = client.post("/api/auth/refresh", headers={"Cookie": f"askgrey_refresh={spent}"})
+
+    assert replayed.status_code == 401
+    assert "Max-Age=0" in replayed.headers["set-cookie"]
+
+
+def test_an_unknown_refresh_token_clears_the_cookie(client: TestClient) -> None:
+    response = client.post("/api/auth/refresh", headers={"Cookie": "askgrey_refresh=not-a-token"})
+
+    assert response.status_code == 401
+    assert "Max-Age=0" in response.headers["set-cookie"]
 
 
 def test_repeated_login_attempts_are_throttled(client: TestClient) -> None:

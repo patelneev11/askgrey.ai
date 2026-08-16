@@ -50,6 +50,18 @@ def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE, path=REFRESH_COOKIE_PATH)
 
 
+def _clear_refresh_cookie_headers() -> dict[str, str]:
+    """The same deletion as `_clear_refresh_cookie`, as headers an HTTPException can carry.
+
+    FastAPI only merges the injected `Response` into the reply when the endpoint returns; a
+    raised exception is rendered into a fresh response, so a `Set-Cookie` written on the
+    injected object is dropped. Failure paths must attach the header to the exception instead.
+    """
+    probe = Response()
+    probe.delete_cookie(REFRESH_COOKIE, path=REFRESH_COOKIE_PATH)
+    return {"set-cookie": probe.headers["set-cookie"]}
+
+
 def _sign_in(db: DbSession, response: Response, user_id: str) -> TokenResponse:
     _set_refresh_cookie(response, session_service.issue(db, user_id))
     return TokenResponse(access_token=create_token(user_id, "access"))
@@ -104,7 +116,11 @@ def refresh(
     _throttled: Throttled,
     refresh_token: RefreshCookie = None,
 ) -> TokenResponse:
-    invalid = HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token")
+    invalid = HTTPException(
+        status.HTTP_401_UNAUTHORIZED,
+        "Invalid refresh token",
+        headers=_clear_refresh_cookie_headers(),
+    )
     if not refresh_token:
         raise invalid
     try:
@@ -113,14 +129,11 @@ def refresh(
         # A spent token came back, so a copy exists somewhere. Every session for the account
         # is already revoked by the service; the client is signed out here.
         audit.record("auth.refresh_reuse", outcome="denied", actor=str(exc), client_ip=ip)
-        _clear_refresh_cookie(response)
         raise invalid from exc
     if rotated is None:
-        _clear_refresh_cookie(response)
         raise invalid
     user_id, replacement = rotated
     if user_service.get_by_id(db, user_id) is None:
-        _clear_refresh_cookie(response)
         raise invalid
     audit.record("auth.refresh", actor=user_id, client_ip=ip)
     _set_refresh_cookie(response, replacement)

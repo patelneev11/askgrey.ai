@@ -46,6 +46,7 @@ environment:
 | `SENTRY_DSN`, `RELEASE` | see [monitoring](./monitoring.md) |
 | `LLM_DAILY_COST_ALERT_USD`, `LLM_DAILY_CALL_BUDGET` | spend guards |
 | `FRONTEND_DIST_DIR` | set only for single-origin hosting, where FastAPI serves the built SPA |
+| `TRUSTED_PROXY_HOPS` | `1` on Railway. The platform terminates traffic at its edge proxy, so the peer address the app sees is the proxy for every visitor; left at `0` the per-source-address sign-in limit becomes one global bucket and any single client can lock everybody out. Count only proxies you control — each claimed hop trusts one more attacker-supplied `X-Forwarded-For` entry |
 
 Frontend — `frontend/.env.example`. Everything prefixed `VITE_` is compiled into the bundle
 and is public: `VITE_SENTRY_DSN` is designed to be, an API key never is.

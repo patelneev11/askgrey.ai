@@ -9,7 +9,7 @@ from app.core.dependency_health import MonitoredAsyncClient
 from app.services.rate_limit import RateLimiter, retry_with_backoff
 
 from .errors import GrantsRequestError, GrantsResponseError
-from .models import GrantOpportunity, GrantSource
+from .models import GrantOpportunity, GrantSource, ProgramProvenance
 from .parsing import clean_text, parse_date, parse_program, parse_status
 
 SBIR_BASE_URL = "https://api.www.sbir.gov/public/api"
@@ -86,7 +86,7 @@ class SbirClient:
                 raise GrantsRequestError(f"solicitations request failed: {exc}") from exc
             if response.status_code >= 400:
                 raise GrantsRequestError(
-                    f"solicitations failed (HTTP {response.status_code})",
+                    _failure_message(response.status_code),
                     status_code=response.status_code,
                 )
             return response
@@ -109,6 +109,15 @@ class SbirClient:
         if not isinstance(payload, list):
             raise GrantsResponseError("solicitations returned a non-list body")
         return [item for item in payload if isinstance(item, dict)]
+
+
+def _failure_message(status_code: int) -> str:
+    if status_code in {401, 403}:
+        return (
+            f"SBIR.gov refused this deployment's network (HTTP {status_code} from its WAF); "
+            "no SBIR.gov solicitations are included and nothing was substituted for them"
+        )
+    return f"solicitations failed (HTTP {status_code})"
 
 
 def _topics(solicitation: dict[str, Any]) -> tuple[list[str], str]:
@@ -166,6 +175,7 @@ def parse_solicitation(solicitation: dict[str, Any], today: date) -> GrantOpport
         close_date = earliest if close_date is None else min(close_date, earliest)
 
     number = clean_text(solicitation.get("solicitation_number"), limit=100)
+    program = parse_program(solicitation.get("program"))
     return GrantOpportunity(
         source=GrantSource.SBIR,
         opportunity_id=number or clean_text(solicitation.get("solicitation_title"), limit=100),
@@ -174,7 +184,9 @@ def parse_solicitation(solicitation: dict[str, Any], today: date) -> GrantOpport
         agency=clean_text(solicitation.get("agency"), limit=200),
         agency_code=clean_text(solicitation.get("agency"), limit=100),
         branch=clean_text(solicitation.get("branch"), limit=200),
-        program=parse_program(solicitation.get("program")),
+        program=program,
+        # SBIR.gov publishes the set-aside as its own field, unlike grants.gov.
+        program_provenance=ProgramProvenance.STATED if program else None,
         status=parse_status(solicitation.get("current_status"), close_date, today),
         posted_date=parse_date(solicitation.get("open_date"))
         or parse_date(solicitation.get("release_date")),

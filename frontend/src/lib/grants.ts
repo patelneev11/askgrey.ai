@@ -10,6 +10,8 @@
 export type GrantSource = 'grants_gov' | 'sbir';
 export type GrantProgram = 'SBIR' | 'STTR' | 'BOTH' | 'OTHER';
 export type GrantStatus = 'open' | 'forecasted' | 'closed';
+/** Whether the provider published the set-aside program or it was read out of the title text. */
+export type ProgramProvenance = 'stated' | 'inferred';
 
 export interface GrantOpportunity {
   source: GrantSource;
@@ -20,6 +22,7 @@ export interface GrantOpportunity {
   agency_code: string;
   branch: string;
   program: GrantProgram | null;
+  program_provenance: ProgramProvenance | null;
   status: GrantStatus | null;
   posted_date: string | null;
   close_date: string | null;
@@ -296,6 +299,19 @@ export const VERDICT_LABELS: Record<Verdict, string> = {
 /** The provider states a deadline or it does not; never invent one to fill the field. */
 export function deadlineLabel(opportunity: GrantOpportunity): string {
   return opportunity.close_date ?? 'No published deadline';
+}
+
+/**
+ * The set-aside program plus how it was determined.
+ *
+ * grants.gov publishes no set-aside field, so a program there is a keyword read of the title and
+ * synopsis and must not be shown as if the agency stated it.
+ */
+export function programLabel(opportunity: GrantOpportunity): string {
+  if (opportunity.program === null) return 'Not stated';
+  return opportunity.program_provenance === 'inferred'
+    ? `${opportunity.program} (inferred from title)`
+    : opportunity.program;
 }
 
 export function fundingLabel(opportunity: GrantOpportunity): string {

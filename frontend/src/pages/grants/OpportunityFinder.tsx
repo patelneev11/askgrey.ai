@@ -11,6 +11,7 @@ import {
   daysUntilClose,
   deadlineLabel,
   fundingLabel,
+  programLabel,
   type GrantOpportunity,
   type GrantSearchQuery,
   type OpportunityMatch,
@@ -65,6 +66,12 @@ function ProviderStatus({ sources }: { sources: SourceStatus[] }) {
           )}
         </li>
       ))}
+      {sources.some((status) => status.source === 'sbir' && !status.ok) && (
+        <li className={styles.providerNote}>
+          SBIR/STTR solicitations that are cross-posted to grants.gov still appear above; those
+          only carried by SBIR.gov are missing from this result set.
+        </li>
+      )}
     </ul>
   );
 }
@@ -132,7 +139,15 @@ function OpportunityCard({
         </div>
         <div>
           <dt>Program</dt>
-          <dd>{opportunity.program ?? 'Not stated'}</dd>
+          <dd
+            title={
+              opportunity.program_provenance === 'inferred'
+                ? 'grants.gov publishes no set-aside field; this was read out of the title and synopsis'
+                : undefined
+            }
+          >
+            {programLabel(opportunity)}
+          </dd>
         </div>
       </dl>
       {days !== null && (

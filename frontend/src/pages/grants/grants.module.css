@@ -105,6 +105,13 @@
   list-style: none;
 }
 
+.providerNote {
+  flex-basis: 100%;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
+}
+
 /* ---- Opportunity cards ---- */
 
 .opportunities {

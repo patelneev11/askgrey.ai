@@ -10,7 +10,7 @@ from app.core.dependency_health import MonitoredAsyncClient
 from app.services.rate_limit import RateLimiter, retry_with_backoff
 
 from .errors import GrantsRequestError, GrantsResponseError
-from .models import GrantOpportunity, GrantSource
+from .models import GrantOpportunity, GrantSource, ProgramProvenance
 from .parsing import (
     as_dict,
     clean_text,
@@ -185,6 +185,7 @@ def parse_hit(hit: dict[str, Any], today: date) -> GrantOpportunity:
     close_date = parse_date(hit.get("closeDate"))
     title = clean_text(hit.get("title"), limit=500)
     opportunity_id = str(hit.get("id", "")).strip()
+    program = infer_program(title)
     return GrantOpportunity(
         source=GrantSource.GRANTS_GOV,
         opportunity_id=opportunity_id,
@@ -192,7 +193,8 @@ def parse_hit(hit: dict[str, Any], today: date) -> GrantOpportunity:
         title=title,
         agency=clean_text(hit.get("agency"), limit=200),
         agency_code=clean_text(hit.get("agencyCode"), limit=100),
-        program=infer_program(title),
+        program=program,
+        program_provenance=ProgramProvenance.INFERRED if program else None,
         status=parse_status(hit.get("oppStatus"), close_date, today),
         posted_date=parse_date(hit.get("openDate")),
         close_date=close_date,
@@ -207,6 +209,7 @@ def apply_detail(
     synopsis = as_dict(detail.get("synopsis")) or as_dict(detail.get("forecast"))
     description = clean_text(synopsis.get("synopsisDesc") or synopsis.get("forecastDesc"))
     close_date = parse_date(synopsis.get("responseDate")) or opportunity.close_date
+    program = infer_program(opportunity.title, description) or opportunity.program
     return opportunity.model_copy(
         update={
             "number": clean_text(detail.get("opportunityNumber"), limit=100) or opportunity.number,
@@ -226,7 +229,8 @@ def apply_detail(
                 today,
             )
             or opportunity.status,
-            "program": infer_program(opportunity.title, description) or opportunity.program,
+            "program": program,
+            "program_provenance": ProgramProvenance.INFERRED if program else None,
         }
     )
 

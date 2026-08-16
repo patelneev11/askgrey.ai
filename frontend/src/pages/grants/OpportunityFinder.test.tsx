@@ -32,6 +32,7 @@ function opportunity(overrides: Partial<GrantOpportunity> = {}): GrantOpportunit
     agency_code: 'HHS-NIH-NIDDK',
     branch: 'NIDDK',
     program: 'SBIR',
+    program_provenance: 'inferred',
     status: 'open',
     posted_date: '2026-01-05',
     close_date: '2026-09-05',
@@ -127,6 +128,32 @@ describe('opportunity search', () => {
       await screen.findByText(/SBIR\.gov unavailable · HTTP 403 from SBIR\.gov/),
     ).toBeInTheDocument();
     expect(screen.getByText(/grants\.gov · 1 of 41/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only carried by SBIR\.gov are missing from this result set/),
+    ).toBeInTheDocument();
+  });
+
+  it('marks a grants.gov set-aside as inferred and an SBIR.gov one as stated', async () => {
+    const user = userEvent.setup();
+    searchGrants.mockResolvedValue(
+      page({
+        opportunities: [
+          opportunity(),
+          opportunity({
+            source: 'sbir',
+            opportunity_id: 'DE-FOA-1',
+            program: 'STTR',
+            program_provenance: 'stated',
+          }),
+        ],
+      }),
+    );
+    render(<OpportunityFinder />);
+
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByText('SBIR (inferred from title)')).toBeInTheDocument();
+    expect(screen.getByText('STTR', { selector: 'dd' })).toBeInTheDocument();
   });
 
   it('does not claim a fit score for an unranked search', async () => {

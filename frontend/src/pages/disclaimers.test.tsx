@@ -7,22 +7,14 @@ import { OnboardingProvider } from '@/lib/onboarding';
 import { AuditPage } from './AuditPage';
 import { ProtocolPage } from './ProtocolPage';
 import { RegulatoryPage } from './RegulatoryPage';
-import { ScreeningPage } from './ScreeningPage';
 import { SettingsPage } from './SettingsPage';
 import { WorkspacePage } from './WorkspacePage';
 
 // These caveats are a product requirement, not decoration: the numbers on these pages are
 // model output, so a regression that drops the warning is a correctness bug.
+// Screening renders its caveats over a live payload, so they are asserted against the rendered
+// results in ScreeningPage.test.tsx rather than here.
 describe('unvalidated / draft disclaimers', () => {
-  it('warns on Screening that predictions are not assay results', () => {
-    render(<ScreeningPage />);
-
-    expect(screen.getByRole('note')).toHaveTextContent(
-      /computational approximations \(RDKit\/LLM\), not validated assay results/i,
-    );
-    expect(screen.getByText('predicted')).toBeInTheDocument();
-  });
-
   it('warns on Protocol and Regulatory that drafts need qualified review', () => {
     const { unmount } = render(<ProtocolPage />);
     expect(screen.getByRole('note')).toHaveTextContent(

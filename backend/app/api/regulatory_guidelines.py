@@ -1,8 +1,9 @@
+import json
 import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.api.deps import ThrottledUser
 from app.services.regulatory.guidelines import (
@@ -45,13 +46,13 @@ class GuidelineCheckRequest(BaseModel):
 
     The draft carries proprietary manufacturing and study data, so it is bounded on the way in and
     never echoed back in an error: a validation message that quotes the text would put it into
-    client-side logs and error trackers.
+    client-side logs and error trackers. The model is therefore validated by hand in the handler
+    rather than declared as a body parameter — see `_parse_request`.
     """
 
     section_id: str = Field(min_length=1, max_length=MAX_SECTION_ID)
-    # Deliberately not bounded with `max_length`: pydantic puts the offending value into the 422
-    # body, which would send the whole draft back to the client and into its logs. The cap is
-    # enforced in the handler instead, and the body size is capped before that.
+    # Deliberately not bounded with `max_length`: the cap is enforced in the handler so that the
+    # rejection cannot depend on an error payload carrying the draft. The body size is capped first.
     draft_text: str = Field(min_length=1)
     jurisdictions: list[Jurisdiction] = Field(min_length=1, max_length=len(Jurisdiction))
 
@@ -75,15 +76,53 @@ def _guard_body_size(http_request: Request) -> None:
         )
 
 
-@router.post("/check", response_model=GuidelineCheckReport)
-def check(
+def _rejection_reason(exc: ValidationError) -> str:
+    """Name the fields and why, and nothing else. Pydantic's own 422 payload carries the offending
+    input alongside the message, which for this route is proprietary draft text."""
+    reasons = []
+    for error in exc.errors():
+        field = ".".join(str(part) for part in error["loc"]) or "body"
+        reasons.append(f"{field}: {error['msg']}")
+    return "; ".join(reasons) or "request body is invalid"
+
+
+async def _parse_request(http_request: Request) -> GuidelineCheckRequest:
+    """Validate the body here rather than declaring it as a parameter, so that no rejected value is
+    reflected back to the client: FastAPI's 422 body includes the input it rejected."""
+    try:
+        payload = await http_request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "request body must be a JSON object"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "request body must be a JSON object"
+        )
+    try:
+        return GuidelineCheckRequest.model_validate(payload)
+    except ValidationError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, _rejection_reason(exc)) from exc
+
+
+@router.post(
+    "/check",
+    response_model=GuidelineCheckReport,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": GuidelineCheckRequest.model_json_schema()}},
+        }
+    },
+)
+async def check(
     http_request: Request,
     _user: ThrottledUser,
     checker: Checker,
-    request: GuidelineCheckRequest,
 ) -> GuidelineCheckReport:
     """Compare a draft CTD section against the shipped requirement snapshots. No model is called."""
     _guard_body_size(http_request)
+    request = await _parse_request(http_request)
     if len(request.draft_text) > MAX_DRAFT_CHARS:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,

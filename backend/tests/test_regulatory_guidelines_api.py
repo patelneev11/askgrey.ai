@@ -102,14 +102,15 @@ def test_over_long_draft_is_rejected_without_echoing_it(client: TestClient) -> N
 def test_bad_section_id_and_empty_jurisdictions_are_rejected(client: TestClient) -> None:
     headers = auth_header(client)
 
-    assert (
-        client.post(
-            CHECK,
-            json={"section_id": "not a section", "draft_text": DRAFT, "jurisdictions": ["fda"]},
-            headers=headers,
-        ).status_code
-        == 422
+    rejected = client.post(
+        CHECK,
+        json={"section_id": "not a section", "draft_text": DRAFT, "jurisdictions": ["fda"]},
+        headers=headers,
     )
+    assert rejected.status_code == 422
+    # No submitted value comes back, not the draft and not the section id either.
+    assert "not a section" not in rejected.text
+    assert DRAFT[:60] not in rejected.text
     assert (
         client.post(
             CHECK,

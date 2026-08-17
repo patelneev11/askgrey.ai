@@ -14,6 +14,8 @@ from app.api.pdf_extraction import router as pdf_extraction_router
 from app.api.protocols import router as protocols_router
 from app.api.pubchem import router as pubchem_router
 from app.api.pubmed import router as pubmed_router
+from app.api.regulatory import router as regulatory_router
+from app.api.regulatory_guidelines import router as regulatory_guidelines_router
 from app.api.screening import router as screening_router
 from app.api.system import router as system_router
 from app.core.config import get_settings
@@ -69,9 +71,11 @@ app.include_router(pubchem_router, prefix="/api")
 app.include_router(clinicaltrials_router, prefix="/api")
 app.include_router(pdf_extraction_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
+app.include_router(regulatory_router, prefix="/api")
 app.include_router(grants_router, prefix="/api")
 app.include_router(protocols_router, prefix="/api")
 app.include_router(literature_router, prefix="/api")
+app.include_router(regulatory_guidelines_router, prefix="/api")
 app.include_router(screening_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 

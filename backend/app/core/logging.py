@@ -91,6 +91,10 @@ def configure_logging(*, level: str = "INFO", json_logs: bool = True) -> None:
         uvicorn_logger.propagate = True
     # Uvicorn's access line duplicates the structured one below, without the request id.
     logging.getLogger("uvicorn.access").disabled = True
+    # httpx logs every outbound request at INFO with the full URL, which puts user query text
+    # (search terms, compound identifiers) into the logs. Service clients log their own line
+    # with the provider, outcome and status instead, so only httpx's warnings are wanted.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

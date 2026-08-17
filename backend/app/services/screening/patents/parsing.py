@@ -27,7 +27,6 @@ def parse_record(record: dict[str, Any]) -> PatentHit:
         patent_number=_text(meta.get("patentNumber")),
         publication_number=_text(meta.get("earliestPublicationNumber")),
         title=_text(meta.get("inventionTitle")),
-        abstract=_text(meta.get("abstractText")),
         filing_date=_text(meta.get("filingDate")),
         grant_date=_text(meta.get("grantDate")),
         publication_date=_text(meta.get("earliestPublicationDate")),
@@ -51,13 +50,16 @@ def total_found(payload: dict[str, Any]) -> int | None:
     """
     Upstream's count of the whole result set, or None when it did not report one.
 
-    Read only from `totalNumFound`, which is the size of the whole result set. The sibling
-    `count` is how many records this page carries and would understate the landscape.
+    `count` is the size of the whole match set, not of the page: a `limit=2` request over seven
+    matches returns two records and `count: 7`. `totalNumFound` is read as a fallback because
+    other ODP endpoints report the total under that name.
 
     None rather than 0: "the API did not say" and "the API said none" are different claims,
     and only one of them belongs in a prior-art report.
     """
-    value = payload.get("totalNumFound")
+    value = payload.get("count")
+    if value is None:
+        value = payload.get("totalNumFound")
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -112,6 +114,9 @@ def _classifications(value: object) -> list[str]:
             symbol = _text(entry.get("cpcSymbol")) or _text(entry.get("cpcClassificationSymbol"))
         else:
             continue
+        # Upstream pads symbols to a fixed width (`A61K  31/616`); the padding is presentation,
+        # not part of the symbol.
+        symbol = " ".join(symbol.split())
         if symbol and symbol not in symbols:
             symbols.append(symbol)
     return symbols

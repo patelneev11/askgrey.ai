@@ -20,24 +20,29 @@ SOURCE_LABEL = "USPTO Open Data Portal — Patent Search (patent applications)"
 # Carried in the payload rather than left to the frontend, so no client can render these hits
 # without the sentence that says what they are not.
 PATENT_CAVEAT = (
-    "Keyword-based prior-art results from a text search of USPTO patent application titles, "
-    "abstracts and bibliographic metadata. This is not a structural similarity search, not a "
-    "novelty assessment and not a freedom-to-operate analysis; a registered patent attorney "
-    "must review the landscape before any filing, licensing or FTO decision."
+    "Keyword-based prior-art results from a text search of USPTO patent application titles and "
+    "bibliographic metadata (applicants, inventors, classifications). Abstracts and claim text "
+    "are not searched. This is not a structural similarity search, not a novelty assessment and "
+    "not a freedom-to-operate analysis; a registered patent attorney must review the landscape "
+    "before any filing, licensing or FTO decision."
 )
 # An empty result set is the case most likely to be misread, so it gets its own sentence.
 NO_MATCH_STATEMENT = (
     "No keyword matches found for this query. This is not evidence of novelty: the search "
-    "covers only the keywords listed in query_used against one USPTO dataset, and prior art "
-    "may exist under different wording, in unpublished applications, in pre-2001 US patents, "
-    "or in non-US patent offices."
+    "requires every term in query_used to appear in the title or bibliographic metadata of one "
+    "USPTO dataset — it does not read abstracts or claims — and prior art may exist under "
+    "different wording, in unpublished applications, in pre-2001 US patents, or in non-US "
+    "patent offices. Dropping a term or searching a synonym will often return hits."
 )
 # Why a SMILES string still ends up as a text query.
 STRUCTURE_TEXT_NOTE = (
     "The upstream API indexes text, not chemical structures, so the structure itself was never "
     "searched. The query below was derived from the structure's molecular formula (and any "
     "scaffold keywords supplied); a patent claiming this compound under a different formula "
-    "expression, a Markush genus or a trade name will not match."
+    "expression, a Markush genus or a trade name will not match. Formulae rarely appear in the "
+    "indexed fields at all, so a formula-only query usually returns nothing even for a "
+    "well-patented compound: pair the structure with scaffold or mechanism keywords, or search "
+    "the compound's name."
 )
 
 UNAVAILABLE_ANALYSES: tuple[UnavailableProperty, ...] = (
@@ -124,8 +129,9 @@ class DerivedQuery(BaseModel):
     terms: list[str] = Field(default_factory=list)
     derivation: str
     field_scope: str = (
-        "Free-form text search across the indexed USPTO application fields (title, abstract "
-        "and bibliographic metadata). Full claim text is not searched."
+        "Free-form text search across the indexed USPTO application fields: invention title, "
+        "applicant and inventor names, and classification and status metadata. This dataset "
+        "carries neither abstracts nor claim text, so neither is searched or returned."
     )
     structure: StructureBasis | None = None
 
@@ -157,13 +163,15 @@ class PatentHit(BaseModel):
     Nothing is inferred or filled in: a missing title stays empty rather than becoming a
     generated label, and `url` is the deterministic USPTO permalink for the record's own
     application number.
+
+    There is no abstract field: the upstream dataset does not carry abstract text, and an
+    always-empty column would suggest the search read abstracts when it did not.
     """
 
     application_number: str = ""
     patent_number: str = ""
     publication_number: str = ""
     title: str = ""
-    abstract: str = ""
     filing_date: str = ""
     grant_date: str = ""
     publication_date: str = ""

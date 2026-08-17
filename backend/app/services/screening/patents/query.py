@@ -18,7 +18,7 @@ from .errors import InvalidKeywordError
 MAX_KEYWORD_LENGTH = 200
 MIN_KEYWORD_LENGTH = 3
 # A prior-art query is a scaffold or a mechanism, not a paragraph. More terms than this is a
-# pasted abstract, which AND-ed together would match nothing anyway.
+# pasted abstract, which — with every term required — would match nothing anyway.
 MAX_TERMS = 12
 MIN_TERM_LENGTH = 2
 
@@ -27,8 +27,10 @@ MIN_TERM_LENGTH = 2
 # nothing else. Newlines are excluded, so a pasted list cannot become one query.
 ALLOWED_KEYWORD_CHARACTERS = re.compile(r"^[A-Za-z0-9 \-'’,\.\+/]+$")
 # What may become a search term. Anything outside this class is dropped rather than escaped,
-# which is why the constructed query cannot carry query-language syntax.
-TERM_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-'+]*")
+# which is why the constructed query cannot carry query-language syntax. `+` is excluded even
+# though the keyword gate accepts it in the raw string, because `+` is the operator this module
+# uses to mark a term as required: a term may never carry one of its own.
+TERM_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-']*")
 
 
 def normalize_keywords(value: object) -> str:
@@ -123,5 +125,12 @@ def derive_terms(smiles: str, keywords: str) -> DerivedTerms:
 
 
 def query_string(terms: list[str]) -> str:
-    """AND the terms into the upstream simple-query-string form, e.g. `C9H8O4 AND kinase`."""
-    return " AND ".join(terms)
+    """
+    The terms as one upstream query where every term is required, e.g. `+C9H8O4 +kinase`.
+
+    The upstream parser defaults to OR — `salicylate prodrug` returns the union, and a literal
+    `AND` is searched as a word rather than read as an operator — so each term carries the `+`
+    prefix that makes it mandatory. This is the string reported as `query_used`, because a
+    researcher reproducing the search needs the query the API actually received.
+    """
+    return " ".join(f"+{term}" for term in terms)

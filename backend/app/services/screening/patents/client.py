@@ -15,6 +15,12 @@ from .errors import PatentRequestError, PatentResponseError
 ODP_BASE_URL = "https://api.uspto.gov/api/v1"
 SEARCH_PATH = "patent/applications/search"
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+# Upstream answers a search that matched nothing with 404 and this phrase, rather than with an
+# empty 200 body. Matching on the phrase keeps a genuine zero-hit search distinguishable from a
+# 404 caused by a wrong path or a withdrawn endpoint, which is a deployment fault and must not
+# be reported to a researcher as "no prior art found".
+NO_MATCH_MARKER = "no matching records found"
+EMPTY_PAYLOAD: dict[str, Any] = {"count": 0, "patentFileWrapperDataBag": []}
 # Upstream's own ceiling per request; also what one screen of prior art can usefully show.
 MAX_PAGE_SIZE = 50
 
@@ -82,6 +88,8 @@ class UsptoOdpClient:
                 response = await self._client.get(url, params=params, headers=headers)
             except httpx.HTTPError as exc:
                 raise PatentRequestError(f"patent search request failed: {exc}") from exc
+            if response.status_code == 404 and _is_no_match(response):
+                return response
             if response.status_code >= 400:
                 raise PatentRequestError(
                     f"patent search failed (HTTP {response.status_code})",
@@ -101,6 +109,9 @@ class UsptoOdpClient:
             max_attempts=self.max_attempts,
             base_delay=self.base_delay,
         )
+        if response.status_code == 404:
+            # A search that matched nothing, reported as the empty result set it is.
+            return dict(EMPTY_PAYLOAD)
         try:
             payload = response.json()
         except ValueError as exc:
@@ -108,3 +119,15 @@ class UsptoOdpClient:
         if not isinstance(payload, dict):
             raise PatentResponseError("patent search returned a non-object body")
         return payload
+
+
+def _is_no_match(response: httpx.Response) -> bool:
+    """True when a 404 body says the query matched no records, rather than that the path is gone."""
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    if not isinstance(body, dict):
+        return False
+    text = " ".join(str(body.get(key, "")) for key in ("detailedMessage", "message", "error"))
+    return NO_MATCH_MARKER in text.casefold()

@@ -10,8 +10,9 @@ response says so in fields the UI must render rather than leaving it to a toolti
 **USPTO Open Data Portal — Patent Search**, `GET https://api.uspto.gov/api/v1/patent/applications/search`.
 
 It is the endpoint USPTO currently maintains for programmatic search of patent applications, it
-returns structured bibliographic JSON (title, abstract, filing/publication/grant dates,
-applicants, inventors, CPC symbols, status), and it is free.
+returns structured bibliographic JSON (title, filing/publication/grant dates, applicants,
+inventors, CPC symbols, status), and it is free. It carries no abstract or claim text, which is
+the single biggest limit on what this module can find.
 
 The alternatives were rejected:
 
@@ -25,11 +26,11 @@ The alternatives were rejected:
 ## The gap: an API key is required
 
 The Open Data Portal endpoint requires a free `X-API-KEY`
-(<https://developer.uspto.gov/> → Open Data Portal → request an API key). No key was available
-when this module was written; an unauthenticated request answers `401`.
+(<https://developer.uspto.gov/> → Open Data Portal → request an API key); an unauthenticated
+request answers `401`. The module was written before a key existed for this deployment, so the
+unconfigured path is a first-class outcome rather than an error.
 
-Rather than inventing a credential or pretending, the client is fully implemented and the service
-degrades honestly. With `USPTO_ODP_API_KEY` unset:
+With `USPTO_ODP_API_KEY` unset:
 
 - the client's `configured` is `False` and **no upstream request is attempted**;
 - the response is `200` with `source_available: false` and a `source_status` explaining that a
@@ -45,11 +46,32 @@ rejected key (`401`/`403`), throttling (`429`), a `5xx`, a timeout, or an unpars
 one exception is `400`, which means the query expression itself was rejected: that is a bug in
 query construction, so it surfaces as a `502` instead of being hidden.
 
+## Live API behaviour this module depends on
+
+Verified against the real endpoint with a key (the recordings are in
+`tests/fixtures/patents/SOURCES.md`), because three of its conventions are not what a reader of
+the schema would assume:
+
+- **The default operator is OR, and `AND` is not an operator.** `salicylate prodrug` returns the
+  union of both terms, and `salicylate AND prodrug` searches for the literal word "and". Required
+  terms are marked with `+`, so this module sends `+salicylate +prodrug` and reports that string
+  verbatim as `query.query_used`.
+- **A search that matched nothing answers `404`**, with `detailedMessage: "No matching records
+  found…"`, not an empty `200`. That one case is translated into an empty result set with
+  `source_available: true` and the no-match statement; any other `404` is treated as the endpoint
+  failing to answer, because a moved endpoint must never read as "no prior art found".
+- **`count` is the size of the whole match set**, not of the page (two records returned with
+  `count: 7`). There is no `totalNumFound` field here.
+
+Searching is over the indexed application metadata — invention title, applicant and inventor
+names, classifications and status. `q=Genentech` matches on the applicant, not the title. There is
+no abstract or claim text in this dataset, so `PatentHit` has no abstract field: an always-empty
+column would imply the search read abstracts.
+
 ## What it can do
 
-- Free-text search over the fields ODP indexes for an application: title, abstract and
-  bibliographic metadata.
-- Terms AND-ed together (`C9H8O4 AND salicylate`), reported verbatim as `query.query_used`.
+- Free-text search over the metadata fields ODP indexes for an application (see above).
+- Every term required (`+C9H8O4 +salicylate`), reported verbatim as `query.query_used`.
 - Sort by relevance (upstream order), filing date asc/desc, or grant date desc.
 - Offset pagination, bounded page size, and an optional filing-date range filter.
 - Return only what upstream returned: a missing patent number, assignee or date stays empty.
@@ -74,9 +96,11 @@ Two further honesty rules are enforced in the payload rather than the docs:
   will not match.
 - **An empty result set is a statement about the query, not about the art.** When a search does
   run and matches nothing, `no_match_statement` says so and says it is not evidence of novelty.
-  Claim scope is also out of reach in a subtler way: ODP indexes the abstract, not the full claim
-  text, so a patent whose claims cover the compound while its abstract uses other words is
-  invisible here.
+  Claim scope is out of reach in a subtler way too: this dataset holds neither abstracts nor claim
+  text, so a patent whose claims cover the compound while its title uses other words is invisible
+  here. A formula-only query is the worst case — formulae rarely appear in a title, so
+  `+C9H8O4` alone usually returns nothing even for a heavily patented compound, and
+  `query.structure.note` says so on every structure search.
 
 `caveat` is always present, on every response, including successful ones.
 
@@ -113,7 +137,11 @@ Everything is checked before any external call is made:
 - **One dataset, one office.** ODP's application search covers US applications published from
   ~2001 onward. Pre-2001 US patents, unpublished applications (including anything inside the
   18-month window), and every non-US office (EPO, WIPO, CNIPA, JPO) are outside it.
-- **Abstract-level text only.** Claims and full description text are not searched.
+- **Title and party metadata only.** Abstracts, claims and description text are neither searched
+  nor returned, because this dataset does not carry them. This is the gap that most limits recall:
+  pair a structure with scaffold or mechanism keywords rather than relying on the formula.
+- **Every term is required.** A four-term query is a narrow query; the UI should expect zero-hit
+  results to be common and should surface `no_match_statement` rather than an empty table.
 - **Keyword recall is a synonym problem.** Chemistry is written many ways; a formula query misses
   Markush claims, salts, solvates, trade names and IUPAC-name-only text. A null result reflects
   the wording of `query_used` and nothing more.
@@ -122,5 +150,7 @@ Everything is checked before any external call is made:
   more reason no score is derived from them.
 - **`total_found` is upstream's number.** It is reported when present and `null` when absent; it
   is never inferred from the page.
-- **The test fixtures are schema-accurate but hand-built**, because no key was available to
-  record a live response — see `tests/fixtures/patents/SOURCES.md`.
+- **`404` disambiguation is body-based.** A zero-hit search is told apart from a broken endpoint
+  by the phrase in the `404` body. If USPTO reworded that message, genuine no-match searches
+  would start reporting as a degraded source — the safe direction to fail, but it would need a
+  one-line fix here.

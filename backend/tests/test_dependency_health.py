@@ -88,6 +88,20 @@ async def test_a_rejected_query_is_our_fault_and_does_not_mark_the_provider_down
     assert next(s for s in health.snapshot() if s.provider == "pubchem").failures == 0
 
 
+async def test_a_rejected_credential_marks_the_provider_down_rather_than_hiding() -> None:
+    health.reset()
+    statuses = iter([401, 403])
+    transport = httpx.MockTransport(lambda _request: httpx.Response(next(statuses)))
+
+    async with MonitoredAsyncClient("uspto_odp", transport=transport) as client:
+        for _ in range(2):
+            await client.get("https://api.uspto.example/x")
+
+    snapshot = next(s for s in health.snapshot() if s.provider == "uspto_odp")
+    assert (snapshot.calls, snapshot.failures) == (2, 2)
+    assert snapshot.last_error == "HTTP 403"
+
+
 async def test_a_transport_failure_is_recorded_and_still_raised() -> None:
     health.reset()
 

@@ -52,7 +52,27 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 def client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    """The address the per-source-address limits key on.
+
+    Behind a reverse proxy the peer address is the proxy, so every visitor would share one
+    bucket and a single client could exhaust the sign-in allowance for everybody. With
+    `trusted_proxy_hops` set, the address is read from X-Forwarded-For counting back from the
+    right: the rightmost entry is written by the nearest trusted proxy, so hop N is the last
+    value an attacker cannot forge. Entries to the left of that are client-supplied and ignored.
+    """
+    peer = request.client.host if request.client else "unknown"
+    hops = get_settings().trusted_proxy_hops
+    if hops <= 0:
+        return peer
+    forwarded = request.headers.get("x-forwarded-for")
+    if not forwarded:
+        return peer
+    chain = [entry.strip() for entry in forwarded.split(",") if entry.strip()]
+    if not chain:
+        return peer
+    # Claiming more hops than the chain provides would hand the choice back to the client, so
+    # fall back to the leftmost entry the proxies actually vouched for.
+    return chain[-hops] if hops <= len(chain) else chain[0]
 
 
 def _enforce(

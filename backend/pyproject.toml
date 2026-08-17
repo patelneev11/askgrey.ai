@@ -11,6 +11,10 @@ dependencies = [
     "uvicorn[standard]==0.34.0",
     "sqlalchemy==2.0.36",
     "alembic==1.14.0",
+    # Postgres driver for deployed environments. psycopg 3 rather than psycopg2: SQLAlchemy 2
+    # resolves a bare `postgresql://` URL to psycopg2, which is why config rewrites the scheme
+    # to `postgresql+psycopg://`. The binary wheel avoids needing libpq headers at build time.
+    "psycopg[binary]==3.2.3",
     "pydantic==2.10.4",
     "pydantic-settings==2.7.0",
     # PyJWT replaces python-jose: python-jose's latest release still carries an unfixed advisory
@@ -38,6 +42,12 @@ dev = [
     "ruff==0.8.4",
     "mypy==1.14.0",
 ]
+
+[tool.setuptools.packages.find]
+# `migrations/` sits beside `app/` and is run by Alembic from the working directory, not
+# imported from the installed package; without this, setuptools sees two top-level packages
+# in a flat layout and refuses to build.
+include = ["app*"]
 
 [tool.setuptools.package-data]
 # The eligibility thresholds are data, not code, and are read from the installed package.

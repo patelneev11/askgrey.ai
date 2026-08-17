@@ -2,8 +2,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings, get_settings
-from app.core.headers import HSTS
+from app.core.headers import API_CSP, HSTS
 from app.main import app
+
+# A deployed environment refuses a SQLite file, so these settings name a managed database.
+DEPLOYED_DATABASE = "postgresql://user:pw@db.internal/askgrey"
 
 
 def test_every_response_carries_the_browser_enforced_headers(client: TestClient) -> None:
@@ -22,11 +25,17 @@ def test_development_does_not_pin_localhost_to_https(client: TestClient) -> None
 
 
 def test_a_deployed_environment_sends_hsts(monkeypatch: pytest.MonkeyPatch) -> None:
-    deployed = Settings(environment="production", jwt_secret="x" * 48)
+    deployed = Settings(
+        environment="production", jwt_secret="x" * 48, database_url=DEPLOYED_DATABASE
+    )
     monkeypatch.setattr("app.core.headers.get_settings", lambda: deployed)
 
     with TestClient(app) as deployed_client:
         assert deployed_client.get("/api/health").headers["Strict-Transport-Security"] == HSTS
+
+
+def test_the_api_forbids_loading_anything_at_all(client: TestClient) -> None:
+    assert client.get("/api/health").headers["Content-Security-Policy"] == API_CSP
 
 
 def test_health_does_not_name_the_deployment(client: TestClient) -> None:
@@ -42,4 +51,9 @@ def test_the_default_cors_list_is_explicit() -> None:
 def test_a_deployed_environment_refuses_wildcard_cors() -> None:
     # Sessions ride on a cookie, so a wildcard origin would hand the API to any site.
     with pytest.raises(ValueError, match="CORS_ORIGINS"):
-        Settings(environment="production", jwt_secret="x" * 48, cors_origins="*")
+        Settings(
+            environment="production",
+            jwt_secret="x" * 48,
+            database_url=DEPLOYED_DATABASE,
+            cors_origins="*",
+        )

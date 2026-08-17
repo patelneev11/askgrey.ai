@@ -20,7 +20,16 @@ class Settings(BaseSettings):
 
     app_name: str = "askgrey.ai"
     environment: str = "development"
+    # SQLite by default so a clone runs with no services to install. A deployment must point
+    # this at a managed database instead: the host filesystem is replaced on every deploy,
+    # and the stored paper bytes live in this database, so a file-backed URL loses every saved
+    # workspace on the next release.
     database_url: str = "sqlite:///./askgrey.db"
+    # Connections are recycled well inside the idle timeout a managed Postgres or its pooler
+    # imposes, so a checked-out connection is never one the far end has already dropped.
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_recycle_seconds: int = 1800
 
     jwt_secret: str = DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
@@ -28,6 +37,10 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 14
 
     cors_origins: str = "http://localhost:5173"
+
+    # Absolute path to the built frontend. Set in a single-origin deployment, where this
+    # process serves the SPA as well as the API; empty when Vite serves the frontend.
+    frontend_dist_dir: str = ""
 
     # SSO / OIDC. Populated per corporate tenant; left empty in development.
     oidc_issuer: str = ""
@@ -127,6 +140,11 @@ class Settings(BaseSettings):
 
     # Abuse and cost controls. Turned off only in tests that assert on unthrottled behaviour.
     rate_limit_enabled: bool = True
+    # Number of trusted reverse proxies in front of the app. 0 means the peer address is the
+    # client and X-Forwarded-For is ignored; behind Railway's single edge proxy set 1, so the
+    # per-IP limits key on the visitor instead of collapsing into one shared bucket. Only count
+    # proxies you control: each hop you claim is one entry of attacker-supplied XFF trusted.
+    trusted_proxy_hops: int = 0
     auth_rate_limit_per_minute: int = 10
     auth_account_rate_limit_per_hour: int = 30
     api_rate_limit_per_minute: int = 120
@@ -134,6 +152,26 @@ class Settings(BaseSettings):
     # Same ceiling by source address: an account is cheap to create, an LLM pass is not.
     llm_ip_rate_limit_per_minute: int = 20
     llm_daily_call_budget: int = 250
+
+    @model_validator(mode="after")
+    def _reject_ephemeral_database_outside_development(self) -> "Settings":
+        """A file-backed SQLite database is data loss on a deployed platform, not a warning.
+
+        Containers get a fresh filesystem on each deploy and no sharing between replicas, so
+        the saved workspaces and the stored paper bytes would silently vanish on release and
+        differ per replica before that. `sqlite://` (in-memory) stays allowed because tests
+        construct settings with an explicit environment.
+        """
+        if self.environment == "development":
+            return self
+        url = self.database_url.strip()
+        if url.startswith("sqlite") and url not in ("sqlite://", "sqlite:///:memory:"):
+            raise ValueError(
+                "DATABASE_URL points at a SQLite file, whose contents are lost on every "
+                "deploy and are not shared between replicas; set a managed database URL "
+                f"(environment={self.environment!r})"
+            )
+        return self
 
     @model_validator(mode="after")
     def _reject_wildcard_cors_with_credentials(self) -> "Settings":
@@ -175,6 +213,30 @@ class Settings(BaseSettings):
                 f"outside the development environment (environment={self.environment!r})"
             )
         return self
+
+    @model_validator(mode="after")
+    def _reject_negative_proxy_hops(self) -> "Settings":
+        if self.trusted_proxy_hops < 0:
+            raise ValueError("TRUSTED_PROXY_HOPS cannot be negative")
+        return self
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        """The URL with a driver SQLAlchemy 2 can actually load.
+
+        Managed providers hand out `postgres://` (Heroku-era) or bare `postgresql://`, which
+        SQLAlchemy resolves to psycopg2 — a driver this project does not install. Rewriting
+        the scheme here means a deployment can paste the provider's URL unchanged.
+        """
+        url = self.database_url.strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix) :]
+        return url
+
+    @property
+    def serves_frontend(self) -> bool:
+        return bool(self.frontend_dist_dir.strip())
 
     @property
     def entrez_rate_limit(self) -> float:

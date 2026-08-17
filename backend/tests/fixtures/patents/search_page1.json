@@ -1,0 +1,62 @@
+{
+  "count": 2,
+  "totalNumFound": 37,
+  "requestIdentifier": "f0f1b0e6-2a4e-4a0e-9f2f-6d6f0c1b2a3d",
+  "patentFileWrapperDataBag": [
+    {
+      "applicationNumberText": "16123456",
+      "applicationMetaData": {
+        "inventionTitle": "Acetylsalicylic acid co-crystal formulations for reduced gastric irritation",
+        "abstractText": "Co-crystal forms of acetylsalicylic acid with a coformer are described, together with pharmaceutical compositions comprising the co-crystal and methods of treating inflammation.",
+        "filingDate": "2018-09-06",
+        "grantDate": "2021-03-16",
+        "patentNumber": "10945998",
+        "earliestPublicationNumber": "US20200078317A1",
+        "earliestPublicationDate": "2020-03-12",
+        "applicationStatusDescriptionText": "Patented Case",
+        "applicantBag": [
+          {
+            "applicantNameText": "",
+            "organizationNameText": "Example Therapeutics, Inc."
+          }
+        ],
+        "inventorBag": [
+          {
+            "inventorNameText": "Dana R. Whitfield"
+          },
+          {
+            "firstName": "Priya",
+            "lastName": "Raghavan"
+          }
+        ],
+        "cpcClassificationBag": [
+          {
+            "cpcSymbol": "A61K31/616"
+          },
+          {
+            "cpcClassificationSymbol": "C07C69/157"
+          }
+        ]
+      }
+    },
+    {
+      "applicationNumberText": "17654321",
+      "applicationMetaData": {
+        "inventionTitle": "Salicylate prodrugs bearing a cleavable amide linker",
+        "abstractText": "Prodrugs of salicylate derivatives are provided in which the phenolic ester is replaced by an amide linker cleavable by intestinal amidases.",
+        "filingDate": "2022-03-15",
+        "earliestPublicationNumber": "US20220298108A1",
+        "earliestPublicationDate": "2022-09-22",
+        "applicationStatusDescriptionText": "Non Final Action Mailed",
+        "applicantBag": ["Example University"],
+        "inventorBag": [
+          {
+            "firstName": "Marcus",
+            "lastName": "Oyelaran"
+          }
+        ],
+        "cpcClassificationBag": ["A61K31/60"]
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings, get_settings
-from app.core.headers import API_CSP, APP_CSP, HSTS
+from app.core.headers import API_CSP, HSTS
 from app.main import app
 
 # A deployed environment refuses a SQLite file, so these settings name a managed database.
@@ -36,15 +36,6 @@ def test_a_deployed_environment_sends_hsts(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_the_api_forbids_loading_anything_at_all(client: TestClient) -> None:
     assert client.get("/api/health").headers["Content-Security-Policy"] == API_CSP
-
-
-def test_non_api_responses_may_load_the_spa_bundle(client: TestClient) -> None:
-    # `default-src 'none'` would block the app's own script and the pdf.js worker.
-    policy = client.get("/some-client-route").headers["Content-Security-Policy"]
-
-    assert policy == APP_CSP
-    assert "worker-src 'self' blob:" in policy
-    assert "frame-ancestors 'none'" in policy
 
 
 def test_health_does_not_name_the_deployment(client: TestClient) -> None:

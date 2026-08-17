@@ -110,5 +110,6 @@ def test_the_fixture_flag_cannot_be_enabled_outside_development() -> None:
             environment="production",
             regulatory_fixture_drafter=True,
             jwt_secret="a" * 64,
+            database_url="postgresql://user:pw@db.internal/askgrey",
             cors_origins="https://app.askgrey.ai",
         )

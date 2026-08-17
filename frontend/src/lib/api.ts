@@ -61,6 +61,258 @@ export interface SSOConfig {
   authorize_url: string | null;
 }
 
+/* ---- Regulatory tab ----
+ * These mirror the pydantic models in `backend/app/services/regulatory/**`. Every response
+ * carries its own `review_notice` and `requires_expert_review`, and the UI renders the notice
+ * from the payload rather than from a hardcoded string, so a draft cannot be displayed without
+ * the caveat that travelled with it.
+ */
+
+/** A reported number and its unit. `value` stays a string: reformatting invents precision. */
+export interface Quantity {
+  value: string;
+  unit?: string;
+}
+
+export type Sex = 'male' | 'female' | 'both' | 'not_reported';
+export type GlpStatus = 'compliant' | 'non_compliant' | 'not_reported';
+
+export interface DoseGroup {
+  label: string;
+  dose?: Quantity | null;
+  sex?: Sex;
+  animals_per_sex?: number | null;
+  notes?: string;
+}
+
+export interface StudyFinding {
+  group_label?: string;
+  endpoint: string;
+  quantity?: Quantity | null;
+  incidence?: { affected: number; examined: number } | null;
+  severity?: string;
+  notes?: string;
+}
+
+export interface StudyMeasurement {
+  name: string;
+  aliases?: string[];
+  quantity?: Quantity | null;
+  text_value?: string;
+  notes?: string;
+}
+
+/** Mirrors `StudyTable` in `backend/app/services/regulatory/preclinical/models.py`. */
+export interface StudyTable {
+  study_id: string;
+  title?: string;
+  test_article?: string;
+  species?: string;
+  strain?: string;
+  route?: string;
+  duration?: string;
+  glp_status?: GlpStatus;
+  groups?: DoseGroup[];
+  findings?: StudyFinding[];
+  measurements?: StudyMeasurement[];
+}
+
+export type DiscrepancyKind =
+  'contradicted_value' | 'unsupported_number' | 'unit_mismatch' | 'rounded_value';
+
+export interface Discrepancy {
+  kind: DiscrepancyKind;
+  severity: 'critical' | 'warning' | 'info';
+  section: string;
+  narrative_value: string;
+  source_value: string;
+  source_label: string;
+  context: string;
+  start_char: number;
+  end_char: number;
+  explanation: string;
+}
+
+export interface NarrativeSection {
+  key: string;
+  heading: string;
+  text: string;
+  draft_status: string;
+  gaps: string[];
+  requires_expert_review: boolean;
+  review_notice: string;
+}
+
+export interface PreclinicalReport {
+  study_id: string;
+  generated_at: string;
+  sections: NarrativeSection[];
+  discrepancies: Discrepancy[];
+  audit: {
+    auditor_version: string;
+    method: string;
+    numbers_checked: number;
+    numbers_matched: number;
+    numbers_flagged: number;
+    source_values: number;
+  };
+  requires_expert_review: boolean;
+  review_notice: string;
+  /** What wrote the narrative. */
+  drafter: string;
+  /**
+   * True only for the backend's development-only fixture drafter, whose narrative contains
+   * deliberately wrong numbers so the audit's flagged view can be exercised. The UI must say so
+   * rather than presenting fixture output as a draft.
+   */
+  fixture_draft: boolean;
+}
+
+export type EvidenceKind =
+  | 'substance_identity'
+  | 'manufacturing_site'
+  | 'manufacturing_step'
+  | 'material_control'
+  | 'specification'
+  | 'analytical_method'
+  | 'assay_result'
+  | 'batch'
+  | 'impurity'
+  | 'stability_result'
+  | 'reference_standard'
+  | 'container_closure'
+  | 'formulation'
+  | 'nonclinical_study';
+
+export interface EvidenceRecord {
+  kind: EvidenceKind;
+  label: string;
+  value?: string;
+  unit?: string;
+  batch_id?: string;
+  method?: string;
+  acceptance_criterion?: string;
+  study_id?: string;
+  section_id?: string;
+  detail?: string;
+}
+
+export interface IndDraftRequest {
+  program_name: string;
+  substance_name?: string;
+  dosage_form?: string;
+  section_ids: string[];
+  evidence: EvidenceRecord[];
+}
+
+export interface ReferenceInfo {
+  version: string;
+  retrieved: string;
+  sources: {
+    id: string;
+    title: string;
+    url: string;
+    document_date: string;
+    covers: string;
+  }[];
+  notes: string[];
+}
+
+export type GapKind =
+  'no_evidence_submitted' | 'missing_evidence_kind' | 'author_must_supply' | 'drafter_reported';
+
+export interface Gap {
+  kind: GapKind;
+  description: string;
+  evidence_kind: EvidenceKind | null;
+}
+
+export interface IndSection {
+  section_id: string;
+  title: string;
+  module: string;
+  status: 'drafted' | 'drafted_with_gaps' | 'not_drafted';
+  text: string;
+  gaps: Gap[];
+  evidence_used: string[];
+  requires_expert_completion: boolean;
+  requires_expert_review: boolean;
+  review_notice: string;
+  source_reference: string;
+}
+
+export interface IndDraft {
+  program_name: string;
+  generated_at: string;
+  sections: IndSection[];
+  unknown_section_ids: string[];
+  unused_evidence: string[];
+  reference: ReferenceInfo;
+  requires_expert_review: boolean;
+  review_notice: string;
+}
+
+export interface IndStructure {
+  reference: ReferenceInfo;
+  sections: {
+    id: string;
+    module: string;
+    title: string;
+    requires: EvidenceKind[];
+    draftable: boolean;
+  }[];
+  requires_expert_review: boolean;
+  review_notice: string;
+}
+
+export type Jurisdiction = 'fda' | 'ema' | 'pmda';
+
+export interface RequirementFinding {
+  requirement_id: string;
+  title: string;
+  ctd_sections: string[];
+  matched_scope: string;
+  citation: { document: string; url: string; document_date: string };
+  expectation: string;
+  status: 'addressed' | 'missing' | 'indeterminate';
+  explanation: string;
+}
+
+export interface GuidelineCheckReport {
+  section_id: string;
+  word_count: number;
+  min_words_to_judge: number;
+  jurisdictions: {
+    jurisdiction: Jurisdiction;
+    version: string;
+    retrieved: string;
+    findings: RequirementFinding[];
+    out_of_scope_requirement_ids: string[];
+  }[];
+  requires_expert_review: boolean;
+  review_notice: string;
+  limitations: string;
+}
+
+export interface GuidelineReference {
+  jurisdictions: {
+    jurisdiction: Jurisdiction;
+    version: string;
+    retrieved: string;
+    notes: string;
+    requirements: {
+      id: string;
+      title: string;
+      ctd_sections: string[];
+      citation: { document: string; url: string; document_date: string };
+      expectation: string;
+    }[];
+  }[];
+  requires_expert_review: boolean;
+  review_notice: string;
+  limitations: string;
+}
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 /**
@@ -71,6 +323,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const EXTRACTION_TIMEOUT_MS = 180_000;
 // Drafting and control review each run a full model pass over a whole protocol.
 const DRAFT_TIMEOUT_MS = 120_000;
+const REGULATORY_DRAFT_TIMEOUT_MS = 180_000;
 const SUGGESTION_TIMEOUT_MS = 60_000;
 // The patent route talks to USPTO, which retries upstream before giving up.
 const PATENT_SEARCH_TIMEOUT_MS = 45_000;
@@ -375,6 +628,49 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ protocol, folder_id: folderId }) },
       token,
     ),
+
+  /**
+   * Draft a preclinical narrative and audit its numbers against the submitted table.
+   *
+   * The same long allowance as extraction: this is a full LLM pass followed by a
+   * deterministic audit, and a 30s bound would time out a legitimate run.
+   */
+  preclinicalReport: (table: StudyTable, token?: string) =>
+    request<PreclinicalReport>(
+      '/regulatory/preclinical/report',
+      { method: 'POST', body: JSON.stringify(table) },
+      token,
+      REGULATORY_DRAFT_TIMEOUT_MS,
+    ),
+
+  /** The dated CTD heading tree the IND drafter works against. */
+  indStructure: (token?: string) => request<IndStructure>('/regulatory/ind/structure', {}, token),
+
+  indDraft: (body: IndDraftRequest, token?: string) =>
+    request<IndDraft>(
+      '/regulatory/ind/draft',
+      { method: 'POST', body: JSON.stringify(body) },
+      token,
+      REGULATORY_DRAFT_TIMEOUT_MS,
+    ),
+
+  /** Deterministic keyword-signal comparison, so the default timeout is ample. */
+  guidelineCheck: (
+    body: {
+      section_id: string;
+      draft_text: string;
+      jurisdictions: Jurisdiction[];
+    },
+    token?: string,
+  ) =>
+    request<GuidelineCheckReport>(
+      '/regulatory/guidelines/check',
+      { method: 'POST', body: JSON.stringify(body) },
+      token,
+    ),
+
+  guidelineReference: (token?: string) =>
+    request<GuidelineReference>('/regulatory/guidelines/reference', {}, token),
 
   /** Filtered opportunity search across the enabled providers (Ticket 4.1). */
   searchGrants: (query: GrantSearchQuery, token?: string) => {

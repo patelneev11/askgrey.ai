@@ -52,13 +52,13 @@ export const TAB_INTROS: TabIntro[] = [
   {
     id: 'regulatory',
     path: '/regulatory',
-    title: 'Regulatory assembles a submission skeleton',
+    title: 'Regulatory drafts sections and checks its own numbers',
     body: [
-      'The eCTD tree on the left tracks which modules exist and which are still thin; a section opens its draft text and the discrepancies found against the underlying reports.',
-      'The submission here is a sample, not built from your workspace.',
+      'Three drafting aids share the tab: a preclinical narrative whose every number is re-checked against the study record you entered, IND module 3/4 sections drafted against a dated CTD heading tree, and a keyword-signal comparison of a draft section against FDA, EMA and PMDA expectations.',
+      'These run against live services on the data you enter. Nothing is pre-filled, and a section with nothing to say comes back empty with the gap stated rather than filled.',
     ],
     caveat:
-      'Agent-drafted content requires qualified expert review. Nothing here is a regulatory opinion or a filing-ready document.',
+      'Agent-drafted content. Requires qualified regulatory affairs review before any regulatory use. Nothing here is a regulatory opinion or a filing-ready document.',
   },
   {
     id: 'grants',

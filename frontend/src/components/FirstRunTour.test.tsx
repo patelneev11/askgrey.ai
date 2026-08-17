@@ -51,7 +51,7 @@ describe('first-run tour', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/Screening, Protocol, Regulatory and Grants currently show/i);
+    expect(dialog).toHaveTextContent(/Screening, Protocol and Grants currently show/i);
     expect(dialog).toHaveTextContent(/Do not read it as a result/i);
   });
 

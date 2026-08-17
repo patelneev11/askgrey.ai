@@ -30,8 +30,8 @@ const STEPS: Step[] = [
   },
   {
     eyebrow: 'What is real today',
-    title: 'Literature is live; the other tabs are previews',
-    body: 'Literature, and the PubMed, PubChem, ClinicalTrials.gov and grants searches behind it, call real APIs. Screening, Protocol, Regulatory and Grants currently show sample records so you can see the intended shape of the work.',
+    title: 'Literature and Regulatory are live; some tabs are previews',
+    body: 'Literature and Regulatory run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov and grants searches behind them. Screening, Protocol and Grants currently show sample records so you can see the intended shape of the work.',
     caveat: 'Anything marked Sample data is illustrative. Do not read it as a result.',
   },
   {

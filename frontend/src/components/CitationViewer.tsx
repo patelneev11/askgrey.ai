@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { StatusPill } from '@/components/StatusPill';
-import { rowLabel, type Citation, type PaperRow } from '@/lib/extraction';
+import { rowLabel, type Citation, type MatchQuality, type PaperRow } from '@/lib/extraction';
 
 import styles from './CitationViewer.module.css';
 
@@ -14,6 +14,17 @@ export interface CitationTarget {
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
+
+// The matching rule behind the plain-language pill, kept as its tooltip. Plain language on the
+// surface: the precise terms live in the technical details below, where someone auditing the
+// extraction can find them without every reader having to learn them.
+const MATCH_DETAIL: Record<MatchQuality, string> = {
+  exact: 'The quoted words appear on this page character for character.',
+  normalized:
+    'The quoted words appear on this page; only spacing, line breaks and hyphenation differ.',
+  fuzzy:
+    'Only a close match was found on this page, so the highlighted passage is approximate — read it before relying on the value.',
+};
 
 interface CitationViewerProps {
   target: CitationTarget | null;
@@ -188,12 +199,19 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
           <span className={styles.paper}>{rowLabel(row)}</span>
         </div>
         <div className={styles.headerMeta}>
-          <span className={styles.page}>page {citation.page_number}</span>
-          {approximate ? (
-            <StatusPill tone="warning">approximate quote</StatusPill>
-          ) : (
-            <StatusPill tone="validated">verified quote</StatusPill>
-          )}
+          <span
+            className={styles.page}
+            title={`Page ${citation.page_number} of the PDF.`}
+          >
+            page {citation.page_number}
+          </span>
+          <span title={MATCH_DETAIL[citation.match]}>
+            {approximate ? (
+              <StatusPill tone="warning">wording is close, not exact</StatusPill>
+            ) : (
+              <StatusPill tone="validated">quote found on this page</StatusPill>
+            )}
+          </span>
           {file && (
             <span className={styles.zoom}>
               <button
@@ -224,6 +242,16 @@ export function CitationViewer({ target, fileFor }: CitationViewerProps) {
       ) : (
         <QuoteFallback citation={citation} />
       )}
+      {/* Finding the quote proves where the value came from, not that it was read correctly. */}
+      <p className={styles.caveat}>
+        Locating the quote does not check the value: read the highlighted passage and confirm it
+        yourself before relying on the extracted value.
+      </p>
+      <details className={styles.caveat}>
+        <summary>Technical details</summary>
+        page {citation.page_number} · text block {citation.block_id} · match quality &ldquo;
+        {citation.match}&rdquo;
+      </details>
     </div>
   );
 }

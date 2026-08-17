@@ -19,6 +19,7 @@ from .layout import (
     citation_entries,
     clean,
     headers,
+    match_wording,
     paper_name,
     refs_by_cell,
     validate,
@@ -35,7 +36,13 @@ UNVERIFIED_FONT = Font(color="9A6700", italic=True)
 
 DEFAULT_WIDTH = 28.0
 WIDTHS: dict[str, float] = {"Paper": 46, "Source": 34, "Pages": 8, "Row status": 13}
-SOURCES_WIDTHS: dict[str, float] = {"Ref": 7, "Quote": 70, "Page": 6, "Match": 12, "Value": 26}
+SOURCES_WIDTHS: dict[str, float] = {
+    "Ref": 7,
+    "Quote": 70,
+    "Page": 6,
+    "Quote match": 34,
+    "Value": 26,
+}
 
 
 def _text_cell(sheet: Worksheet, row: int, column: int, value: str) -> Cell:
@@ -85,8 +92,8 @@ def _write_sources(sheet: Worksheet, entries: list[CitationEntry]) -> None:
 def _tooltip(entry: CitationEntry) -> str:
     """Hover text on a cited cell: the quote, without leaving the data sheet."""
     quote = entry.quote if len(entry.quote) <= 250 else entry.quote[:249] + "…"
-    suffix = "" if entry.match == "exact" else f" ({entry.match} match)"
-    return f"{entry.ref} · p{entry.page}{suffix}\n{quote}"
+    suffix = "" if entry.match == "exact" else f" · {match_wording(entry.match)}"
+    return f"{entry.ref} · page {entry.page}{suffix}\n{quote}"
 
 
 def write_xlsx(table: ExtractionTable, options: ExportOptions | None = None) -> ExportFile:

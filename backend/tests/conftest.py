@@ -20,6 +20,7 @@ def fresh_limiters() -> Iterator[None]:
         deps.auth_account_limiter,
         deps.api_limiter,
         deps.llm_limiter,
+        deps.llm_ip_limiter,
     ):
         limiter.reset()
     deps.llm_budget.reset()

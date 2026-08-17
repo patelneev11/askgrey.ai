@@ -61,6 +61,20 @@ def dependencies(_user: ThrottledUser) -> DependencyReport:
     return DependencyReport(status=worst, dependencies=[_to_model(s) for s in snapshots])
 
 
+class CapabilityReport(BaseModel):
+    extraction_available: bool
+
+
+@router.get("/capabilities", response_model=CapabilityReport)
+def capabilities(_user: ThrottledUser) -> CapabilityReport:
+    """Whether extraction can run at all.
+
+    Without model credentials every extraction fails, but only after the user has uploaded a
+    paper and written a goal. The UI asks first so it can say so up front instead.
+    """
+    return CapabilityReport(extraction_available=bool(get_settings().anthropic_api_key))
+
+
 @router.get("/llm-cost", response_model=CostReport)
 def llm_cost(user: ThrottledUser) -> CostReport:
     """Today's metered Claude spend, plus what this account has left of the call budget."""

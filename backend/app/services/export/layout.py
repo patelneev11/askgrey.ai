@@ -27,12 +27,24 @@ SOURCES_HEADERS = (
     "Column",
     "Value",
     "Page",
-    "Match",
+    "Quote match",
     "Quote",
-    "Block",
+    "Text block on page",
     "Position (x0, top, x1, bottom)",
     "Source",
 )
+
+# The file is read away from the app by people who never saw the UI, so the match quality is
+# spelled out rather than named. The enum value stays reachable in parentheses.
+MATCH_WORDING = {
+    "exact": "exact wording",
+    "normalized": "same wording, different spacing (normalized)",
+    "fuzzy": "close wording, not exact (fuzzy)",
+}
+
+
+def match_wording(match: str) -> str:
+    return MATCH_WORDING.get(match, match)
 
 
 def clean(text: str, *, limit: int = MAX_CELL_CHARS) -> str:
@@ -81,7 +93,7 @@ class CitationEntry:
             self.column_label,
             self.value,
             self.page,
-            self.match,
+            match_wording(self.match),
             self.quote,
             self.block_id,
             self.position,
@@ -108,7 +120,7 @@ def cell_text(cell: ExtractionCell) -> str:
     if cell.value is None or not cell.value.strip():
         return ""
     if cell.status is CellStatus.UNGROUNDED:
-        return f"{cell.value} (unverified)"
+        return f"{cell.value} (no source found)"
     return cell.value
 
 

@@ -243,3 +243,9 @@ API health and today's metered Claude spend. Sentry is off until a DSN is set.
 
 - [docs/monitoring.md](docs/monitoring.md) — what is monitored and, just as importantly, what is not.
 - [docs/on-call-runbook.md](docs/on-call-runbook.md) — where to look first when something breaks.
+
+## Contributing
+
+`main` is the only long-lived branch; work happens on short-lived `<area>/<change>` branches
+(`literature/`, `screening/`, `protocol/`, `regulatory/`, `grants/`, `review/`, `platform/`,
+`chore/`). See [docs/branching.md](docs/branching.md).

@@ -86,10 +86,16 @@
 
 /* ---- Rendered page ---- */
 
+/*
+ * The raster is fitted to this box, so its padding is width the page does not get. At the
+ * pane widths this actually runs at (~500-640px on a laptop) generous padding costs a
+ * legible fraction of the page, hence the tighter inline padding.
+ */
 .frame {
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  padding: var(--space-5);
+  padding: var(--space-3) var(--space-2);
   overflow: auto;
   background: var(--color-surface-inset);
 }
@@ -139,6 +145,18 @@
   margin: 0 0 var(--space-3);
   color: var(--color-accent-danger);
   font-size: var(--font-size-xs);
+}
+
+/* A located quote is evidence of provenance, not of correctness — said permanently, on screen. */
+.caveat {
+  flex: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
 }
 
 /* ---- Fallback for server-fetched papers ---- */

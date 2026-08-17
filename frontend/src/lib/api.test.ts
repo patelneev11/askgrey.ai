@@ -29,6 +29,31 @@ describe('request timeouts', () => {
   });
 });
 
+describe('refresh', () => {
+  it('shares one request between overlapping callers, so the rotated token is never replayed', async () => {
+    let settle: (response: Response) => void = () => undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const first = api.refresh();
+    const second = api.refresh();
+    settle(new Response(JSON.stringify({ access_token: 'a', token_type: 'bearer' })));
+
+    expect(await first).toEqual(await second);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // The next refresh is a genuinely new one, not the cached result of the last.
+    settle = () => undefined;
+    void api.refresh();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('formatErrorDetail', () => {
   it('passes through the string detail of a raised HTTPException', () => {
     expect(formatErrorDetail('Email is already registered')).toBe('Email is already registered');

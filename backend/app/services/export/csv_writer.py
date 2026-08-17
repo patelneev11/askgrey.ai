@@ -13,6 +13,7 @@ from .layout import (
     clean,
     escape_formula,
     leading_headers,
+    match_wording,
     paper_name,
     refs_by_cell,
     validate,
@@ -33,11 +34,11 @@ def _source_text(entry: CitationEntry | None) -> str:
     """
     if entry is None:
         return ""
-    parts = [f"p{entry.page}"]
+    parts = [f"page {entry.page}"]
     if entry.quote:
         parts.append(f'"{entry.quote}"')
     if entry.match != "exact":
-        parts.append(f"{entry.match} match")
+        parts.append(match_wording(entry.match))
     return " · ".join(parts)
 
 

@@ -3,10 +3,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from app.api.deps import ClientIp, LlmUser
+from app.api.deps import ClientIp, DbSession, LlmUser
+from app.api.literature import DocumentId
 from app.core import audit
 from app.core.config import get_settings
+from app.services import literature as literature_service
 from app.services.pdf_extraction import (
     ExtractionField,
     ExtractionRequestError,
@@ -35,6 +38,13 @@ def get_pdf_extraction_service() -> PdfExtractionService:
 
 
 Service = Annotated[PdfExtractionService, Depends(get_pdf_extraction_service)]
+
+
+class StoredExtractionRequest(BaseModel):
+    """Extraction against a paper this user already added, re-read from the stored bytes."""
+
+    goal: str = Field(default="", max_length=2000)
+    fields: list[ExtractionField] = Field(default_factory=list)
 
 
 class UrlExtractionRequest(BaseModel):
@@ -103,11 +113,37 @@ def _record_outbound(actor: str, ip: str, source: str, size: int) -> None:
     )
 
 
+def _keep(
+    db: Session,
+    user_id: str,
+    table: ExtractionTable,
+    data: bytes,
+    *,
+    filename: str = "",
+    source_url: str = "",
+) -> None:
+    """Keep the paper's bytes for this user so the citation viewer can render its pages.
+
+    Without this a linked paper can only ever be quoted — the browser cannot re-fetch it
+    cross-origin — and an uploaded one is lost the moment the tab reloads.
+    """
+    for row in table.rows:
+        literature_service.store_document(
+            db,
+            user_id,
+            document_id=row.document_id,
+            content=data,
+            filename=filename or row.filename,
+            source_url=source_url or row.source_url,
+        )
+
+
 @router.post("/upload", response_model=ExtractionTable)
 async def extract_from_upload(
     user: LlmUser,
     ip: ClientIp,
     service: Service,
+    db: DbSession,
     request: Request,
     file: Annotated[UploadFile, File(description="The research PDF")],
     goal: Annotated[str, Form(max_length=2000, description="e.g. 'sample size, dosing'")],
@@ -121,8 +157,56 @@ async def extract_from_upload(
         )
     try:
         async with _parse_slots:
-            return await service.extract_from_bytes(
+            table = await service.extract_from_bytes(
                 data, goal=goal, filename=file.filename or "upload.pdf"
+            )
+        _keep(db, str(user.id), table, data, filename=file.filename or "upload.pdf")
+        return table
+    except (
+        ExtractionRequestError,
+        UnsupportedPdfError,
+        PdfParseError,
+        ExtractorUnavailableError,
+        ExtractorError,
+    ) as exc:
+        raise _handle(exc) from exc
+    finally:
+        await service.aclose()
+
+
+@router.post("/documents/{document_id}", response_model=ExtractionTable)
+async def extract_from_stored_document(
+    user: LlmUser,
+    ip: ClientIp,
+    service: Service,
+    db: DbSession,
+    document_id: DocumentId,
+    request: StoredExtractionRequest,
+) -> ExtractionTable:
+    """Re-run extraction over a paper the user added earlier.
+
+    After a reload the browser no longer holds the uploaded bytes, so a saved workspace can
+    only add a column to an uploaded paper if the server can re-read it. The bytes are read
+    from this user's own stored copy — never fetched from anywhere.
+    """
+    document = literature_service.get_document(db, str(user.id), document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such document")
+    data = document.content
+    _record_outbound(str(user.id), ip, document.filename or document_id, len(data))
+    if _parse_slots.locked():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "too many documents are being parsed right now; retry shortly",
+        )
+    try:
+        async with _parse_slots:
+            return await service.extract_from_bytes(
+                data,
+                goal=request.goal,
+                fields=request.fields or None,
+                filename=document.filename,
+                source_url=document.source_url,
             )
     except (
         ExtractionRequestError,
@@ -141,13 +225,20 @@ async def extract_from_url(
     user: LlmUser,
     ip: ClientIp,
     service: Service,
+    db: DbSession,
     request: UrlExtractionRequest,
 ) -> ExtractionTable:
     _record_outbound(str(user.id), ip, request.url, 0)
     try:
-        return await service.extract_from_url(
-            request.url, goal=request.goal, fields=request.fields or None
+        data, resolved_url = await service.fetch(request.url)
+        table = await service.extract_from_bytes(
+            data,
+            goal=request.goal,
+            fields=request.fields or None,
+            source_url=resolved_url,
         )
+        _keep(db, str(user.id), table, data, source_url=resolved_url)
+        return table
     except (
         ExtractionRequestError,
         UnsupportedPdfError,

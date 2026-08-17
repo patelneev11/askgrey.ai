@@ -105,6 +105,8 @@ class Settings(BaseSettings):
     auth_account_rate_limit_per_hour: int = 30
     api_rate_limit_per_minute: int = 120
     llm_rate_limit_per_minute: int = 12
+    # Same ceiling by source address: an account is cheap to create, an LLM pass is not.
+    llm_ip_rate_limit_per_minute: int = 20
     llm_daily_call_budget: int = 250
 
     @model_validator(mode="after")

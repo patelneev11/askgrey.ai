@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/Button';
+import { CaveatBand } from '@/components/CaveatBand';
 import { CitationViewer } from '@/components/CitationViewer';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
@@ -32,6 +33,7 @@ export function LiteraturePage() {
     exportTable,
     selectCitation,
     fileFor,
+    extractionAvailable,
   } = useWorkspace();
   const [urlDraft, setUrlDraft] = useState('');
 
@@ -48,18 +50,24 @@ export function LiteraturePage() {
   const grounded = useMemo(() => groundedCount(table), [table]);
   const hasTable = table.rows.length > 0 && table.columns.length > 0;
   const hasGoal = goal.trim().length > 0;
-  const canRun = hasGoal && sources.length > 0 && !running;
-  const blocker =
-    sources.length === 0
-      ? 'Add at least one paper to generate columns.'
-      : hasGoal
-        ? null
-        : 'Describe what to pull out of the papers to generate columns.';
+  const canRun = hasGoal && sources.length > 0 && !running && extractionAvailable;
+  // A dimmed button is not an explanation: name every prerequisite that is actually missing.
+  const blocker = !extractionAvailable
+    ? 'Extraction is unavailable: this deployment has no model credentials configured, so no columns can be generated. Ask whoever runs the server to set ANTHROPIC_API_KEY.'
+    : sources.length === 0 && !hasGoal
+      ? 'Two things are missing: add at least one paper, and describe what to pull out of them.'
+      : sources.length === 0
+        ? 'Add at least one paper to generate columns.'
+        : hasGoal
+          ? null
+          : 'Describe what to pull out of the papers to generate columns.';
 
   return (
     <DualPaneWorkspace
       storageKey="literature"
-      defaultRatio={0.58}
+      // An even split: the right pane renders a whole journal page, which is illegible in the
+      // ~370px a 58/42 split leaves it at 1280px.
+      defaultRatio={0.5}
       leftLabel="Dynamic review table"
       rightLabel="Cited passage viewer"
       left={
@@ -74,29 +82,20 @@ export function LiteraturePage() {
               ) : (
                 hasTable && <StatusPill tone="validated">{grounded} cited values</StatusPill>
               )}
-              <Button
-                size="sm"
-                onClick={() => void exportTable('xlsx')}
-                disabled={!hasTable || exporting !== null}
-                title="Downloads review-table.xlsx — the grid plus a Sources sheet with the quote and page behind every cited value."
-              >
-                {exporting === 'xlsx' ? 'Exporting…' : 'Export .xlsx'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => void exportTable('csv')}
-                disabled={!hasTable || exporting !== null}
-                title="Downloads review-table.csv — values only, with a citation column."
-              >
-                {exporting === 'csv' ? 'Exporting…' : 'Export .csv'}
-              </Button>
             </div>
           }
           flush
         >
           <div className={styles.canvas}>
             <form className={styles.composer} onSubmit={submit}>
+              {/* Values are read out of the papers by a language model: the citation proves
+                  where a value came from, never that it was read correctly. */}
+              <CaveatBand label="Unvalidated">
+                Every value here was extracted by a language model and is unvalidated: open the
+                cited passage and confirm it against the paper before relying on it. A value with
+                no citation has not been checked against any passage at all.
+              </CaveatBand>
+
               <label className={styles.label} htmlFor="extraction-goal">
                 Extraction goal
               </label>
@@ -125,6 +124,27 @@ export function LiteraturePage() {
                 {blocker ??
                   'Each phrase in the goal becomes a column, and every value that can be traced to a passage links back to the page it came from.'}
               </p>
+
+              {/* The full model, permanently reachable rather than only on an empty workspace. */}
+              <details className={styles.howItWorks}>
+                <summary>How this works</summary>
+                <ol>
+                  <li>
+                    <strong>Add the papers.</strong> Upload PDFs, or paste a link to a PDF or PMC
+                    article. Each paper becomes one row.
+                  </li>
+                  <li>
+                    <strong>Say what you need.</strong> Write it as a list — “sample size, dosing
+                    regimen, primary endpoint”. Each phrase becomes one column.
+                  </li>
+                  <li>
+                    <strong>Check every value against its source.</strong> A value marked with a
+                    page number links to that page in the paper, with the sentence it came from
+                    highlighted. A value marked “no source found” could not be traced to any
+                    passage, so nothing supports it yet.
+                  </li>
+                </ol>
+              </details>
 
               <div className={styles.sourceRow}>
                 <input
@@ -167,7 +187,7 @@ export function LiteraturePage() {
               </p>
 
               {sources.length > 0 && (
-                <ul className={styles.sourceList}>
+                <ul className={styles.sourceList} aria-label="Added papers">
                   {sources.map((source) => (
                     <li key={source.id} className={styles.sourceChip}>
                       <span className={styles.sourceLabel}>{source.label}</span>
@@ -208,6 +228,38 @@ export function LiteraturePage() {
                 </p>
               </EmptyState>
             )}
+
+            {/* What each download contains, on screen: a tooltip is no use to someone deciding
+                which of the two files to send to a colleague. */}
+            <div className={styles.exports}>
+              <div className={styles.exportOption}>
+                <Button
+                  size="sm"
+                  onClick={() => void exportTable('xlsx')}
+                  disabled={!hasTable || exporting !== null}
+                >
+                  {exporting === 'xlsx' ? 'Exporting…' : 'Export .xlsx'}
+                </Button>
+                <span className={styles.exportNote}>
+                  Excel workbook: the table as you see it, plus a Sources sheet listing the quote
+                  and page number behind every cited value.
+                </span>
+              </div>
+              <div className={styles.exportOption}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void exportTable('csv')}
+                  disabled={!hasTable || exporting !== null}
+                >
+                  {exporting === 'csv' ? 'Exporting…' : 'Export .csv'}
+                </Button>
+                <span className={styles.exportNote}>
+                  Plain spreadsheet file: one row per paper with the values and a citation column —
+                  no separate Sources sheet.
+                </span>
+              </div>
+            </div>
           </div>
         </Panel>
       }

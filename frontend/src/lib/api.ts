@@ -44,6 +44,28 @@ export interface SSOConfig {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+/** Mirrors `CapabilityReport` in `backend/app/api/system.py`. */
+export interface Capabilities {
+  extraction_available: boolean;
+}
+
+/** Mirrors `WorkspaceSource` in `backend/app/schemas/literature.py`. */
+export interface StoredSource {
+  id: string;
+  label: string;
+  kind: 'upload' | 'url';
+  url: string;
+  document_id: string;
+}
+
+export interface StoredWorkspace {
+  goal: string;
+  sources: StoredSource[];
+  table: ExtractionTable | null;
+  updated_at?: string | null;
+  stored_document_ids?: string[];
+}
+
 /**
  * A hung backend is indistinguishable from a slow one without a bound, so every request gets
  * one. Extraction runs a full LLM pass per paper, hence the far longer allowance there.
@@ -187,6 +209,22 @@ async function download(
   };
 }
 
+// Refresh tokens rotate on use, so the server treats a replayed one as theft and revokes the
+// session. Two overlapping refreshes are therefore never two requests: they share one.
+let refreshing: Promise<TokenResponse> | null = null;
+
+function refresh(): Promise<TokenResponse> {
+  if (!refreshing) {
+    refreshing = request<TokenResponse>('/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    }).finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
 export const api = {
   // `credentials: 'include'` is what carries the HttpOnly refresh cookie; without it the
   // browser drops the cookie on a cross-origin call and every reload signs the user out.
@@ -204,8 +242,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  refresh: () =>
-    request<TokenResponse>('/auth/refresh', { method: 'POST', credentials: 'include' }),
+  refresh,
 
   logout: () => send('/auth/logout', { method: 'POST', credentials: 'include' }),
 
@@ -234,6 +271,42 @@ export const api = {
       token,
       EXTRACTION_TIMEOUT_MS,
     ),
+
+  /** Extract again from a paper the server already holds, after a reload lost its bytes. */
+  extractFromStoredDocument: (documentId: string, goal: string, token?: string) =>
+    request<ExtractionTable>(
+      `/pdf-extraction/documents/${encodeURIComponent(documentId)}`,
+      { method: 'POST', body: JSON.stringify({ goal }) },
+      token,
+      EXTRACTION_TIMEOUT_MS,
+    ),
+
+  /** What the deployment can actually do — extraction needs model credentials server-side. */
+  capabilities: (token?: string) => request<Capabilities>('/status/capabilities', {}, token),
+
+  /** The saved Literature workspace for the signed-in user. */
+  loadWorkspace: (token?: string) => request<StoredWorkspace>('/literature/workspace', {}, token),
+
+  saveWorkspace: (workspace: StoredWorkspace, token?: string) =>
+    request<StoredWorkspace>(
+      '/literature/workspace',
+      { method: 'PUT', body: JSON.stringify(workspace) },
+      token,
+    ),
+
+  /**
+   * The bytes of a stored paper, so a citation from a linked paper renders a real page.
+   *
+   * The document id is a digest the backend issued; nothing here can ask it for a URL.
+   */
+  documentPdf: async (documentId: string, token?: string) => {
+    const response = await send(
+      `/literature/documents/${encodeURIComponent(documentId)}/pdf`,
+      {},
+      token,
+    );
+    return response.blob();
+  },
 
   /** Render the review table as a workbook or CSV and hand back the file (Ticket 1.5). */
   exportTable: (

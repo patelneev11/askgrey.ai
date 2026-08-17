@@ -63,11 +63,13 @@ export const TAB_INTROS: TabIntro[] = [
   {
     id: 'grants',
     path: '/grants',
-    title: 'Grants scores open federal calls against your focus',
+    title: 'Grants finds open federal calls and costs a proposal',
     body: [
-      "Opportunities are ranked by how well their topic text matches the workspace's research focus, with deadline and funding ceiling on each card, then critiqued by a mock review board.",
-      'The grants.gov and SBIR/STTR backend is built, but this page still shows sample opportunities — treat the fit scores and deadlines as illustrative.',
+      'Search grants.gov and SBIR.gov by keyword, agency, set-aside or deadline; add a research focus and the topics are ranked against it. Eligibility and the budget are computed from editable rule files, not guessed.',
+      'Opportunities, deadlines and funding ceilings come from the providers live — a provider that is unreachable says so instead of being filled in.',
     ],
+    caveat:
+      "Fit percentages come from a language model reading each opportunity's topic text, and the eligibility and budget results are an aid to review, not a legal or financial determination. Check the solicitation before relying on any of it.",
   },
   {
     id: 'workspace',

@@ -41,6 +41,8 @@ dev = [
 "app.services.grants.eligibility" = ["*.json"]
 # Likewise the federal budget rules.
 "app.services.grants.budget" = ["*.json"]
+# Likewise the review board's personas and their prompts.
+"app.services.grants.review_board" = ["*.json"]
 
 [tool.ruff]
 line-length = 100

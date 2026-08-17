@@ -32,9 +32,9 @@ class ExportRequest(BaseModel):
     options: ExportOptions = Field(default_factory=ExportOptions)
 
 
-def _download(file: ExportFile) -> Response:
+def download_response(file: ExportFile) -> Response:
     """
-    RFC 6266 disposition.
+    RFC 6266 disposition. Shared with every route that hands back a rendered file.
 
     Headers are latin-1 on the wire, so the plain `filename` is an ASCII fallback and the
     real name rides in the percent-encoded `filename*` that every current browser prefers.
@@ -56,7 +56,7 @@ def _render(
     ip: str,
 ) -> Response:
     try:
-        response = _download(service.render(request.table, fmt, request.options))
+        response = download_response(service.render(request.table, fmt, request.options))
     except ExportError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     # Data leaving the workspace is a reviewable event; the rows themselves are not logged.

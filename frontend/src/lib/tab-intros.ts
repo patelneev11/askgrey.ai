@@ -22,7 +22,7 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Literature turns a pile of papers into a cited table',
     body: [
       'Add PDFs or PMC links, describe what to pull out of them, and each phrase in that goal becomes a column. Click any value to open the passage it came from; exports keep the citations attached.',
-      'This is the one tab wired end-to-end to live services rather than sample records.',
+      'Wired end-to-end to live services rather than sample records.',
     ],
     caveat:
       'Text from the documents you add is sent to Anthropic (Claude) to generate the columns. Do not add material you are not permitted to share with a third-party processor.',
@@ -32,11 +32,11 @@ export const TAB_INTROS: TabIntro[] = [
     path: '/screening',
     title: 'Screening profiles candidate compounds',
     body: [
-      'Pick a compound from the queue on the left and its predicted profile — binding, ADMET and liability flags — opens on the right.',
-      'The compounds here are sample records; loading your own series is not wired up yet.',
+      'Enter a SMILES string on the left and the profile opens on the right: RDKit descriptors, drug-likeness rule sets, liability flags and ADMET classifications, each labelled with the published rule it came from.',
+      'Properties that cannot be grounded — binding affinity without a target structure, plasma protein binding, per-isoform CYP inhibition — are reported as unavailable rather than estimated.',
     ],
     caveat:
-      'Affinity, ADMET and toxicity figures are computational approximations (RDKit/LLM), not validated assay results. Confirm experimentally before making series decisions.',
+      'ADMET, liability and toxicity values are computational approximations (RDKit/LLM), not validated assay results. Confirm experimentally before making series decisions.',
   },
   {
     id: 'protocol',
@@ -63,11 +63,13 @@ export const TAB_INTROS: TabIntro[] = [
   {
     id: 'grants',
     path: '/grants',
-    title: 'Grants scores open federal calls against your focus',
+    title: 'Grants finds open federal calls and costs a proposal',
     body: [
-      "Opportunities are ranked by how well their topic text matches the workspace's research focus, with deadline and funding ceiling on each card, then critiqued by a mock review board.",
-      'The grants.gov and SBIR/STTR backend is built, but this page still shows sample opportunities — treat the fit scores and deadlines as illustrative.',
+      'Search grants.gov and SBIR.gov by keyword, agency, set-aside or deadline; add a research focus and the topics are ranked against it. Eligibility and the budget are computed from editable rule files, not guessed.',
+      'Opportunities, deadlines and funding ceilings come from the providers live — a provider that is unreachable says so instead of being filled in.',
     ],
+    caveat:
+      "Fit percentages come from a language model reading each opportunity's topic text, and the eligibility and budget results are an aid to review, not a legal or financial determination. Check the solicitation before relying on any of it.",
   },
   {
     id: 'workspace',

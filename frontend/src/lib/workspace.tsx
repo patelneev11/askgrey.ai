@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { CitationTarget } from '@/components/CitationViewer';
 
 import { api, type ExportFormat, type StoredSource, type StoredWorkspace } from './api';
+import { saveFile } from './download';
 import {
   EMPTY_TABLE,
   cellKey,
@@ -55,17 +56,6 @@ function fromStored(stored: StoredSource): Source {
     url: stored.kind === 'url' ? stored.url : undefined,
     documentIds: stored.document_id ? [stored.document_id] : undefined,
   };
-}
-
-function saveFile(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {

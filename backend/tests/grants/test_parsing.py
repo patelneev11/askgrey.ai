@@ -6,7 +6,7 @@ import pytest
 
 from app.services.grants.agencies import resolve_agency
 from app.services.grants.grants_gov import apply_detail, parse_hit
-from app.services.grants.models import GrantProgram, GrantStatus
+from app.services.grants.models import GrantProgram, GrantStatus, ProgramProvenance
 from app.services.grants.parsing import (
     clean_text,
     infer_program,
@@ -67,6 +67,26 @@ def test_infer_program_reads_the_set_aside_out_of_a_grants_gov_title() -> None:
     assert infer_program("Small Business Technology Transfer Grant") is GrantProgram.STTR
     assert infer_program("SBIR/STTR Commercialization Readiness Pilot") is GrantProgram.BOTH
     assert infer_program("Research Education Program") is None
+
+
+def test_program_provenance_separates_a_stated_set_aside_from_an_inferred_one() -> None:
+    hit = search2_fixture()["data"]["oppHits"][0]
+    inferred = parse_hit(hit, TODAY)
+    assert inferred.program is GrantProgram.SBIR
+    assert inferred.program_provenance is ProgramProvenance.INFERRED
+    assert inferred.program_label == "SBIR (inferred)"
+
+    stated = parse_solicitation(load_fixture("sbir_solicitations.json")[0], TODAY)
+    assert stated.program is not None
+    assert stated.program_provenance is ProgramProvenance.STATED
+    assert stated.program_label == stated.program.value
+
+
+def test_no_program_carries_no_provenance() -> None:
+    parsed = parse_hit({"id": "1", "title": "Research Education Program"}, TODAY)
+    assert parsed.program is None
+    assert parsed.program_provenance is None
+    assert parsed.program_label == ""
 
 
 def test_parse_status_falls_back_to_the_deadline_for_unknown_strings() -> None:
@@ -176,7 +196,8 @@ def test_opportunity_projects_into_the_shared_review_row() -> None:
     assert record.record_id == "grants_gov:359671"
     assert record.fields["Agency"] == "National Institutes of Health"
     assert record.fields["Deadline"] == "2027-04-05"
-    assert record.fields["Program"] == "SBIR"
+    # grants.gov publishes no set-aside field, so the export has to mark the guess as one.
+    assert record.fields["Program"] == "SBIR (inferred)"
 
 
 def test_agency_aliases_resolve_to_provider_specific_codes() -> None:

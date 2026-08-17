@@ -34,6 +34,14 @@ Not a soft fail. It means the rule cannot be decided from the profile — either
 statutory: majority venture-capital ownership, Direct-to-Phase-II, SBA performance benchmarks,
 and topic fit all land here by design.
 
+## HTTP API
+
+`POST /api/grants/eligibility` takes `{profile, program}` and returns the report, including the
+derived `verdict` and `summary`. `GET /api/grants/eligibility/rules` returns the thresholds the
+report was produced under. Both are authenticated and throttled; the profile is bounded
+server-side (percentages 0-100, string lengths, non-negative counts) and a programme with no
+rules behind it is a 422 rather than an empty pass.
+
 ## Limits
 
 This is an aid to a human reviewer, not a legal determination, and it encodes the SBA baseline

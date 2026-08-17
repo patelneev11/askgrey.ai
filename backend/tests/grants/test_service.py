@@ -330,6 +330,10 @@ async def test_a_waf_block_on_sbir_is_reported_per_source() -> None:
 
     sbir = next(item for item in page.sources if item.source is GrantSource.SBIR)
     assert sbir.ok is False and "403" in sbir.error
+    # The message has to say it is the provider refusing this network and that nothing was
+    # substituted, so a degraded result set cannot read as a complete one.
+    assert "refused this deployment's network" in sbir.error
+    assert "nothing was substituted" in sbir.error
     assert page.opportunities
     await service.aclose()
 

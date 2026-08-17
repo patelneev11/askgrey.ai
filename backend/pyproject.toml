@@ -24,6 +24,9 @@ dependencies = [
     # pdfplumber's own floor allows the versions with PYSEC-2026-1761/1762.
     "pdfminer.six>=20251230",
     "openpyxl==3.1.5",
+    # Cheminformatics for the screening tab: descriptors, SMILES sanitization, substructure
+    # matching. Pinned because descriptor values are asserted against reference compounds.
+    "rdkit==2025.3.6",
     "sentry-sdk==2.66.1",
 ]
 
@@ -56,6 +59,15 @@ python_version = "3.10"
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 disallow_untyped_defs = true
+
+# RDKit's Python modules are generated Boost.Python wrappers: `Descriptors.MolWt` and friends are
+# attached at import time, so a static reader of the shipped stubs sees a module with almost no
+# attributes. Skipping them makes RDKit calls `Any` rather than eight false positives; the
+# descriptor values themselves are pinned by the reference-compound tests.
+[[tool.mypy.overrides]]
+module = ["rdkit", "rdkit.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

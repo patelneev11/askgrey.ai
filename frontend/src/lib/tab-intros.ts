@@ -22,7 +22,7 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Literature turns a pile of papers into a cited table',
     body: [
       'Add PDFs or PMC links, describe what to pull out of them, and each phrase in that goal becomes a column. Click any value to open the passage it came from; exports keep the citations attached.',
-      'This is the one tab wired end-to-end to live services rather than sample records.',
+      'Wired end-to-end to live services rather than sample records.',
     ],
     caveat:
       'Text from the documents you add is sent to Anthropic (Claude) to generate the columns. Do not add material you are not permitted to share with a third-party processor.',
@@ -32,11 +32,11 @@ export const TAB_INTROS: TabIntro[] = [
     path: '/screening',
     title: 'Screening profiles candidate compounds',
     body: [
-      'Pick a compound from the queue on the left and its predicted profile — binding, ADMET and liability flags — opens on the right.',
-      'The compounds here are sample records; loading your own series is not wired up yet.',
+      'Enter a SMILES string on the left and the profile opens on the right: RDKit descriptors, drug-likeness rule sets, liability flags and ADMET classifications, each labelled with the published rule it came from.',
+      'Properties that cannot be grounded — binding affinity without a target structure, plasma protein binding, per-isoform CYP inhibition — are reported as unavailable rather than estimated.',
     ],
     caveat:
-      'Affinity, ADMET and toxicity figures are computational approximations (RDKit/LLM), not validated assay results. Confirm experimentally before making series decisions.',
+      'ADMET, liability and toxicity values are computational approximations (RDKit/LLM), not validated assay results. Confirm experimentally before making series decisions.',
   },
   {
     id: 'protocol',

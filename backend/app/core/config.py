@@ -84,6 +84,19 @@ class Settings(BaseSettings):
     protocol_draft_timeout_seconds: float = 90.0
     protocol_review_max_tokens: int = 2048
 
+    # Screening. Descriptors are computed locally by RDKit; only the SMILES string and the
+    # descriptors computed from it are sent to Claude for substituent suggestions.
+    sar_suggestion_max_tokens: int = 2048
+    sar_suggestion_timeout_seconds: float = 45.0
+
+    # USPTO Open Data Portal patent search. Registration is free but a key is mandatory: with
+    # no key the patents service reports the source as unavailable instead of searching. USPTO
+    # publishes no per-key rate, so the limit below is a politeness measure.
+    uspto_odp_base_url: str = "https://api.uspto.gov/api/v1"
+    uspto_odp_api_key: str = ""
+    uspto_odp_timeout_seconds: float = 20.0
+    uspto_odp_rate_limit: float = 2.0
+
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.
     anthropic_api_key: str = ""

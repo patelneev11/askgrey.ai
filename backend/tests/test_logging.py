@@ -77,6 +77,15 @@ def test_plain_text_mode_is_available_for_a_human_reading_a_terminal() -> None:
         configure_logging()
 
 
+def test_outbound_request_urls_are_not_logged_because_they_carry_user_query_text() -> None:
+    configure_logging(level="DEBUG")
+    try:
+        assert logging.getLogger("httpx").level == logging.WARNING
+        assert not logging.getLogger("httpx").isEnabledFor(logging.INFO)
+    finally:
+        configure_logging()
+
+
 def test_the_response_carries_the_request_id_that_the_logs_are_keyed_by(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:

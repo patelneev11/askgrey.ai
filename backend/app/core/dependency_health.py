@@ -122,15 +122,23 @@ KNOWN_PROVIDERS = (
     "pubchem",
     "pubmed",
     "sbir",
+    "uspto_odp",
 )
+
+
+# 4xx codes that mean the dependency is unusable to us rather than that we asked it something
+# invalid: a throttle to wait out, or a credential it will not accept.
+UNUSABLE_STATUS_CODES = frozenset({401, 403, 429})
 
 
 class MonitoredAsyncClient(httpx.AsyncClient):
     """An `httpx.AsyncClient` that reports every call's outcome to `health`.
 
-    5xx and transport failures count against the dependency; 4xx does not, because a rejected
-    query is our bug or the user's, not the provider being down. 429 does count, since being
-    throttled is an availability problem for the caller either way.
+    5xx and transport failures count against the dependency; most 4xx does not, because a
+    rejected query is our bug or the user's, not the provider being down. 429 does count, since
+    being throttled is an availability problem for the caller either way, and so do 401 and 403:
+    a missing or rejected credential makes the dependency unusable, and it is invisible unless
+    the status endpoint says so.
     """
 
     def __init__(
@@ -171,7 +179,7 @@ class MonitoredAsyncClient(httpx.AsyncClient):
                 error=f"{type(exc).__name__}: {exc}",
             )
             raise
-        failed = response.status_code >= 500 or response.status_code == 429
+        failed = response.status_code >= 500 or response.status_code in UNUSABLE_STATUS_CODES
         health.record(
             self._provider,
             ok=not failed,

@@ -31,6 +31,19 @@ class GrantProgram(str, Enum):
         return None
 
 
+class ProgramProvenance(str, Enum):
+    """
+    Where an opportunity's set-aside program came from.
+
+    SBIR.gov labels the program itself (`STATED`); grants.gov does not publish the set-aside as
+    a field, so it can only be read out of the title and synopsis text (`INFERRED`). The
+    difference has to reach the UI, because an inferred label is a keyword guess, not a fact.
+    """
+
+    STATED = "stated"
+    INFERRED = "inferred"
+
+
 class GrantStatus(str, Enum):
     """Whether the opportunity can be applied to today."""
 
@@ -56,6 +69,7 @@ class GrantOpportunity(BaseModel):
     agency_code: str = ""
     branch: str = ""
     program: GrantProgram | None = None
+    program_provenance: ProgramProvenance | None = None
     status: GrantStatus | None = None
     posted_date: date | None = None
     close_date: date | None = None
@@ -68,6 +82,15 @@ class GrantOpportunity(BaseModel):
     @property
     def deadline_label(self) -> str:
         return self.close_date.isoformat() if self.close_date else "Rolling / TBD"
+
+    @property
+    def program_label(self) -> str:
+        """The set-aside program, marked when it was inferred rather than published."""
+        if self.program is None:
+            return ""
+        if self.program_provenance is ProgramProvenance.INFERRED:
+            return f"{self.program.value} (inferred)"
+        return self.program.value
 
     @property
     def funding_label(self) -> str:
@@ -96,7 +119,7 @@ class GrantOpportunity(BaseModel):
             url=self.url,
             fields={
                 "Agency": self.agency,
-                "Program": self.program.value if self.program else "",
+                "Program": self.program_label,
                 "Number": self.number,
                 "Status": self.status.value if self.status else "",
                 "Deadline": self.deadline_label,

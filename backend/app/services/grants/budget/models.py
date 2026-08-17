@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from app.services.grants.eligibility import AwardPhase
 from app.services.grants.models import GrantProgram
@@ -48,8 +48,8 @@ class PersonnelLine(BaseModel):
     caller, so an over-cap salary is visible in the input and explained in the output.
     """
 
-    role: str
-    name: str = ""
+    role: str = Field(max_length=120)
+    name: str = Field(default="", max_length=120)
     key_person: bool = True
     base_salary_annual: Decimal = Field(ge=0)
     effort_percent: Decimal = Field(gt=0, le=100)
@@ -61,7 +61,7 @@ class CostLine(BaseModel):
     """One non-salary direct cost. `amount` is `quantity * unit_cost`, unrounded."""
 
     category: CostCategory
-    description: str
+    description: str = Field(max_length=200)
     quantity: Decimal = Field(default=Decimal(1), gt=0)
     unit_cost: Decimal = Field(ge=0)
 
@@ -81,10 +81,11 @@ class BudgetRequest(BaseModel):
     program: GrantProgram = GrantProgram.SBIR
     phase: AwardPhase = AwardPhase.PHASE_I
     period_months: int = Field(default=6, gt=0, le=60)
-    organization: str = ""
-    project_title: str = ""
-    personnel: list[PersonnelLine] = Field(default_factory=list)
-    costs: list[CostLine] = Field(default_factory=list)
+    organization: str = Field(default="", max_length=200)
+    project_title: str = Field(default="", max_length=300)
+    # Bounded so one request cannot ask for an unbounded amount of arithmetic and response body.
+    personnel: list[PersonnelLine] = Field(default_factory=list, max_length=50)
+    costs: list[CostLine] = Field(default_factory=list, max_length=200)
     indirect_rate_percent: Decimal | None = Field(default=None, ge=0, le=200)
     fee_percent: Decimal | None = Field(default=None, ge=0, le=100)
 
@@ -110,6 +111,7 @@ class BudgetSection(BaseModel):
     title: str
     lines: list[BudgetLine] = Field(default_factory=list)
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def subtotal(self) -> Decimal:
         return money(sum((line.amount for line in self.lines), Decimal(0)))
@@ -161,24 +163,29 @@ class GrantBudget(BaseModel):
         section = self.section(code)
         return section.subtotal if section else Decimal("0.00")
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_direct(self) -> Decimal:
         """Section G: A through F."""
         return money(sum((self._subtotal(code) for code in "ABCDEF"), Decimal(0)))
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def indirect(self) -> Decimal:
         return self._subtotal("H")
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_direct_and_indirect(self) -> Decimal:
         """Section I."""
         return money(self.total_direct + self.indirect)
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def fee(self) -> Decimal:
         return self._subtotal("J")
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total(self) -> Decimal:
         """Section K: the number the agency is asked for."""

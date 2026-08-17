@@ -128,7 +128,7 @@ describe('first-encounter tab notices', () => {
     await user.click(screen.getByRole('button', { name: 'I understand' }));
 
     expect(screen.getByRole('note')).toHaveTextContent(
-      /computational approximations \(RDKit\/LLM\), not validated assay results/i,
+      /computational approximations \(RDKit\/LLM\).*not validated assay results/i,
     );
   });
 });

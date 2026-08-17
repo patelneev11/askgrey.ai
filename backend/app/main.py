@@ -15,6 +15,7 @@ from app.api.pubchem import router as pubchem_router
 from app.api.pubmed import router as pubmed_router
 from app.api.regulatory import router as regulatory_router
 from app.api.regulatory_guidelines import router as regulatory_guidelines_router
+from app.api.screening import router as screening_router
 from app.api.system import router as system_router
 from app.core.config import get_settings
 from app.core.errors import init_error_tracking
@@ -69,6 +70,7 @@ app.include_router(regulatory_router, prefix="/api")
 app.include_router(grants_router, prefix="/api")
 app.include_router(protocols_router, prefix="/api")
 app.include_router(regulatory_guidelines_router, prefix="/api")
+app.include_router(screening_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 
 

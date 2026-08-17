@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     sbir_rate_limit: float = 2.0
     grants_match_max_tokens: int = 2048
     grants_match_timeout_seconds: float = 45.0
+    # The mock review board makes one call per persona, each writing a scored review, so it
+    # gets a larger token allowance and a longer timeout than ranking does.
+    grants_review_max_tokens: int = 2048
+    grants_review_timeout_seconds: float = 60.0
 
     # PDF extraction. Documents are parsed locally; only the extracted text reaches the LLM.
     pdf_fetch_timeout_seconds: float = 30.0
@@ -88,6 +92,19 @@ class Settings(BaseSettings):
     # numbers, so the audit's flagged view can be exercised through the running app. Refused
     # outside development below: it produces text that is not a draft of anything.
     regulatory_fixture_drafter: bool = False
+
+    # Screening. Descriptors are computed locally by RDKit; only the SMILES string and the
+    # descriptors computed from it are sent to Claude for substituent suggestions.
+    sar_suggestion_max_tokens: int = 2048
+    sar_suggestion_timeout_seconds: float = 45.0
+
+    # USPTO Open Data Portal patent search. Registration is free but a key is mandatory: with
+    # no key the patents service reports the source as unavailable instead of searching. USPTO
+    # publishes no per-key rate, so the limit below is a politeness measure.
+    uspto_odp_base_url: str = "https://api.uspto.gov/api/v1"
+    uspto_odp_api_key: str = ""
+    uspto_odp_timeout_seconds: float = 20.0
+    uspto_odp_rate_limit: float = 2.0
 
     # Claude, used for natural-language -> Entrez query translation. Without a key the
     # service falls back to a deterministic rule-based translator.

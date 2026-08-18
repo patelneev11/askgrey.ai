@@ -20,6 +20,8 @@ const saveProtocol = vi.fn();
 const updateProtocol = vi.fn();
 const protocolHistory = vi.fn();
 const exportEln = vi.fn();
+const listProtocols = vi.fn();
+const loadProtocol = vi.fn();
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -34,6 +36,8 @@ vi.mock('@/lib/api', async () => {
       updateProtocol: (...args: unknown[]) => updateProtocol(...args),
       protocolHistory: (...args: unknown[]) => protocolHistory(...args),
       exportEln: (...args: unknown[]) => exportEln(...args),
+      listProtocols: (...args: unknown[]) => listProtocols(...args),
+      loadProtocol: (...args: unknown[]) => loadProtocol(...args),
     },
   };
 });
@@ -179,8 +183,26 @@ const EXPORT: ElnExportPayload = {
   warnings: ['untested'],
 };
 
+const SUMMARY = {
+  id: 'protocol-1',
+  title: 'Western blot for p53',
+  goal: GOAL,
+  current_version: 2,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:01:00Z',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
+  listProtocols.mockResolvedValue([]);
+  loadProtocol.mockResolvedValue({
+    id: 'protocol-1',
+    version: 2,
+    protocol: draft({ title: 'Reopened blot', origin: 'researcher_edited' }),
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:01:00Z',
+  });
   draftProtocol.mockResolvedValue(draft());
   reagentChecklist.mockResolvedValue(CHECKLIST);
   reviewControls.mockResolvedValue(REVIEW);
@@ -374,6 +396,47 @@ describe('ProtocolPage — calculator', () => {
     expect(validated).toHaveLength(1);
     expect(validated[0]).toHaveTextContent('Arithmetic verified · this panel only');
     expect(screen.queryByText(/controls validated/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('ProtocolPage — saved protocols', () => {
+  it('lists the saved protocols and reopens one on demand', async () => {
+    const user = userEvent.setup();
+    listProtocols.mockResolvedValue([SUMMARY]);
+    render(<ProtocolPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'Western blot for p53' }));
+
+    await waitFor(() => expect(loadProtocol).toHaveBeenCalledWith('protocol-1', undefined));
+    expect((await screen.findAllByText('Reopened blot')).length).toBeGreaterThan(0);
+    // The version the server reports, not a guess made in the browser.
+    expect(screen.getAllByText('v2').length).toBeGreaterThan(0);
+  });
+
+  it('reopens the protocol the researcher last had open after a reload', async () => {
+    window.localStorage.setItem('askgrey:protocol:last', 'protocol-1');
+    listProtocols.mockResolvedValue([SUMMARY]);
+
+    render(<ProtocolPage />);
+
+    await waitFor(() => expect(loadProtocol).toHaveBeenCalledWith('protocol-1', undefined));
+    expect(await screen.findByDisplayValue('Harvest treated cells')).toBeInTheDocument();
+    // The reopened document is still agent-derived, so the review requirement stays attached.
+    expect(screen.getByRole('note')).toHaveTextContent(
+      /Requires qualified researcher review before lab use/i,
+    );
+  });
+
+  it('remembers a save so the next visit reopens it', async () => {
+    const user = userEvent.setup();
+    render(<ProtocolPage />);
+    await generate(user);
+
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem('askgrey:protocol:last')).toBe('protocol-1'),
+    );
   });
 });
 

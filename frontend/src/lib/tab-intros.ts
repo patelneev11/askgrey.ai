@@ -44,7 +44,7 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Protocol drafts an experimental method',
     body: [
       'The outline on the left is the shape of the experiment; each step opens its full method, reagents and timings on the right.',
-      'The protocol here is a sample draft, not generated from your workspace.',
+      'Drafting, the control review and the calculator all run against live services; saved protocols and their version history persist to your account.',
     ],
     caveat:
       'Agent-drafted content requires qualified researcher review before anyone runs it at the bench.',

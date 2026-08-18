@@ -11,8 +11,34 @@ import {
   type ProtocolHistory,
   type ProtocolReview,
   type ProtocolStep,
+  type SavedProtocolSummary,
 } from './protocols';
 import { getAccessToken } from './session';
+
+/**
+ * The protocol the researcher last had open, so a reload lands back on it.
+ *
+ * Only the id is stored: the protocol itself is re-read from the API, which keeps the browser
+ * from ever showing a stale copy of a document someone else's session has since edited.
+ */
+const LAST_OPENED_KEY = 'askgrey:protocol:last';
+
+function readLastOpened(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_OPENED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberLastOpened(id: string | null): void {
+  try {
+    if (id) window.localStorage.setItem(LAST_OPENED_KEY, id);
+    else window.localStorage.removeItem(LAST_OPENED_KEY);
+  } catch {
+    // A blocked storage quota must not cost the researcher their save.
+  }
+}
 
 export interface MixRow {
   id: string;
@@ -61,12 +87,63 @@ export function useProtocolWorkspace() {
 
   const [exportPayload, setExportPayload] = useState<ElnExportPayload | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [saved, setSaved] = useState<SavedProtocolSummary[]>([]);
+  const [opening, setOpening] = useState(false);
   const draftRef = useRef<ProtocolDraft | null>(null);
 
   const applyDraft = useCallback((next: ProtocolDraft | null) => {
     draftRef.current = next;
     setDraft(next);
   }, []);
+
+  const refreshSaved = useCallback(async () => {
+    try {
+      setSaved(await api.listProtocols(getAccessToken()));
+    } catch (cause) {
+      // The list is a convenience; failing to load it must not break drafting.
+      logger.warn('protocol.list_failed', { message: message(cause, 'unknown') });
+    }
+  }, []);
+
+  const openSaved = useCallback(
+    async (id: string) => {
+      setOpening(true);
+      setError(null);
+      try {
+        const stored = await api.loadProtocol(id, getAccessToken());
+        applyDraft(stored.protocol);
+        setSavedId(stored.id);
+        setVersion(stored.version);
+        setDirty(false);
+        setGoal(stored.protocol.goal);
+        // Control findings belong to the review that produced them, not to the reopened
+        // document, so they are not restored — a stale finding would read as a fresh one.
+        setReview(null);
+        setExportPayload(null);
+        rememberLastOpened(stored.id);
+        setHistory(await api.protocolHistory(stored.id, getAccessToken()));
+        setChecklist(await api.reagentChecklist(stored.protocol, getAccessToken()));
+      } catch (cause) {
+        setError(message(cause, 'That protocol could not be opened.'));
+      } finally {
+        setOpening(false);
+      }
+    },
+    [applyDraft],
+  );
+
+  // On arrival, list what the account has saved and reopen whatever was last open: a version
+  // history nothing can navigate back to is history the researcher cannot use.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    void (async () => {
+      await refreshSaved();
+      const last = readLastOpened();
+      if (last) await openSaved(last);
+    })();
+  }, [openSaved, refreshSaved]);
 
   const generate = useCallback(async () => {
     if (goal.trim().length < 10) {
@@ -82,6 +159,7 @@ export function useProtocolWorkspace() {
       );
       applyDraft(next);
       setSavedId(null);
+      rememberLastOpened(null);
       setVersion(null);
       setDirty(false);
       setReview(null);
@@ -128,21 +206,23 @@ export function useProtocolWorkspace() {
     setSaving(true);
     setError(null);
     try {
-      const saved = savedId
+      const stored = savedId
         ? await api.updateProtocol(savedId, current, '', getAccessToken())
         : await api.saveProtocol(current, '', getAccessToken());
-      setSavedId(saved.id);
-      setVersion(saved.version);
+      setSavedId(stored.id);
+      setVersion(stored.version);
+      rememberLastOpened(stored.id);
       // The server owns `origin`: saving an edit is what makes it researcher-edited.
-      applyDraft(saved.protocol);
+      applyDraft(stored.protocol);
       setDirty(false);
-      setHistory(await api.protocolHistory(saved.id, getAccessToken()));
+      setHistory(await api.protocolHistory(stored.id, getAccessToken()));
+      await refreshSaved();
     } catch (cause) {
       setError(message(cause, 'Saving failed.'));
     } finally {
       setSaving(false);
     }
-  }, [applyDraft, savedId]);
+  }, [applyDraft, refreshSaved, savedId]);
 
   const reviewControls = useCallback(async () => {
     const current = draftRef.current;
@@ -251,6 +331,8 @@ export function useProtocolWorkspace() {
     mixError,
     exportPayload,
     exporting,
+    saved,
+    opening,
     setGoal,
     setSample,
     setBatchScale,
@@ -262,5 +344,6 @@ export function useProtocolWorkspace() {
     exportEln,
     editMix,
     addMixRow,
+    openSaved,
   };
 }

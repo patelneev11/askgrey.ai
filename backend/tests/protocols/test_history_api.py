@@ -26,6 +26,7 @@ def save(client: TestClient, headers: dict[str, str]) -> dict[str, Any]:
 def test_every_protocol_route_requires_authentication(client: TestClient) -> None:
     body = {"protocol": fixture_protocol().model_dump(mode="json")}
     assert client.post("/api/protocols", json=body).status_code == 401
+    assert client.get("/api/protocols").status_code == 401
     assert client.get("/api/protocols/any-id").status_code == 401
     assert client.get("/api/protocols/any-id/history").status_code == 401
     assert client.put("/api/protocols/any-id", json=body).status_code == 401
@@ -106,6 +107,32 @@ def test_another_account_cannot_read_or_edit_the_protocol(client: TestClient) ->
         ).status_code
         == 404
     )
+
+
+def test_saved_protocols_are_listed_newest_edit_first(client: TestClient) -> None:
+    """The list is what makes a save reachable again after a reload."""
+    headers = auth_header(client, OWNER)
+    first = save(client, headers)
+    second = save(client, headers)
+    protocol = first["protocol"]
+    protocol["title"] = "Edited most recently"
+    client.put(f"/api/protocols/{first['id']}", json={"protocol": protocol}, headers=headers)
+
+    listed = client.get("/api/protocols", headers=headers)
+
+    assert listed.status_code == 200
+    body = listed.json()
+    assert [entry["id"] for entry in body] == [first["id"], second["id"]]
+    assert body[0]["title"] == "Edited most recently"
+    assert body[0]["current_version"] == 2
+    assert body[0]["goal"] == fixture_protocol().goal
+
+
+def test_the_list_shows_only_the_callers_own_protocols(client: TestClient) -> None:
+    save(client, auth_header(client, OWNER))
+    intruder = auth_header(client, OTHER)
+
+    assert client.get("/api/protocols", headers=intruder).json() == []
 
 
 def test_eln_export_returns_an_untested_benchling_payload(client: TestClient) -> None:

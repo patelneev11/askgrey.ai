@@ -23,6 +23,7 @@ import type {
   ProtocolReview,
   RecalculationResponse,
   SavedProtocol,
+  SavedProtocolSummary,
 } from './protocols';
 import type {
   AdmetProfile,
@@ -685,6 +686,12 @@ export const api = {
       { method: 'PUT', body: JSON.stringify({ protocol, change_summary: changeSummary }) },
       token,
     ),
+
+  /** The caller's saved protocols, so a save is reachable again after a reload. */
+  listProtocols: (token?: string) => request<SavedProtocolSummary[]>('/protocols', {}, token),
+
+  loadProtocol: (id: string, token?: string) =>
+    request<SavedProtocol>(`/protocols/${encodeURIComponent(id)}`, {}, token),
 
   protocolHistory: (id: string, token?: string) =>
     request<ProtocolHistory>(`/protocols/${encodeURIComponent(id)}/history`, {}, token),

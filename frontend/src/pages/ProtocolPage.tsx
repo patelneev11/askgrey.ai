@@ -69,6 +69,8 @@ export function ProtocolPage() {
     mixError,
     exportPayload,
     exporting,
+    saved,
+    opening,
   } = workspace;
   const [folderId, setFolderId] = useState('');
 
@@ -128,6 +130,27 @@ export function ProtocolPage() {
             <p className={styles.error} role="alert">
               {error}
             </p>
+          )}
+
+          {saved.length > 0 && (
+            <div className={styles.controls}>
+              <h3 className={styles.controlsTitle}>Saved protocols</h3>
+              <ul className={styles.controlList}>
+                {saved.map((entry) => (
+                  <li key={entry.id}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={opening}
+                      onClick={() => void workspace.openSaved(entry.id)}
+                    >
+                      {entry.title || 'Untitled protocol'}
+                    </Button>
+                    <span className={styles.stepDuration}>v{entry.current_version}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {draft ? (

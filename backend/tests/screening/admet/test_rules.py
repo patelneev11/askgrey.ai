@@ -4,14 +4,14 @@ import pytest
 from rdkit import Chem
 
 from app.services.screening.admet import AdmetService, Outcome
+from app.services.screening.admet.qsar_presentation import QSAR_KEYS
 from app.services.screening.admet.rules import (
     Descriptors2D,
     bbb_penetration,
-    cyp_inhibition_unavailable,
+    cyp_isoforms_not_modelled,
     general_toxicity_risk,
     gi_absorption,
     herg_liability,
-    plasma_protein_binding,
 )
 
 from .reference import (
@@ -158,25 +158,15 @@ def test_the_3_75_rule_states_that_it_is_a_population_level_association() -> Non
     assert "Hughes" in estimate.citation
 
 
-def test_plasma_protein_binding_is_unavailable_with_a_reason_and_no_number() -> None:
-    estimate = plasma_protein_binding()
+def test_unmodelled_isoforms_are_unavailable_and_point_at_the_alert_list() -> None:
+    estimate = cyp_isoforms_not_modelled()
 
     assert estimate.available is False
     assert estimate.outcome is Outcome.UNAVAILABLE
     assert estimate.verdict == ""
-    assert "Unavailable" in estimate.reason
-    assert "equilibrium-dialysis" in estimate.requires
-    assert estimate.model_basis
-    assert "%" not in estimate.reason
-
-
-def test_per_isoform_cyp_prediction_is_unavailable_and_points_at_the_alert_list() -> None:
-    estimate = cyp_inhibition_unavailable()
-
-    assert estimate.available is False
-    assert estimate.outcome is Outcome.UNAVAILABLE
     assert "structural-alert list" in estimate.reason
-    assert "trained" in estimate.requires
+    assert "CYP3A4, CYP2D6 and CYP2C9" in estimate.model_basis
+    assert "scaffold-validated" in estimate.requires
 
 
 def test_every_estimate_carries_a_non_empty_model_basis() -> None:
@@ -188,11 +178,32 @@ def test_every_estimate_carries_a_non_empty_model_basis() -> None:
 
 
 @pytest.mark.parametrize("compound", [ASPIRIN, TERFENADINE, ROSIGLITAZONE])
-def test_no_estimate_quotes_a_pharmacokinetic_measurement(compound: ReferenceCompound) -> None:
-    """Verdicts are classifications; a unit or a potency term would mean a fabricated value."""
+def test_no_rule_estimate_quotes_a_pharmacokinetic_measurement(compound: ReferenceCompound) -> None:
+    """
+    A rule classifies; it never yields a quantity.
+
+    Only the fitted QSAR estimates carry a number, and each of those states its held-out error
+    alongside it, so the numeric verdicts are checked separately in `test_qsar.py`.
+    """
     profile = AdmetService().evaluate(compound.smiles)
     forbidden = ("%", "IC50", "uM", "nM", "mg", "ng/mL", "CL/F", "logBB", "fu ")
 
     for estimate in profile.estimates:
+        if estimate.key in QSAR_KEYS:
+            continue
         for token in forbidden:
             assert token not in estimate.verdict, (estimate.key, token)
+
+
+@pytest.mark.parametrize("compound", [ASPIRIN, TERFENADINE, ROSIGLITAZONE])
+def test_every_quantity_in_the_profile_is_labelled_predicted_with_its_error(
+    compound: ReferenceCompound,
+) -> None:
+    profile = AdmetService().evaluate(compound.smiles)
+
+    for estimate in profile.estimates:
+        if not estimate.available or "%" not in estimate.verdict:
+            continue
+        assert estimate.key in QSAR_KEYS
+        assert estimate.verdict.startswith("Predicted")
+        assert "held-out mean absolute error" in estimate.verdict

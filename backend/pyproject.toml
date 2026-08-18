@@ -31,6 +31,9 @@ dependencies = [
     # Cheminformatics for the screening tab: descriptors, SMILES sanitization, substructure
     # matching. Pinned because descriptor values are asserted against reference compounds.
     "rdkit==2025.3.6",
+    # RDKit pulls numpy in anyway; pinned explicitly because the ADMET QSAR inference code uses it
+    # directly to evaluate the exported trees.
+    "numpy==2.2.6",
     "sentry-sdk==2.66.1",
 ]
 
@@ -41,6 +44,13 @@ dev = [
     "pytest-asyncio==1.4.0",
     "ruff==0.8.4",
     "mypy==1.14.0",
+]
+# Training the ADMET QSAR models (backend/training/admet_qsar/). Not installed in the API image:
+# inference reads the exported JSON artifacts and needs nothing beyond numpy and RDKit.
+training = [
+    "scikit-learn==1.7.2",
+    "pandas==2.3.3",
+    "PyTDC==0.4.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -56,6 +66,8 @@ include = ["app*"]
 "app.services.grants.budget" = ["*.json"]
 # Likewise the review board's personas and their prompts.
 "app.services.grants.review_board" = ["*.json"]
+# The trained ADMET QSAR models: gradient-boosted trees exported as JSON, read at inference.
+"app.services.screening.admet" = ["qsar_models/*.json"]
 
 [tool.ruff]
 line-length = 100

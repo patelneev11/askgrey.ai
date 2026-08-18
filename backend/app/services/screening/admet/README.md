@@ -10,16 +10,18 @@ Three options were on the table for ADMET on the Screening tab:
    87%, fu 4.2%, hERG IC50 3 µM" for any structure, with no basis whatsoever. Every one of those
    numbers would be fabricated, and fabricated numbers with two significant figures are more
    dangerous than no numbers at all.
-2. **Ship a QSAR/ML model.** Rejected for now. The credible open models (SwissADME's SVMs, ADMETlab,
-   pkCSM) either cannot be redistributed, need their training sets to define an applicability
-   domain, or would mean vendoring weights we cannot validate here. Calling an external predictor
-   per request would also put a third-party dependency in the middle of an authenticated flow.
-3. **Apply published physicochemical rules, and say "unavailable" for everything they cannot
-   cover.** Chosen.
+2. **Vendor a third-party QSAR predictor.** Rejected. SwissADME, ADMETlab and pkCSM either cannot be
+   redistributed or ship weights whose training sets are not available, so their applicability
+   domain cannot be checked here; calling one per request would also put a third-party dependency
+   inside an authenticated flow.
+3. **Apply published physicochemical rules, and train our own QSAR models on public benchmark data
+   for the properties no rule can reach.** Chosen — both halves, kept visibly separate in the
+   payload.
 
-Every estimate this module returns is therefore a **classification from a peer-reviewed rule with
-published thresholds, computed from deterministic RDKit descriptors** — never a fitted value, never
-a probability, never a number that looks like a measurement.
+So every estimate is one of two things, and the response says which: a **classification from a
+peer-reviewed rule with published thresholds**, or a **prediction from a model fitted here on public
+assay data, scaffold-validated, and refused outside its applicability domain**. Neither is a
+measurement, and the module never returns a number it cannot attach an error and a provenance to.
 
 ## What is returned
 
@@ -36,12 +38,62 @@ descriptors it consumed, plus a `scope` field stating what the classification ex
 say. `model_basis` is part of the response schema, not metadata: the Screening UI renders it next to
 the value.
 
-## What is returned as unavailable
+## The trained QSAR models
+
+Five gradient-boosted-tree models, trained by `backend/training/admet_qsar/train.py` on Therapeutics
+Data Commons benchmark sets (all CC BY 4.0) and shipped as JSON in `qsar_models/`:
+
+| Field | Dataset | Task | Compounds | Held-out performance |
+| --- | --- | --- | --- | --- |
+| `herg_blockade` | hERG_Karim | classification | 13,445 | ROC-AUC 0.862, balanced accuracy 0.772, Brier 0.153 |
+| `plasma_protein_binding` | PPBR_AZ (AstraZeneca) | regression, % bound | 1,614 | MAE 8.2 % bound, R² 0.30 (in-domain MAE 7.8, R² 0.39) |
+| `cyp3a4_inhibition` | CYP3A4_Veith | classification | 12,328 | ROC-AUC 0.933, balanced accuracy 0.849 |
+| `cyp2d6_inhibition` | CYP2D6_Veith | classification | 13,130 | ROC-AUC 0.871, balanced accuracy 0.764 |
+| `cyp2c9_inhibition` | CYP2C9_Veith | classification | 12,092 | ROC-AUC 0.872, balanced accuracy 0.679 |
+
+Dataset citations and URLs travel inside each artifact and are echoed in the response's `citation`
+field. A model that missed the pre-declared bar (ROC-AUC ≥ 0.75, R² ≥ 0.30 on the held-out split)
+would not have been written; the training script fails loudly instead of shipping it.
+
+**How they are built and served**
+
+- **Features.** Morgan count fingerprints (radius 2, 2048 bits, counts capped at 4) plus 12 RDKit
+  descriptors (MW, cLogP, TPSA, HBD, HBA, rotatable bonds, rings, aromatic rings, heavy atoms,
+  Fsp3, molar refractivity, formal charge). The featurizer is versioned
+  (`morgan2-2048-count4+desc12`) and an artifact built against a different version is refused at
+  load, not silently mis-fed.
+- **Split.** Bemis–Murcko **scaffold** split, 70/10/20 — no scaffold is shared between train,
+  calibration and test — so the quoted metrics are not the random-split numbers that flatter every
+  fingerprint model. Metrics come from the test slice only; the calibration slice is used solely for
+  Platt scaling, so reported probabilities are calibrated, not raw margins.
+- **Serialization.** Trees are exported as plain JSON arrays and evaluated by a small interpreter in
+  `qsar.py`. No pickle, no joblib, no `__reduce__` executing on load. The training script verifies
+  the exported evaluator reproduces scikit-learn's own output (max deviation ≤ 1e-6; observed
+  ≤ 1.6e-13).
+- **Applicability domain.** A prediction is returned only if the structure is within `min_tanimoto`
+  (a percentile of the training set's own nearest-neighbour similarities, ≈0.20) of a MaxMin-chosen
+  reference subset of ≤1,200 training molecules, *and* its 12 descriptors sit inside the training
+  percentile bounds widened by 25%. Otherwise the field is `unavailable` with the similarity, the
+  threshold and the offending descriptors stated. Ethanol and salts are refused; ordinary drug-like
+  chemistry is served (95–99% of each held-out test set is in domain, and in-domain metrics are
+  reported alongside the overall ones).
+- **Failure mode.** A missing, unreadable, schema-mismatched or uncalibrated artifact makes its
+  field `unavailable`; it never falls back to a rule under the same name and never returns a value
+  from an artifact it could not validate.
+
+Raw training data is **not** committed — only fitted artifacts, with dataset name, license, citation,
+URL and compound count recorded inside each one. Retrain with:
+
+```
+pip install -e ".[training]" && python training/admet_qsar/train.py --write
+```
+
+## What is still returned as unavailable
 
 | Field | Why |
 | --- | --- |
-| `plasma_protein_binding` | Fraction bound needs a regression trained on measured f<sub>u</sub>. The descriptor-level correlation with lipophilicity is far too weak to quote a percentage from, so nothing is quoted. Requires a validated QSAR with a published training set, or equilibrium dialysis / ultrafiltration data. |
-| `cyp_inhibition` | Per-isoform inhibition and substrate calls (1A2/2C9/2C19/2D6/3A4) come from ML classifiers trained on screening data. Without the training set and an applicability-domain check, a per-isoform verdict would be a guess wearing a model's clothes. The structural-alert list is provided instead, clearly labelled as a substructure match. |
+| `cyp_inhibition_other_isoforms` | CYP1A2 and CYP2C19 inhibition, and substrate prediction for any isoform, are not modelled. Extrapolating from the three isoforms that are would be a guess wearing a model's clothes. The structural-alert list is provided instead, clearly labelled as a substructure match. |
+| any QSAR field, for this structure | Out of the model's applicability domain, or its artifact could not be loaded — see above. |
 
 Unavailable fields still carry `model_basis` (what *would* be needed), `reason`, and `requires`.
 They are a first-class outcome (`outcome: "unavailable"`), not an error.
@@ -79,9 +131,25 @@ They are a first-class outcome (`outcome: "unavailable"`), not an error.
   unambiguous 2D substructure (arylamine and quinone bioactivation, for instance) are omitted
   rather than approximated by a pattern that would fire on half of all drug-like molecules.
 
+## Limitations specific to the fitted models
+
+- The benchmark sets are assembled from public screening data (PubChem bioassays for the Veith CYP
+  panels, a curated literature compilation for hERG, an AstraZeneca release for PPBR). Assay
+  protocol, cell system and activity threshold vary within each set, so a probability is a
+  prediction of *that benchmark's* label, not of a particular in-house assay's readout.
+- Marketed drugs are frequently *in* these training sets (caffeine and terfenadine both appear in
+  PPBR_AZ at Tanimoto 1.0), so a good-looking prediction for a familiar drug is not evidence of
+  generalization. The scaffold-split metrics above are.
+- PPBR is predicted as **percent bound**, and an MAE of 8 points is large exactly where it matters
+  most: 99% versus 99.9% bound is a tenfold difference in free fraction that this model cannot
+  resolve. The verdict quotes the error for that reason.
+- CYP inhibition classifiers say nothing about **substrate** status, time-dependent inactivation,
+  induction, or the clinical significance of any interaction.
+- Same 2D-only caveat as the rules: no conformers, tautomers, stereochemistry or ionisation.
+
 ## Security and cost
 
-No network calls, no LLM, no secrets. Input is validated and bounded by
+No network calls (model artifacts are package data, loaded from disk), no LLM, no secrets. Input is validated and bounded by
 `app.services.screening.smiles` before RDKit sees it (length, character set, heavy-atom count), and
 the endpoint (`POST /api/screening/admet`) stays behind bearer authentication and the standard API
 rate limiter. Malformed structures return `422`, never a traceback.
@@ -92,5 +160,12 @@ rate limiter. Malformed structures return `422`, never a traceback.
 is well documented (caffeine, diazepam and morphine as CNS-active; atorvastatin, metformin and
 mannitol as non-penetrant or poorly absorbed; terfenadine and astemizole as canonical hERG
 blockers; paroxetine for the methylenedioxyphenyl alert; rosiglitazone for thiazolidinedione;
-ticlopidine for thiophene). Those are **classification** assertions — the tests deliberately never
-assert a predicted numeric ADMET value, because the module never produces one.
+ticlopidine for thiophene). Those are **classification** assertions — no rule-based test asserts a
+numeric ADMET value, because no rule produces one.
+
+`test_qsar.py` covers the model half: every declared artifact is present, matches the featurizer and
+schema, carries its license/citation/split metadata, and clears the metric bar; predictions are
+deterministic; an in-domain structure gets a calibrated probability with model provenance; ethanol is
+refused by every model; descriptor bounds gate independently of the fingerprint; and a wrong
+featurizer, an uncalibrated classifier, a corrupt file, a missing file and an empty reference set
+each degrade to `unavailable` rather than to a number.

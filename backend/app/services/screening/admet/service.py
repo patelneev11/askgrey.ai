@@ -1,19 +1,19 @@
-"""The ADMET service: validate a structure, then apply every published rule to it."""
+"""The ADMET service: validate a structure, then apply the published rules and trained models."""
 
 from __future__ import annotations
 
 from ..smiles import parse_structure
 from .alerts import evaluate_alerts
 from .models import AdmetProfile
+from .qsar_presentation import qsar_estimates
 from .rules import (
     Descriptors2D,
     bbb_penetration,
-    cyp_inhibition_unavailable,
+    cyp_isoforms_not_modelled,
     cyp_structural_alerts,
     general_toxicity_risk,
     gi_absorption,
     herg_liability,
-    plasma_protein_binding,
 )
 
 # Alerts tied to P450 bioactivation; the hERG pharmacophore alert is surfaced through the hERG
@@ -23,10 +23,12 @@ _HERG_ALERT_KEY = "basic_amine_aromatic"
 
 class AdmetService:
     """
-    Deterministic ADMET estimation from published physicochemical rules.
+    Deterministic ADMET estimation from published physicochemical rules and trained QSAR models.
 
-    No LLM and no network: the same structure always yields the same profile. Properties without a
-    defensible open approach come back as unavailable estimates rather than numbers.
+    No LLM and no network: the rules are published thresholds over RDKit descriptors and the QSAR
+    models are gradient-boosted trees loaded from package data, so the same structure always yields
+    the same profile. Properties with neither a defensible rule nor a model inside its applicability
+    domain come back as unavailable estimates rather than numbers.
     """
 
     def evaluate(self, smiles: object) -> AdmetProfile:
@@ -50,9 +52,9 @@ class AdmetService:
                 bbb_penetration(values),
                 herg_liability(values),
                 cyp_structural_alerts(values, cyp_matches),
-                cyp_inhibition_unavailable(),
-                plasma_protein_binding(),
                 general_toxicity_risk(values),
+                *qsar_estimates(structure.mol),
+                cyp_isoforms_not_modelled(),
             ],
             alerts=alerts,
         )

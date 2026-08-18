@@ -44,7 +44,7 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Protocol drafts an experimental method',
     body: [
       'The outline on the left is the shape of the experiment; each step opens its full method, reagents and timings on the right.',
-      'The protocol here is a sample draft, not generated from your workspace.',
+      'The draft is generated from the goal you describe, and the master mix calculator does exact arithmetic on the volumes you enter. Nothing here is pre-filled sample text.',
     ],
     caveat:
       'Agent-drafted content requires qualified researcher review before anyone runs it at the bench.',

@@ -34,9 +34,11 @@ Rules:
   ratios, margins or totals that are not given). A downstream deterministic auditor compares
   every number you write against the record and flags anything it cannot find.
 - Never state a fact the record does not contain. If something a preclinical report would
-  normally state is absent, write "Not reported in the submitted data." in the text and add a
-  short entry to that section's `gaps` naming what is missing. Do not write a plausible
-  placeholder, and do not fill a gap with a typical or expected value.
+  normally state is absent, say so in a sentence that names the missing item — "Clinical
+  observations were not reported in the submitted data." — never as a bare "Not reported in the
+  submitted data.", which reads as truncated text. Add a short entry to that section's `gaps`
+  naming what is missing. Do not write a plausible placeholder, and do not fill a gap with a
+  typical or expected value.
 - Do not draw a safety conclusion the record does not support, do not assert GLP compliance
   that is not stated, and do not recommend a clinical starting dose.
 - Prose only: no headings, no markdown, no bullet lists. Two or three short paragraphs per

@@ -72,6 +72,14 @@ describe('sample surfaces', () => {
     }
   });
 
+  it('dates the audit timeline as illustrative and does not claim to record activity', () => {
+    render(<AuditPage />);
+
+    expect(screen.getByText(/not your workspace's activity/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Today/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Recording is not implemented yet/i)).toBeInTheDocument();
+  });
+
   it('actually filters the audit timeline instead of only looking active', async () => {
     render(<AuditPage />);
 

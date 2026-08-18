@@ -30,14 +30,14 @@ const STEPS: Step[] = [
   },
   {
     eyebrow: 'What is real today',
-    title: 'Literature and Regulatory are live; some tabs are previews',
-    body: 'Literature and Regulatory run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov and grants searches behind them. Screening, Protocol and Grants currently show sample records so you can see the intended shape of the work.',
+    title: 'The five research tabs are live; the admin pages are not',
+    body: 'Literature, Screening, Protocol, Regulatory and Grants all run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov, grants.gov and SBIR searches behind them. Workspace, Audit and Settings are still read-only previews of the org, activity and configuration model.',
     caveat: 'Anything marked Sample data is illustrative. Do not read it as a result.',
   },
   {
     eyebrow: 'Before you trust it',
     title: 'The agent drafts; you remain the reviewer',
-    body: 'Extracted values carry the quote and page behind them, and anything the agent could not ground is labelled unverified rather than quietly shown as fact. Document text you add is sent to Anthropic to generate columns.',
+    body: 'Extracted values carry the quote and page behind them, and anything the agent could not ground is marked “no source found” rather than quietly shown as fact. Document text you add is sent to Anthropic to generate columns.',
     caveat:
       'Predicted affinity, ADMET and toxicity figures are computational approximations, not assay results, and drafted protocols and regulatory text require qualified review.',
   },

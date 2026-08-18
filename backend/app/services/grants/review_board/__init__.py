@@ -8,7 +8,12 @@ from .board import (
     summarize,
 )
 from .config import DEFAULT_PERSONAS_PATH, PersonaConfig, PersonaSpec, load_persona_config
-from .errors import ReviewBoardConfigError, ReviewBoardError, ReviewBoardUnavailableError
+from .errors import (
+    ReviewBoardConfigError,
+    ReviewBoardError,
+    ReviewBoardUnavailableError,
+    ReviewOutputError,
+)
 from .models import (
     CAVEAT,
     MAX_SCORE,
@@ -45,6 +50,7 @@ __all__ = [
     "ReviewBoardConfigError",
     "ReviewBoardError",
     "ReviewBoardUnavailableError",
+    "ReviewOutputError",
     "load_persona_config",
     "parse_review",
     "parse_score",

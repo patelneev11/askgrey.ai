@@ -14,6 +14,7 @@ from app.services.grants.review_board import (
     ReviewBoard,
     ReviewBoardError,
     ReviewBoardUnavailableError,
+    ReviewOutputError,
     load_persona_config,
 )
 
@@ -189,6 +190,40 @@ async def test_one_persona_returning_nothing_usable_fails_the_whole_report() -> 
 
     with pytest.raises(ReviewBoardError):
         await board.review(section())
+
+
+async def test_an_unusable_reply_is_asked_again_before_the_review_fails() -> None:
+    # A refusal or a truncated reply is often not reproducible, so one persona gets a second ask.
+    transport = ScriptedClaude(first_bodies=["I would rather write prose."])
+
+    report = await make_board(transport).review(section(), [BIOSTATISTICIAN])
+
+    assert len(transport.requests) == 2
+    assert report.reviews[0].scores
+
+
+async def test_a_persona_that_never_answers_usably_fails_with_retry_guidance() -> None:
+    transport = ScriptedClaude(body="I would rather write prose.")
+
+    with pytest.raises(ReviewOutputError, match="asked twice"):
+        await make_board(transport).review(section(), [BIOSTATISTICIAN])
+    assert len(transport.requests) == 2
+
+
+async def test_an_empty_reply_is_reported_as_the_model_declining() -> None:
+    transport = ScriptedClaude(body="")
+
+    with pytest.raises(ReviewOutputError, match="declined"):
+        await make_board(transport).review(section(), [BIOSTATISTICIAN])
+
+
+async def test_an_http_failure_is_not_retried() -> None:
+    # A rejected key or an exhausted quota answers the same way twice; retrying only bills again.
+    transport = ScriptedClaude(status_code=429)
+
+    with pytest.raises(ReviewBoardError):
+        await make_board(transport).review(section(), [BIOSTATISTICIAN])
+    assert len(transport.requests) == 1
 
 
 async def test_without_an_api_key_the_board_raises_instead_of_scoring() -> None:

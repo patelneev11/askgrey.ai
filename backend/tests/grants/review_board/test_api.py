@@ -246,6 +246,22 @@ def test_a_claude_failure_is_surfaced_rather_than_scored_around(
     assert "529" in response.json()["detail"]
 
 
+def test_a_failed_review_is_audited_as_a_failure_not_a_success(
+    client: TestClient, install: Install, caplog: pytest.LogCaptureFixture
+) -> None:
+    install(reviewer=StubReviewer(error=ReviewBoardError("Claude returned HTTP 529")))
+
+    with caplog.at_level(logging.INFO, logger="askgrey.audit"):
+        client.post("/api/grants/review-board", json=body(), headers=auth_header(client))
+
+    event = next(
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if "grant_section.sent_to_llm" in record.getMessage()
+    )
+    assert event["outcome"] == "failure"
+
+
 def test_the_review_endpoint_counts_against_the_daily_llm_budget(
     client: TestClient, install: Install
 ) -> None:

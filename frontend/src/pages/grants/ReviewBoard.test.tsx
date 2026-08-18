@@ -148,6 +148,46 @@ describe('mock review board', () => {
     expect(screen.getByText('No review run yet')).toBeInTheDocument();
   });
 
+  it('says a refused review produced no scores', async () => {
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(
+      new ApiError('Strict Biostatistician returned an empty reply.', 502),
+    );
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No scores were produced.');
+    expect(screen.getByText('No review run yet')).toBeInTheDocument();
+  });
+
+  it('asks the reader to sign in again rather than echoing an auth failure', async () => {
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(new ApiError('Not authenticated', 401));
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Your session has expired. Sign in again to run a review.',
+    );
+  });
+
+  it('does not surface a network failure as a raw exception', async () => {
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The review board could not be reached. Check your connection and try again.',
+    );
+  });
+
   it('says the personas could not be loaded rather than showing an empty board', async () => {
     reviewPersonas.mockRejectedValue(new ApiError('personas are unusable', 500));
     render(<ReviewBoard />);

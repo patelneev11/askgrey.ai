@@ -5,7 +5,7 @@ import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { StatusPill } from '@/components/StatusPill';
-import { api } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import {
   MAX_SECTION_CHARS,
   MIN_SECTION_CHARS,
@@ -17,8 +17,25 @@ import { getAccessToken } from '@/lib/session';
 
 import styles from './grants.module.css';
 
+/**
+ * What to put on screen when a review call fails.
+ *
+ * The backend's own messages are sanitised and say what went wrong (a missing key, an
+ * unscoreable reply), so they are shown as-is; the status only decides what the reader should
+ * do about it. Anything that is not an ApiError is a network or parse failure, and is reduced
+ * to a generic line rather than surfacing an exception string.
+ */
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'The review board did not answer.';
+  if (!(cause instanceof ApiError)) {
+    return 'The review board could not be reached. Check your connection and try again.';
+  }
+  if (cause.status === 401 || cause.status === 403) {
+    return 'Your session has expired. Sign in again to run a review.';
+  }
+  if (cause.status === 502) {
+    return `${cause.message} No scores were produced.`;
+  }
+  return cause.message;
 }
 
 function Review({ review }: { review: PersonaReview }) {

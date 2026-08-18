@@ -33,10 +33,15 @@ from .features import (
     MORGAN_BITS,
     featurize,
     fingerprint_bits,
+    peptide_linkage_count,
 )
 
 ARTIFACT_DIRECTORY = Path(__file__).parent / "qsar_models"
 ARTIFACT_SCHEMA_VERSION = 1
+
+# Reported in `QsarPrediction.out_of_domain_descriptors` when the peptide check, rather than a
+# descriptor bound, is what refuses the structure.
+PEPTIDE_MARKER = "peptide_linkages"
 
 
 class QsarArtifactError(RuntimeError):
@@ -84,17 +89,24 @@ class ApplicabilityDomain(BaseModel):
     """
     The domain the model may speak about.
 
-    A query is in domain when it has a training neighbour at Tanimoto >= `min_tanimoto` and its
-    descriptors sit inside the training range (widened by `descriptor_slack`). `reference_bits`
-    holds the Morgan on-bits of a diverse subsample of the training set rather than all of it, so
-    the similarity reported is a lower bound on the true nearest-neighbour similarity and the gate
-    errs towards refusing.
+    A query is in domain when it has a training neighbour at Tanimoto >= `min_tanimoto`, its
+    descriptors sit inside the training range (widened by `descriptor_slack`), and it carries no
+    more peptide backbone linkages than the training set did. `reference_bits` holds the Morgan
+    on-bits of a diverse subsample of the training set rather than all of it, so the similarity
+    reported is a lower bound on the true nearest-neighbour similarity and the gate errs towards
+    refusing.
+
+    The peptide count is a separate check because fingerprint similarity cannot make it: a
+    tripeptide is a chain of amide fragments the training set has seen individually, so it clears a
+    similarity threshold set for small-molecule chemistry while being nothing the model was fitted
+    on. Runtime testing found leu-enkephalin served four numbers on that basis.
     """
 
     reference_bits: list[list[int]]
     min_tanimoto: float
     descriptor_bounds: dict[str, tuple[float, float]]
     descriptor_slack: float
+    max_peptide_linkages: int
 
 
 class QsarArtifact(BaseModel):
@@ -219,6 +231,10 @@ class QsarModel:
             observed = float(vector[MORGAN_BITS + offset])
             if observed < low - slack or observed > high + slack:
                 outside.append(name)
+
+        peptide_linkages = peptide_linkage_count(mol)
+        if peptide_linkages > domain.max_peptide_linkages:
+            outside.append(PEPTIDE_MARKER)
 
         in_domain = similarity >= domain.min_tanimoto and not outside
         return in_domain, similarity, outside

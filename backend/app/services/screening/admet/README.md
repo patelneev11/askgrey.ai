@@ -73,10 +73,22 @@ would not have been written; the training script fails loudly instead of shippin
 - **Applicability domain.** A prediction is returned only if the structure is within `min_tanimoto`
   (a percentile of the training set's own nearest-neighbour similarities, ≈0.20) of a MaxMin-chosen
   reference subset of ≤1,200 training molecules, *and* its 12 descriptors sit inside the training
-  percentile bounds widened by 25%. Otherwise the field is `unavailable` with the similarity, the
-  threshold and the offending descriptors stated. Ethanol and salts are refused; ordinary drug-like
-  chemistry is served (95–99% of each held-out test set is in domain, and in-domain metrics are
-  reported alongside the overall ones).
+  percentile bounds widened by 25%, *and* it carries no more α-amino-acid backbone linkages
+  (`N–Cα–C(=O)–N`) than the training set did at the same percentile. Otherwise the field is
+  `unavailable` with the similarity, the threshold and the offending check stated. Ethanol and salts
+  are refused; ordinary drug-like chemistry is served (95–99% of each held-out test set is in
+  domain, and in-domain metrics are reported alongside the overall ones).
+- **Why peptides need their own check.** Similarity cannot make this call: a peptide is a chain of
+  amide fragments the training sets contain individually, so it clears a Tanimoto threshold set for
+  small-molecule chemistry. End-to-end testing of the live endpoint found leu-enkephalin served
+  numbers by four of the five models on exactly that basis, so the linkage count is checked
+  separately. It is a training-set bound, not a hand-picked one: a peptide-rich training set would
+  widen it, and the bound is capped at one linkage because a peptide chain starts at two.
+  Peptidomimetics with two or more backbone linkages (atazanavir, for instance) are refused with the
+  peptides — deliberately, since the training sets contain almost none of them. **Known gap:** a
+  single linkage stays in domain, because a β-lactam side chain (ampicillin, cefalexin) matches the
+  same motif, so dipeptides and isopeptide-linked tripeptides such as glutathione — one α-linkage
+  each — are still served if they clear the similarity and descriptor checks.
 - **Failure mode.** A missing, unreadable, schema-mismatched or uncalibrated artifact makes its
   field `unavailable`; it never falls back to a rule under the same name and never returns a value
   from an artifact it could not validate.

@@ -25,6 +25,7 @@ from app.services.screening.admet.features import (
     FEATURIZER_VERSION,
     MORGAN_BITS,
     featurize,
+    peptide_linkage_count,
 )
 from app.services.screening.admet.qsar import (
     ARTIFACT_DIRECTORY,
@@ -68,6 +69,7 @@ def test_each_artifact_declares_its_provenance_and_held_out_metrics(path: Path) 
     assert artifact.metric_summary
     assert artifact.applicability_domain.reference_bits
     assert 0.0 < artifact.applicability_domain.min_tanimoto < 1.0
+    assert artifact.applicability_domain.max_peptide_linkages >= 0
 
     if artifact.task == "classification":
         assert artifact.metrics["roc_auc"] >= 0.75
@@ -122,6 +124,53 @@ def test_a_structure_unlike_the_training_set_gets_no_number() -> None:
             < model.artifact.applicability_domain.min_tanimoto
             or prediction.out_of_domain_descriptors
         )
+
+
+# Peptides clear the fingerprint-similarity gate — an amide chain is built from fragments the
+# training sets contain — so they are the case the peptide-linkage bound exists for. Runtime testing
+# of the endpoint found four of five models serving leu-enkephalin a number before it was added.
+PEPTIDES = {
+    "leu_enkephalin": "CC(C)CC(NC(=O)C(Cc1ccccc1)NC(=O)CNC(=O)CNC(=O)C(N)Cc1ccc(O)cc1)C(=O)O",
+    "triglycine": "NCC(=O)NCC(=O)NCC(=O)O",
+    "cyclic_tetrapeptide": "O=C1NCC(=O)NCC(=O)NCC(=O)NC1",
+    # A peptidomimetic, refused with the peptides: two backbone linkages is more peptide chain than
+    # the assay sets contain.
+    "atazanavir": (
+        "COC(=O)NC(C(C)(C)C)C(=O)NC(Cc1ccccc1)C(O)C(Cc1ccccc1)NNC(=O)C(NC(=O)OC)C(C)(C)C"
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(PEPTIDES), ids=sorted(PEPTIDES))
+def test_no_model_predicts_for_a_peptide(name: str) -> None:
+    mol = _mol(PEPTIDES[name])
+
+    for key, model in load_models().items():
+        prediction = model.predict(mol)
+
+        assert not prediction.in_domain, key
+        assert prediction.probability is None, key
+        assert prediction.value is None, key
+
+    for estimate in qsar_estimates(mol):
+        assert estimate.available is False
+        assert "peptide backbone linkages" in estimate.reason
+
+
+def test_the_peptide_bound_does_not_refuse_ordinary_drugs() -> None:
+    """
+    The gate must catch peptides without collapsing the domain for amide-containing drugs.
+
+    Ampicillin is the reason the bound is one linkage rather than zero: a beta-lactam side chain
+    matches the same motif as a single peptide bond, and beta-lactams are in these training sets.
+    """
+    ampicillin = "CC1(C)SC2C(NC(=O)C(N)c3ccccc3)C(=O)N2C1C(=O)O"
+    assert peptide_linkage_count(_mol(ampicillin)) == 1
+
+    for smiles in (TERFENADINE.smiles, ASPIRIN.smiles, "CC(=O)Nc1ccc(O)cc1", ampicillin):
+        mol = _mol(smiles)
+        served = [key for key, model in load_models().items() if model.predict(mol).in_domain]
+        assert served, smiles
 
 
 def test_out_of_domain_estimates_say_so_instead_of_guessing() -> None:

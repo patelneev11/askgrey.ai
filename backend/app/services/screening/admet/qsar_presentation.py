@@ -21,7 +21,14 @@ from dataclasses import dataclass
 from rdkit import Chem
 
 from .models import AdmetEstimate, Outcome, RuleInput
-from .qsar import ARTIFACT_DIRECTORY, QsarArtifact, QsarArtifactError, QsarModel, load_models
+from .qsar import (
+    ARTIFACT_DIRECTORY,
+    PEPTIDE_MARKER,
+    QsarArtifact,
+    QsarArtifactError,
+    QsarModel,
+    load_models,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +186,16 @@ def _out_of_domain(
             f"its nearest training compound is only {similarity:.2f} Tanimoto away "
             f"(the model requires {minimum:.2f})"
         )
-    if descriptors:
-        details.append("its " + ", ".join(descriptors) + " fall outside the training range")
+    if PEPTIDE_MARKER in descriptors:
+        allowed = artifact.applicability_domain.max_peptide_linkages
+        details.append(
+            "it carries more peptide backbone linkages than the training set contained "
+            f"(at most {allowed}), and a chain of amino acids is not the small-molecule chemistry "
+            "this model was fitted on"
+        )
+    out_of_range = [name for name in descriptors if name != PEPTIDE_MARKER]
+    if out_of_range:
+        details.append("its " + ", ".join(out_of_range) + " fall outside the training range")
     return _unavailable(
         key=artifact.key,
         label=artifact.label,

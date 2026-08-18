@@ -42,6 +42,11 @@ DESCRIPTOR_FUNCTIONS: tuple[tuple[str, Callable[[Chem.Mol], float]], ...] = (
 )
 
 DESCRIPTOR_NAMES: tuple[str, ...] = tuple(name for name, _ in DESCRIPTOR_FUNCTIONS)
+
+# An alpha-amino-acid linkage: N-C(alpha)-C(=O)-N. Counted for the applicability-domain check only,
+# not fed to the models: fingerprint similarity treats a peptide as "amide chemistry seen before",
+# so a tripeptide clears a similarity gate that was never meant to admit it.
+PEPTIDE_LINKAGE = Chem.MolFromSmarts("[NX3;H1,H2][CX4;H1,H2][CX3](=O)[NX3;H1,H2]")
 FEATURE_COUNT = MORGAN_BITS + len(DESCRIPTOR_FUNCTIONS)
 FEATURIZER_VERSION = "morgan2-2048-count4+desc12"
 
@@ -59,3 +64,8 @@ def featurize(mol: Chem.Mol) -> NDArray[np.float64]:
 def fingerprint_bits(mol: Chem.Mol) -> set[int]:
     """The Morgan bits switched on for one molecule, used by the applicability-domain check."""
     return set(_MORGAN.GetCountFingerprint(mol).GetNonzeroElements())
+
+
+def peptide_linkage_count(mol: Chem.Mol) -> int:
+    """Number of alpha-amino-acid backbone linkages, as a proxy for peptidic chemistry."""
+    return len(mol.GetSubstructMatches(PEPTIDE_LINKAGE))

@@ -55,6 +55,7 @@ from app.services.screening.admet.features import (  # noqa: E402
     MORGAN_BITS,
     featurize,
     fingerprint_bits,
+    peptide_linkage_count,
 )
 from app.services.screening.admet.qsar import (  # noqa: E402
     ARTIFACT_DIRECTORY,
@@ -83,6 +84,13 @@ DOMAIN_PERCENTILE = 1.0
 # drug just because the training set skewed large.
 DESCRIPTOR_PERCENTILE = 0.5
 DESCRIPTOR_SLACK = 0.25
+# Peptides are refused by a separate count of alpha-amino-acid backbone linkages, because
+# fingerprint similarity cannot refuse them: a peptide is a chain of amide fragments these training
+# sets contain individually. The bound is the training percentile, capped here: a peptide chain
+# starts at two consecutive linkages, and the handful of peptidic entries in the tail of an assay
+# set is not a basis for predicting peptides. One linkage is kept in domain because that is also
+# what a beta-lactam side chain (ampicillin, cefalexin) and a single amide-linked drug look like.
+PEPTIDE_LINKAGE_CEILING = 1
 
 # The bar a model must clear on the scaffold-split test set to be served at all. Set before
 # training, not after looking at the results.
@@ -320,11 +328,21 @@ def build_domain(mols: list[Chem.Mol], matrix: NDArray[np.float64]) -> dict[str,
             float(np.percentile(column, DESCRIPTOR_PERCENTILE)),
             float(np.percentile(column, 100.0 - DESCRIPTOR_PERCENTILE)),
         )
+    # Peptidic chemistry needs its own bound: a peptide is a chain of amide fragments the training
+    # set has seen individually, so fingerprint similarity admits it while the model has no basis
+    # for it. The bound is what the training set contained at the same high percentile the
+    # descriptors use, floored at the ceiling above.
+    linkages = [peptide_linkage_count(mol) for mol in mols]
+    max_peptide_linkages = min(
+        int(np.percentile(linkages, 100.0 - DESCRIPTOR_PERCENTILE)), PEPTIDE_LINKAGE_CEILING
+    )
+
     return {
         "reference_bits": [sorted(fingerprints[index]) for index in reference_idx],
         "min_tanimoto": round(min_tanimoto, 4),
         "descriptor_bounds": bounds,
         "descriptor_slack": DESCRIPTOR_SLACK,
+        "max_peptide_linkages": max_peptide_linkages,
     }
 
 

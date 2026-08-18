@@ -18,7 +18,13 @@ from sqlalchemy import Engine, create_engine, inspect
 from app.models.base import Base
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-TABLES = {"users", "refresh_sessions", "literature_workspaces", "literature_documents"}
+TABLES = {
+    "users",
+    "refresh_sessions",
+    "literature_workspaces",
+    "literature_documents",
+    "audit_events",
+}
 
 
 def alembic_config(url: str) -> Config:

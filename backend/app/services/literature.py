@@ -3,18 +3,32 @@
 Everything here is scoped to one user id. A lookup is always `(user_id, document_id)` — a
 document id is a digest of the bytes, so it is guessable by anyone holding the same paper,
 and scoping the read is what keeps one tenant's library out of another's.
+
+Three properties this module owns, rather than the caller:
+
+* the stored bytes are encrypted under the owning account (`app.core.crypto`), so nothing
+  outside this module ever holds ciphertext and nothing inside the database holds a PDF;
+* a stored paper expires, and an expired one is deleted on sight rather than served;
+* deleting is real deletion of the row, and clearing the workspace takes the papers with it.
 """
 
 from __future__ import annotations
 
 import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
+from app.core.crypto import DecryptionError, decrypt_document, encrypt_document
 from app.models.literature import LiteratureDocument, LiteratureWorkspace
 from app.schemas.literature import WorkspaceRead, WorkspaceWrite
 from app.services.pdf_extraction import ExtractionTable
+
+logger = logging.getLogger(__name__)
 
 # Bounds on what one account may keep, so a saved workspace cannot grow without limit.
 MAX_DOCUMENTS_PER_USER = 40
@@ -24,6 +38,28 @@ MAX_TABLE_JSON_BYTES = 4 * 1024 * 1024
 
 class WorkspaceTooLargeError(Exception):
     """The submitted table is larger than a review table is ever expected to be."""
+
+
+@dataclass(frozen=True)
+class StoredDocument:
+    """A decrypted stored paper. Callers never see the row, so they never see ciphertext."""
+
+    document_id: str
+    filename: str
+    source_url: str
+    byte_size: int
+    content: bytes
+    created_at: datetime
+    expires_at: datetime
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _as_utc(value: datetime) -> datetime:
+    """SQLite hands back naive datetimes; comparing those to an aware `now` raises."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
 
 def get_workspace(db: Session, user_id: str) -> WorkspaceRead:
@@ -74,29 +110,99 @@ def save_workspace(db: Session, user_id: str, payload: WorkspaceWrite) -> Worksp
     )
 
 
-def clear_workspace(db: Session, user_id: str) -> None:
+def clear_workspace(db: Session, user_id: str) -> int:
+    """Forget this user's workspace *and* the papers it referenced.
+
+    Clearing the tab used to leave the stored bytes behind, which made "clear" a claim the
+    store did not honour. Returns how many papers were deleted, so the caller can audit it.
+    """
     row = db.execute(
         select(LiteratureWorkspace).where(LiteratureWorkspace.user_id == user_id)
     ).scalar_one_or_none()
     if row is not None:
         db.delete(row)
-        db.commit()
+    deleted = db.execute(
+        delete(LiteratureDocument).where(LiteratureDocument.user_id == user_id)
+    ).rowcount
+    db.commit()
+    return int(deleted or 0)
+
+
+def delete_document(db: Session, user_id: str, document_id: str) -> bool:
+    """Delete one of this user's stored papers. False when there was nothing to delete."""
+    deleted = db.execute(
+        delete(LiteratureDocument).where(
+            LiteratureDocument.user_id == user_id,
+            LiteratureDocument.document_id == document_id,
+        )
+    ).rowcount
+    db.commit()
+    return bool(deleted)
+
+
+def purge_expired_documents(db: Session) -> int:
+    """Delete every stored paper past its retention date, for any user.
+
+    Called on each store and each read rather than from a scheduler: there is no scheduler in
+    this deployment, and a retention window nothing enforces is a promise, not a control.
+    """
+    deleted = db.execute(
+        delete(LiteratureDocument).where(LiteratureDocument.expires_at <= _now())
+    ).rowcount
+    db.commit()
+    return int(deleted or 0)
 
 
 def stored_document_ids(db: Session, user_id: str) -> list[str]:
     rows = db.execute(
-        select(LiteratureDocument.document_id).where(LiteratureDocument.user_id == user_id)
+        select(LiteratureDocument.document_id).where(
+            LiteratureDocument.user_id == user_id,
+            LiteratureDocument.expires_at > _now(),
+        )
     ).scalars()
     return list(rows)
 
 
-def get_document(db: Session, user_id: str, document_id: str) -> LiteratureDocument | None:
-    return db.execute(
+def get_document(db: Session, user_id: str, document_id: str) -> StoredDocument | None:
+    """This user's copy of a paper, decrypted, or None if there is nothing to serve.
+
+    None covers all four ways there is nothing: never stored, stored by somebody else, past
+    its retention date, or no longer decryptable under the current key. The last two delete the
+    row on the way out, so an expired paper stops existing the first time it is asked for.
+    """
+    row = db.execute(
         select(LiteratureDocument).where(
             LiteratureDocument.user_id == user_id,
             LiteratureDocument.document_id == document_id,
         )
     ).scalar_one_or_none()
+    if row is None:
+        return None
+    if _as_utc(row.expires_at) <= _now():
+        db.delete(row)
+        db.commit()
+        return None
+    try:
+        content = decrypt_document(row.content, user_id=user_id, document_id=document_id)
+    except DecryptionError:
+        # The key changed (or the row was tampered with). The bytes are a copy of a paper the
+        # user can add again, so drop the unreadable row instead of failing every later read.
+        logger.warning(
+            "discarding an undecryptable stored document",
+            extra={"document_id": document_id},
+        )
+        db.delete(row)
+        db.commit()
+        return None
+    return StoredDocument(
+        document_id=row.document_id,
+        filename=row.filename,
+        source_url=row.source_url,
+        byte_size=row.byte_size,
+        content=content,
+        created_at=_as_utc(row.created_at),
+        expires_at=_as_utc(row.expires_at),
+    )
 
 
 def store_document(
@@ -107,29 +213,34 @@ def store_document(
     content: bytes,
     filename: str = "",
     source_url: str = "",
-) -> LiteratureDocument:
-    """Keep a paper's bytes for this user, replacing any earlier copy of the same document."""
-    existing = get_document(db, user_id, document_id)
-    if existing is not None:
-        existing.filename = filename or existing.filename
-        existing.source_url = source_url or existing.source_url
-        db.commit()
-        db.refresh(existing)
-        return existing
+) -> None:
+    """Keep a paper's bytes for this user, encrypted, replacing any earlier copy of it.
 
-    row = LiteratureDocument(
-        user_id=user_id,
-        document_id=document_id,
-        filename=filename[:500],
-        source_url=source_url[:2000],
-        byte_size=len(content),
-        content=content,
-    )
-    db.add(row)
+    Re-storing a paper renews its retention window: it is a paper the user is working with
+    now, not one whose clock started the first time they touched it.
+    """
+    purge_expired_documents(db)
+    expires_at = _now() + timedelta(days=get_settings().document_retention_days)
+    sealed = encrypt_document(content, user_id=user_id, document_id=document_id)
+
+    row = db.execute(
+        select(LiteratureDocument).where(
+            LiteratureDocument.user_id == user_id,
+            LiteratureDocument.document_id == document_id,
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        row = LiteratureDocument(
+            user_id=user_id, document_id=document_id, filename="", source_url=""
+        )
+        db.add(row)
+    row.filename = (filename or row.filename)[:500]
+    row.source_url = (source_url or row.source_url)[:2000]
+    row.byte_size = len(content)
+    row.content = sealed
+    row.expires_at = expires_at
     db.commit()
     _evict_over_quota(db, user_id)
-    db.refresh(row)
-    return row
 
 
 def _evict_over_quota(db: Session, user_id: str) -> None:
@@ -152,7 +263,8 @@ def _evict_over_quota(db: Session, user_id: str) -> None:
 def stored_bytes(db: Session, user_id: str) -> int:
     total = db.execute(
         select(func.coalesce(func.sum(LiteratureDocument.byte_size), 0)).where(
-            LiteratureDocument.user_id == user_id
+            LiteratureDocument.user_id == user_id,
+            LiteratureDocument.expires_at > _now(),
         )
     ).scalar_one()
     return int(total)
@@ -160,10 +272,13 @@ def stored_bytes(db: Session, user_id: str) -> int:
 
 __all__ = [
     "ExtractionTable",
+    "StoredDocument",
     "WorkspaceTooLargeError",
     "clear_workspace",
+    "delete_document",
     "get_document",
     "get_workspace",
+    "purge_expired_documents",
     "save_workspace",
     "store_document",
     "stored_bytes",

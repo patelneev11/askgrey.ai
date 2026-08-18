@@ -15,6 +15,7 @@ const extractFromStoredDocument = vi.fn();
 const loadWorkspace = vi.fn();
 const saveWorkspace = vi.fn();
 const documentPdf = vi.fn();
+const deleteDocument = vi.fn();
 const capabilities = vi.fn();
 
 vi.mock('@/lib/api', async () => {
@@ -28,6 +29,7 @@ vi.mock('@/lib/api', async () => {
       loadWorkspace: (...args: unknown[]) => loadWorkspace(...args),
       saveWorkspace: (...args: unknown[]) => saveWorkspace(...args),
       documentPdf: (...args: unknown[]) => documentPdf(...args),
+      deleteDocument: (...args: unknown[]) => deleteDocument(...args),
       capabilities: (...args: unknown[]) => capabilities(...args),
       exportTable: vi.fn(),
     },
@@ -58,6 +60,7 @@ const EMPTY_SAVED = { goal: '', sources: [], table: null };
 beforeEach(() => {
   setAccessToken('token-123');
   extractFromUrl.mockResolvedValue(table());
+  deleteDocument.mockResolvedValue(new Response(null, { status: 204 }));
   extractFromStoredDocument.mockResolvedValue(table());
   loadWorkspace.mockResolvedValue(EMPTY_SAVED);
   saveWorkspace.mockResolvedValue(EMPTY_SAVED);
@@ -119,6 +122,8 @@ describe('WorkspaceProvider', () => {
     await user.click(screen.getByRole('button', { name: `Remove ${PAPER_URL}` }));
 
     expect(screen.queryByText('73 patients')).not.toBeInTheDocument();
+    // Removing it has to delete the stored bytes as well, not wait out the retention window.
+    expect(deleteDocument).toHaveBeenCalledWith(expect.any(String), 'token-123');
   });
 
   it('restores the saved workspace so a reload does not lose the review', async () => {

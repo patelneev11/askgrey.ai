@@ -1,10 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OnboardingProvider } from '@/lib/onboarding';
 
-import { AuditPage } from './AuditPage';
 import { ProtocolPage } from './ProtocolPage';
 import { RegulatoryPage, REGULATORY_REVIEW_NOTICE } from './RegulatoryPage';
 import { SettingsPage } from './SettingsPage';
@@ -70,18 +68,5 @@ describe('sample surfaces', () => {
     for (const toggle of screen.getAllByRole('switch')) {
       expect(toggle).toBeDisabled();
     }
-  });
-
-  it('actually filters the audit timeline instead of only looking active', async () => {
-    render(<AuditPage />);
-
-    expect(screen.getByText('Sample data')).toBeInTheDocument();
-    const before = screen.getAllByRole('listitem').length;
-
-    await userEvent.click(screen.getByRole('button', { name: 'Exports' }));
-
-    const after = screen.getAllByRole('listitem');
-    expect(after.length).toBeLessThan(before);
-    expect(after[0]).toHaveTextContent('Exported protocol to Benchling');
   });
 });

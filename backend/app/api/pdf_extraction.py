@@ -95,7 +95,7 @@ def _handle(exc: Exception) -> HTTPException:
     return HTTPException(status.HTTP_502_BAD_GATEWAY, f"extraction failed: {exc}")
 
 
-def _record_outbound(actor: str, ip: str, source: str, size: int) -> None:
+def _record_outbound(db: Session, actor: str, ip: str, source: str, size: int) -> None:
     """Note that document text left the deployment for the model vendor.
 
     Only the provenance is recorded — never the text, the goal or the extracted values.
@@ -110,6 +110,8 @@ def _record_outbound(actor: str, ip: str, source: str, size: int) -> None:
             "vendor": "anthropic",
             "model": get_settings().llm_model,
         },
+        db=db,
+        user_id=actor,
     )
 
 
@@ -149,7 +151,7 @@ async def extract_from_upload(
     goal: Annotated[str, Form(max_length=2000, description="e.g. 'sample size, dosing'")],
 ) -> ExtractionTable:
     data = await _read_upload(request, file)
-    _record_outbound(str(user.id), ip, file.filename or "upload.pdf", len(data))
+    _record_outbound(db, str(user.id), ip, file.filename or "upload.pdf", len(data))
     if _parse_slots.locked():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -193,7 +195,7 @@ async def extract_from_stored_document(
     if document is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such document")
     data = document.content
-    _record_outbound(str(user.id), ip, document.filename or document_id, len(data))
+    _record_outbound(db, str(user.id), ip, document.filename or document_id, len(data))
     if _parse_slots.locked():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -228,7 +230,7 @@ async def extract_from_url(
     db: DbSession,
     request: UrlExtractionRequest,
 ) -> ExtractionTable:
-    _record_outbound(str(user.id), ip, request.url, 0)
+    _record_outbound(db, str(user.id), ip, request.url, 0)
     try:
         data, resolved_url = await service.fetch(request.url)
         table = await service.extract_from_bytes(

@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import ClientIp, LlmUser, ThrottledUser
+from app.api.deps import ClientIp, DbSession, LlmUser, ThrottledUser
 from app.api.export import download_response
 from app.core import audit
 from app.core.config import get_settings
@@ -248,6 +248,7 @@ def export_budget(
     user: ThrottledUser,
     ip: ClientIp,
     calculator: Calculator,
+    db: DbSession,
     request: BudgetRequest,
     fmt: Annotated[ExportFormat, Query(alias="format")] = ExportFormat.XLSX,
 ) -> Response:
@@ -262,6 +263,8 @@ def export_budget(
         actor=str(user.id),
         client_ip=ip,
         detail={"format": fmt.value, "program": budget.program.value},
+        db=db,
+        user_id=str(user.id),
     )
     return response
 
@@ -277,6 +280,7 @@ async def review_board(
     user: LlmUser,
     ip: ClientIp,
     board: Board,
+    db: DbSession,
     request: ReviewBoardRequest,
 ) -> BoardReport:
     """
@@ -301,6 +305,8 @@ async def review_board(
                     "vendor": "anthropic",
                     "model": get_settings().llm_model,
                 },
+                db=db,
+                user_id=str(user.id),
             )
         return await board.review(request.to_section(), request.personas or None)
     except (InvalidQueryError, ReviewBoardError) as exc:

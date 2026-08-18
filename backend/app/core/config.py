@@ -138,6 +138,21 @@ class Settings(BaseSettings):
     # Warn once a day when metered Claude spend crosses this; 0 disables the alert.
     llm_daily_cost_alert_usd: float = 25.0
 
+    # Stored document bytes are encrypted by the app before they reach the database, so a
+    # dump, a provider backup or a replica is ciphertext. Base64, 32 bytes decoded; empty
+    # derives the key from JWT_SECRET (see app.core.crypto), which keeps a clone runnable at
+    # the cost of making stored papers unreadable if that secret is rotated.
+    document_encryption_key: str = ""
+    # How long a stored paper is kept. Enforced on every read and write rather than by a cron:
+    # an expired row is never served, and is deleted the moment it is next encountered.
+    document_retention_days: int = 90
+    # How long security audit events are kept before the writer prunes them, and the ceiling on
+    # rows one account can accumulate. Both are what the Audit Trails tab reports; neither is a
+    # 21 CFR Part 11 retention scheme, which would need an append-only store the app cannot
+    # delete from at all.
+    audit_retention_days: int = 365
+    audit_max_events_per_user: int = 2000
+
     # Abuse and cost controls. Turned off only in tests that assert on unthrottled behaviour.
     rate_limit_enabled: bool = True
     # Number of trusted reverse proxies in front of the app. 0 means the peer address is the
@@ -212,6 +227,14 @@ class Settings(BaseSettings):
                 f"JWT_SECRET must be at least {MIN_JWT_SECRET_LENGTH} characters "
                 f"outside the development environment (environment={self.environment!r})"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_unusable_retention_windows(self) -> "Settings":
+        """A zero or negative window would delete on write, which is a silently broken store."""
+        for name in ("document_retention_days", "audit_retention_days"):
+            if getattr(self, name) < 1:
+                raise ValueError(f"{name.upper()} must be at least 1 day")
         return self
 
     @model_validator(mode="after")

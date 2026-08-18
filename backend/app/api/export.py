@@ -4,7 +4,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import ClientIp, ThrottledUser
+from app.api.deps import ClientIp, DbSession, ThrottledUser
 from app.core import audit
 from app.services.export import (
     ExportError,
@@ -54,6 +54,7 @@ def _render(
     fmt: ExportFormat,
     actor: str,
     ip: str,
+    db: DbSession,
 ) -> Response:
     try:
         response = download_response(service.render(request.table, fmt, request.options))
@@ -65,19 +66,21 @@ def _render(
         actor=actor,
         client_ip=ip,
         detail={"format": fmt.value, "rows": len(request.table.rows)},
+        db=db,
+        user_id=actor,
     )
     return response
 
 
 @router.post("/xlsx")
 def export_xlsx(
-    user: ThrottledUser, ip: ClientIp, service: Service, request: ExportRequest
+    user: ThrottledUser, ip: ClientIp, service: Service, request: ExportRequest, db: DbSession
 ) -> Response:
-    return _render(service, request, ExportFormat.XLSX, str(user.id), ip)
+    return _render(service, request, ExportFormat.XLSX, str(user.id), ip, db)
 
 
 @router.post("/csv")
 def export_csv(
-    user: ThrottledUser, ip: ClientIp, service: Service, request: ExportRequest
+    user: ThrottledUser, ip: ClientIp, service: Service, request: ExportRequest, db: DbSession
 ) -> Response:
-    return _render(service, request, ExportFormat.CSV, str(user.id), ip)
+    return _render(service, request, ExportFormat.CSV, str(user.id), ip, db)

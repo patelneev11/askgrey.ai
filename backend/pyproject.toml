@@ -32,6 +32,9 @@ dependencies = [
     # matching. Pinned because descriptor values are asserted against reference compounds.
     "rdkit==2025.3.6",
     "sentry-sdk==2.66.1",
+    # AES-GCM for the stored document bytes. Already present transitively via pdfminer.six;
+    # pinned here because the storage layer depends on it directly.
+    "cryptography==50.0.0",
 ]
 
 [project.optional-dependencies]

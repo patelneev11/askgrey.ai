@@ -10,6 +10,9 @@ import { BudgetPlanner } from './BudgetPlanner';
 
 const buildBudget = vi.fn();
 const exportBudget = vi.fn();
+const listArtifacts = vi.fn();
+const saveArtifact = vi.fn();
+const loadArtifact = vi.fn();
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -18,6 +21,9 @@ vi.mock('@/lib/api', async () => {
     api: {
       buildBudget: (...args: unknown[]) => buildBudget(...args),
       exportBudget: (...args: unknown[]) => exportBudget(...args),
+      listArtifacts: (...args: unknown[]) => listArtifacts(...args),
+      saveArtifact: (...args: unknown[]) => saveArtifact(...args),
+      loadArtifact: (...args: unknown[]) => loadArtifact(...args),
     },
   };
 });
@@ -78,6 +84,11 @@ beforeEach(() => {
   setAccessToken('token-123');
   buildBudget.mockReset();
   exportBudget.mockReset();
+  listArtifacts.mockReset();
+  saveArtifact.mockReset();
+  loadArtifact.mockReset();
+  listArtifacts.mockResolvedValue([]);
+  saveArtifact.mockResolvedValue({});
   buildBudget.mockResolvedValue(budget());
   exportBudget.mockResolvedValue({
     blob: new Blob(['x'], { type: 'text/csv' }),
@@ -158,6 +169,48 @@ describe('budget builder', () => {
 
     await waitFor(() => expect(exportBudget).toHaveBeenCalledTimes(1));
     expect(exportBudget.mock.calls[0][1]).toBe('csv');
+  });
+
+  it('keeps a costed budget only when the researcher saves it', async () => {
+    const user = userEvent.setup();
+    render(<BudgetPlanner />);
+
+    await fillPerson(user);
+    await user.click(screen.getByRole('button', { name: 'Cost the budget' }));
+    await screen.findByText(/Total request over 6 months/);
+
+    // Costing a budget is not a decision to keep it.
+    expect(saveArtifact).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Save to library' }));
+
+    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
+    expect(saveArtifact.mock.calls[0][0]).toMatchObject({
+      kind: 'grants_budget',
+      payload: { total: '30000.00' },
+    });
+  });
+
+  it('will not export a budget reopened from the library, because the form no longer holds it', async () => {
+    const user = userEvent.setup();
+    listArtifacts.mockResolvedValue([
+      {
+        id: 'artifact-1',
+        kind: 'grants_budget',
+        title: 'Saved budget',
+        subtitle: '$30,000 over 6 months',
+        created_at: '2026-08-16T00:00:00Z',
+        updated_at: '2026-08-16T00:00:00Z',
+      },
+    ]);
+    loadArtifact.mockResolvedValue({ id: 'artifact-1', payload: budget() });
+    render(<BudgetPlanner />);
+
+    await user.click(await screen.findByText('Saved budget'));
+
+    expect(await screen.findByText(/Total request over 6 months/)).toBeInTheDocument();
+    expect(screen.getByText(/Reopened from the library/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export .xlsx' })).toBeDisabled();
   });
 
   it('reports a rejected budget rather than showing a partial one', async () => {

@@ -175,3 +175,35 @@ def test_nothing_is_saved_unless_the_caller_asks(client: TestClient) -> None:
     descriptors(client, headers)
 
     assert client.get("/api/library", headers=headers).json() == []
+
+
+def test_a_compound_profile_is_saved_as_one_item(client: TestClient) -> None:
+    """
+    The screening tab reads a structure twice and shows one profile, so it saves as one item.
+
+    Both halves are validated as their own models, so each keeps the caveat it was produced with.
+    """
+    headers = auth_header(client, OWNER)
+    profile = {"descriptors": descriptors(client, headers), "admet": admet(client, headers)}
+
+    saved = save(client, headers, kind="screening_profile", payload=profile)
+
+    reopened = client.get(f"/api/library/{saved['id']}", headers=headers).json()["payload"]
+    assert reopened["descriptors"]["canonical_smiles"] == profile["descriptors"]["canonical_smiles"]
+    assert reopened["admet"]["caveat"] == profile["admet"]["caveat"]
+
+
+def test_half_a_compound_profile_is_refused(client: TestClient) -> None:
+    headers = auth_header(client, OWNER)
+
+    response = client.post(
+        "/api/library",
+        json={
+            "kind": "screening_profile",
+            "title": "Half a profile",
+            "payload": {"descriptors": descriptors(client, headers)},
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422

@@ -4,9 +4,11 @@ import { Button } from '@/components/Button';
 import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
+import { SavedLibrary } from '@/components/SavedLibrary';
 import { StatusPill } from '@/components/StatusPill';
 import { DualPaneWorkspace } from '@/layouts/DualPaneWorkspace';
 import { api } from '@/lib/api';
+import type { SavedScreeningProfile } from '@/lib/library';
 import { logger } from '@/lib/observability';
 import {
   EXAMPLE_STRUCTURES,
@@ -264,6 +266,30 @@ export function ScreeningPage() {
           }
           className={styles.fill}
         >
+          <SavedLibrary<SavedScreeningProfile>
+            kind="screening_profile"
+            current={
+              descriptors && admet
+                ? {
+                    title: descriptors.molecular_formula,
+                    subtitle: descriptors.canonical_smiles,
+                    payload: { descriptors, admet },
+                  }
+                : null
+            }
+            onOpen={(payload) => {
+              setDescriptors(payload.descriptors);
+              setAdmet(payload.admet);
+              // The structure travels with the profile, so suggestions and prior art can still be
+              // run against it; their own results are saved separately and are not restored here.
+              setSubmitted(payload.descriptors.canonical_smiles);
+              setDraft(payload.descriptors.canonical_smiles);
+              setSuggestions(null);
+              setPatents(null);
+              setError(null);
+            }}
+          />
+
           {/* Standing on the tab whether or not a profile is loaded: nothing this page can
               show is a measurement, and the band must not depend on a request succeeding. */}
           <CaveatBand label="Unvalidated">
@@ -531,6 +557,22 @@ export function ScreeningPage() {
                     {patentError}
                   </p>
                 )}
+                <SavedLibrary<PatentLandscape>
+                  kind="screening_patents"
+                  current={
+                    patents
+                      ? {
+                          title: `Prior art — ${patents.query.query_used}`,
+                          subtitle: `${patents.returned} keyword matches`,
+                          payload: patents,
+                        }
+                      : null
+                  }
+                  onOpen={(payload) => {
+                    setPatents(payload);
+                    setPatentError(null);
+                  }}
+                />
               </section>
 
               <section>
@@ -585,6 +627,22 @@ export function ScreeningPage() {
                     {suggestionError}
                   </p>
                 )}
+                <SavedLibrary<SuggestionSet>
+                  kind="screening_suggestions"
+                  current={
+                    suggestions
+                      ? {
+                          title: `Suggestions — ${descriptors.molecular_formula}`,
+                          subtitle: `${suggestions.suggestions.length} unvalidated heuristics`,
+                          payload: suggestions,
+                        }
+                      : null
+                  }
+                  onOpen={(payload) => {
+                    setSuggestions(payload);
+                    setSuggestionError(null);
+                  }}
+                />
               </section>
             </div>
           )}

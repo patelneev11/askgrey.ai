@@ -42,6 +42,18 @@ MAX_LISTED = 50
 MAX_PAYLOAD_CHARS = 200_000
 
 
+class ScreeningProfile(BaseModel):
+    """
+    The two reads the screening tab makes of one structure, kept as a single saved item.
+
+    Descriptors and ADMET are produced together and are meaningless apart on that page, so they
+    are stored together. Each half is its own model, so both keep their own caveat text.
+    """
+
+    descriptors: DescriptorProfile
+    admet: AdmetProfile
+
+
 class LibraryError(Exception):
     """Base class for library failures."""
 
@@ -55,6 +67,7 @@ class ArtifactKind(str, Enum):
 
     __str__ = str.__str__
 
+    SCREENING_PROFILE = "screening_profile"
     SCREENING_DESCRIPTORS = "screening_descriptors"
     SCREENING_ADMET = "screening_admet"
     SCREENING_SUGGESTIONS = "screening_suggestions"
@@ -67,6 +80,7 @@ class ArtifactKind(str, Enum):
 
 
 PAYLOAD_MODELS: dict[ArtifactKind, type[BaseModel]] = {
+    ArtifactKind.SCREENING_PROFILE: ScreeningProfile,
     ArtifactKind.SCREENING_DESCRIPTORS: DescriptorProfile,
     ArtifactKind.SCREENING_ADMET: AdmetProfile,
     ArtifactKind.SCREENING_SUGGESTIONS: SuggestionSet,

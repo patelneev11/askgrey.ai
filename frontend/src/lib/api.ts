@@ -12,6 +12,12 @@ import type {
   PersonaSummary,
   ReviewBoardRequest,
 } from './grants';
+import type {
+  ArtifactKind,
+  SaveArtifactRequest,
+  SavedArtifact,
+  SavedArtifactSummary,
+} from './library';
 import { logger } from './observability';
 import type {
   CalculationEntry,
@@ -688,6 +694,32 @@ export const api = {
 
   protocolHistory: (id: string, token?: string) =>
     request<ProtocolHistory>(`/protocols/${encodeURIComponent(id)}/history`, {}, token),
+
+  /**
+   * Keep one result in the saved library.
+   *
+   * Called only when the researcher asks to save: the backend re-validates the payload against the
+   * model that produced it, so a stored result keeps the caveats it was shown with.
+   */
+  saveArtifact: <T>(request_: SaveArtifactRequest<T>, token?: string) =>
+    request<SavedArtifact<T>>(
+      '/library',
+      { method: 'POST', body: JSON.stringify(request_) },
+      token,
+    ),
+
+  listArtifacts: (kind: ArtifactKind, token?: string) =>
+    request<SavedArtifactSummary[]>(
+      `/library?kind=${encodeURIComponent(kind)}`,
+      {},
+      token,
+    ),
+
+  loadArtifact: <T>(id: string, token?: string) =>
+    request<SavedArtifact<T>>(`/library/${encodeURIComponent(id)}`, {}, token),
+
+  deleteArtifact: (id: string, token?: string) =>
+    send(`/library/${encodeURIComponent(id)}`, { method: 'DELETE' }, token),
 
   /**
    * Build the Benchling entry payload for a protocol.

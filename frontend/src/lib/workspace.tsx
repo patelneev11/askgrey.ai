@@ -173,12 +173,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setRunning(true);
     setError(null);
     setPendingColumns(goalLabels(trimmed));
-    const token = getAccessToken();
     const failures: string[] = [];
 
     // Papers are extracted one at a time so a slow or broken source never holds the whole
     // table hostage — each result lands as soon as it arrives.
     for (const source of queued) {
+      // Read per paper, not once: extracting a stack of PDFs outlasts an access token, and a
+      // renewal partway through the run leaves the token captured up front stale.
+      const token = getAccessToken();
       try {
         let result: ExtractionTable;
         if (source.file) {

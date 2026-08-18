@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { api, type TokenResponse, type User } from './api';
 import { AuthContext } from './auth-context';
 import { identify, logger } from './observability';
-import { setAccessToken } from './session';
+import { onSessionExpired, setAccessToken } from './session';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -33,6 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // A request whose token could not be renewed means the session is really gone; drop the
+  // signed-in user so the route guard asks for a sign-in instead of rendering a workspace
+  // where every call fails.
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        logger.info('auth.session_expired');
+        identify(null);
+        setUser(null);
+      }),
+    [],
+  );
 
   const completeSignIn = useCallback(async (tokens: TokenResponse) => {
     setAccessToken(tokens.access_token);

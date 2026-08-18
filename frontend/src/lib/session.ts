@@ -8,6 +8,7 @@
  */
 
 let accessToken: string | undefined;
+const expiryListeners = new Set<() => void>();
 
 export function getAccessToken(): string | undefined {
   return accessToken;
@@ -15,4 +16,20 @@ export function getAccessToken(): string | undefined {
 
 export function setAccessToken(token: string | undefined): void {
   accessToken = token;
+}
+
+/**
+ * Called when the server rejects the session and the refresh cookie cannot renew it.
+ *
+ * The signed-in user lives in React state, so without this the app keeps rendering a
+ * workspace whose every request 401s until the tab is reloaded.
+ */
+export function onSessionExpired(listener: () => void): () => void {
+  expiryListeners.add(listener);
+  return () => expiryListeners.delete(listener);
+}
+
+export function notifySessionExpired(): void {
+  accessToken = undefined;
+  for (const listener of expiryListeners) listener();
 }

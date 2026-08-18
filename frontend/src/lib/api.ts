@@ -13,6 +13,7 @@ import type {
   ReviewBoardRequest,
 } from './grants';
 import { logger } from './observability';
+import { notifySessionExpired, setAccessToken } from './session';
 import type {
   CalculationEntry,
   ChecklistItem,
@@ -395,6 +396,7 @@ async function send(
   init: RequestInit,
   token?: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  renewable = true,
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   // FormData bodies must keep the boundary the browser generates for them.
@@ -437,10 +439,35 @@ async function send(
       duration_ms: durationMs,
       request_id: response.headers.get('X-Request-ID'),
     });
+    if (response.status === 401 && renewable && token && !path.startsWith('/auth/')) {
+      return renew(path, init, timeoutMs);
+    }
     throw new ApiError(detail ?? `Request failed (${response.status})`, response.status);
   }
   logger.debug('api.ok', { route, duration_ms: durationMs });
   return response;
+}
+
+/**
+ * Swap an expired access token for a fresh one and run the request again.
+ *
+ * The access token lives in memory for 30 minutes and was previously only minted at page
+ * load, so a user who spent longer than that reading papers and writing a goal got
+ * "Not authenticated" from every call — most visibly from an upload — while the app still
+ * showed them signed in. `renewable` is false on the retry, so a still-401 reply ends here.
+ */
+async function renew(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  let renewed: TokenResponse;
+  try {
+    renewed = await refresh();
+  } catch {
+    // The refresh cookie is gone or revoked too: this session is over, say so rather than
+    // leaving the user clicking a dead workspace.
+    notifySessionExpired();
+    throw new ApiError('Your session expired. Sign in again to continue.', 401);
+  }
+  setAccessToken(renewed.access_token);
+  return send(path, init, renewed.access_token, timeoutMs, false);
 }
 
 async function request<T>(

@@ -278,6 +278,25 @@ export interface RequirementFinding {
   explanation: string;
 }
 
+/**
+ * How old the shipped guideline snapshot is, computed by the backend from its `retrieved` date.
+ *
+ * `status` is a statement about when a human last read the source documents, not about whether the
+ * encoded expectations are complete or legally in force.
+ */
+export interface SnapshotFreshness {
+  version: string;
+  retrieved: string;
+  age_days: number;
+  review_interval_days: number;
+  stale_after_days: number;
+  review_due_on: string;
+  stale_on: string;
+  status: 'current' | 'review_due' | 'stale';
+  message: string;
+  update_procedure: string;
+}
+
 export interface GuidelineCheckReport {
   section_id: string;
   word_count: number;
@@ -286,9 +305,12 @@ export interface GuidelineCheckReport {
     jurisdiction: Jurisdiction;
     version: string;
     retrieved: string;
+    freshness: SnapshotFreshness;
     findings: RequirementFinding[];
     out_of_scope_requirement_ids: string[];
   }[];
+  /** The worst-aged snapshot behind the report, or null when nothing was compared. */
+  snapshot: SnapshotFreshness | null;
   requires_expert_review: boolean;
   review_notice: string;
   limitations: string;
@@ -299,6 +321,7 @@ export interface GuidelineReference {
     jurisdiction: Jurisdiction;
     version: string;
     retrieved: string;
+    freshness: SnapshotFreshness;
     notes: string;
     requirements: {
       id: string;
@@ -308,6 +331,7 @@ export interface GuidelineReference {
       expectation: string;
     }[];
   }[];
+  snapshot: SnapshotFreshness | null;
   requires_expert_review: boolean;
   review_notice: string;
   limitations: string;

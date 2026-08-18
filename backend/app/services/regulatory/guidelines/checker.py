@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import date
 from pathlib import Path
 
 from .config import GuidelineDataset, Requirement, load_reference_library
@@ -15,6 +16,9 @@ from .models import (
     RequirementFinding,
     RequirementStatus,
     SignalEvidence,
+    SnapshotFreshness,
+    assess_freshness,
+    oldest,
 )
 from .text import PhraseMatch, find_phrase, normalise, word_count
 
@@ -51,28 +55,32 @@ class GuidelineChecker:
     def from_reference_files(cls, directory: Path | None = None) -> GuidelineChecker:
         return cls(load_reference_library(directory))
 
-    def reference(self) -> ReferenceLibrary:
+    def reference(self, today: date | None = None) -> ReferenceLibrary:
         """What is being checked and how old the data is, for display before any draft exists."""
+        asked = today or date.today()
+        entries = [
+            ReferenceJurisdiction(
+                jurisdiction=jurisdiction,
+                version=dataset.version,
+                retrieved=dataset.retrieved,
+                freshness=_freshness(dataset, asked),
+                notes=dataset.notes,
+                requirements=[
+                    ReferenceRequirement(
+                        id=requirement.id,
+                        title=requirement.title,
+                        ctd_sections=requirement.ctd_sections,
+                        citation=requirement.citation,
+                        expectation=requirement.expectation,
+                    )
+                    for requirement in dataset.requirements
+                ],
+            )
+            for jurisdiction, dataset in self.datasets.items()
+        ]
         return ReferenceLibrary(
-            jurisdictions=[
-                ReferenceJurisdiction(
-                    jurisdiction=jurisdiction,
-                    version=dataset.version,
-                    retrieved=dataset.retrieved,
-                    notes=dataset.notes,
-                    requirements=[
-                        ReferenceRequirement(
-                            id=requirement.id,
-                            title=requirement.title,
-                            ctd_sections=requirement.ctd_sections,
-                            citation=requirement.citation,
-                            expectation=requirement.expectation,
-                        )
-                        for requirement in dataset.requirements
-                    ],
-                )
-                for jurisdiction, dataset in self.datasets.items()
-            ]
+            jurisdictions=entries,
+            snapshot=oldest([entry.freshness for entry in entries]),
         )
 
     def check(
@@ -80,6 +88,7 @@ class GuidelineChecker:
         section_id: str,
         text: str,
         jurisdictions: Sequence[Jurisdiction],
+        today: date | None = None,
     ) -> GuidelineCheckReport:
         if not section_id.strip():
             raise GuidelineInputError("a CTD section id is required")
@@ -97,14 +106,17 @@ class GuidelineChecker:
 
         normalised = normalise(text)
         words = word_count(normalised)
+        asked = today or date.today()
+        findings = [
+            self._for_jurisdiction(jurisdiction, section_id, normalised, words, asked)
+            for jurisdiction in dict.fromkeys(jurisdictions)
+        ]
         return GuidelineCheckReport(
             section_id=section_id.strip(),
             word_count=words,
             min_words_to_judge=self.min_words_to_judge,
-            jurisdictions=[
-                self._for_jurisdiction(jurisdiction, section_id, normalised, words)
-                for jurisdiction in dict.fromkeys(jurisdictions)
-            ],
+            jurisdictions=findings,
+            snapshot=oldest([entry.freshness for entry in findings]),
         )
 
     def _for_jurisdiction(
@@ -113,6 +125,7 @@ class GuidelineChecker:
         section_id: str,
         normalised: str,
         words: int,
+        today: date,
     ) -> JurisdictionFindings:
         dataset = self.datasets[jurisdiction]
         scoped = dataset.in_scope(section_id)
@@ -121,6 +134,7 @@ class GuidelineChecker:
             jurisdiction=jurisdiction,
             version=dataset.version,
             retrieved=dataset.retrieved,
+            freshness=_freshness(dataset, today),
             findings=[
                 self._evaluate(requirement, scope, normalised, words)
                 for requirement, scope in scoped
@@ -194,6 +208,10 @@ class GuidelineChecker:
             "present is not a judgement that the requirement is met.",
             matched=matched,
         )
+
+
+def _freshness(dataset: GuidelineDataset, today: date) -> SnapshotFreshness:
+    return assess_freshness(dataset.version, dataset.retrieved, today)
 
 
 def _first_matching_group(requirement: Requirement, normalised: str) -> SignalEvidence | None:

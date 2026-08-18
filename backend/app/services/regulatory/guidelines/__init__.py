@@ -11,6 +11,9 @@ from .errors import GuidelineConfigError, GuidelineError, GuidelineInputError
 from .models import (
     LIMITATIONS,
     REVIEW_NOTICE,
+    SNAPSHOT_REVIEW_INTERVAL_DAYS,
+    SNAPSHOT_STALE_AFTER_DAYS,
+    SNAPSHOT_UPDATE_PROCEDURE,
     Citation,
     GuidelineCheckReport,
     Jurisdiction,
@@ -21,6 +24,10 @@ from .models import (
     RequirementFinding,
     RequirementStatus,
     SignalEvidence,
+    SnapshotFreshness,
+    SnapshotStatus,
+    assess_freshness,
+    oldest,
 )
 from .text import PhraseMatch, find_phrase, normalise, word_count
 
@@ -30,6 +37,9 @@ __all__ = [
     "MAX_SECTION_ID_LENGTH",
     "MIN_WORDS_TO_JUDGE",
     "REVIEW_NOTICE",
+    "SNAPSHOT_REVIEW_INTERVAL_DAYS",
+    "SNAPSHOT_STALE_AFTER_DAYS",
+    "SNAPSHOT_UPDATE_PROCEDURE",
     "Citation",
     "GuidelineCheckReport",
     "GuidelineChecker",
@@ -48,6 +58,10 @@ __all__ = [
     "RequirementStatus",
     "SignalEvidence",
     "SignalGroup",
+    "SnapshotFreshness",
+    "SnapshotStatus",
+    "assess_freshness",
+    "oldest",
     "load_guideline_dataset",
     "load_reference_library",
     "normalise",

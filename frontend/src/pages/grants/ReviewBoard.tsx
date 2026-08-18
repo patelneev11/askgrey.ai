@@ -17,6 +17,8 @@ import { getAccessToken } from '@/lib/session';
 
 import styles from './grants.module.css';
 
+const UNREACHABLE = 'The review board could not be reached. Check your connection and try again.';
+
 /**
  * What to put on screen when a review call fails.
  *
@@ -27,10 +29,14 @@ import styles from './grants.module.css';
  */
 function errorMessage(cause: unknown): string {
   if (!(cause instanceof ApiError)) {
-    return 'The review board could not be reached. Check your connection and try again.';
+    return UNREACHABLE;
   }
   if (cause.status === 401 || cause.status === 403) {
     return 'Your session has expired. Sign in again to run a review.';
+  }
+  if (!cause.detail) {
+    // A status with no message of its own: a proxy or a gateway answered, not the API.
+    return UNREACHABLE;
   }
   if (cause.status === 502) {
     return `${cause.message} No scores were produced.`;

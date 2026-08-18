@@ -26,7 +26,10 @@ def test_development_does_not_pin_localhost_to_https(client: TestClient) -> None
 
 def test_a_deployed_environment_sends_hsts(monkeypatch: pytest.MonkeyPatch) -> None:
     deployed = Settings(
-        environment="production", jwt_secret="x" * 48, database_url=DEPLOYED_DATABASE
+        environment="production",
+        jwt_secret="x" * 48,
+        database_url=DEPLOYED_DATABASE,
+        document_kms_key_id="alias/askgrey-documents",
     )
     monkeypatch.setattr("app.core.headers.get_settings", lambda: deployed)
 
@@ -55,5 +58,6 @@ def test_a_deployed_environment_refuses_wildcard_cors() -> None:
             environment="production",
             jwt_secret="x" * 48,
             database_url=DEPLOYED_DATABASE,
+            document_kms_key_id="alias/askgrey-documents",
             cors_origins="*",
         )

@@ -169,6 +169,10 @@ def get_document(db: Session, user_id: str, document_id: str) -> StoredDocument 
     None covers all four ways there is nothing: never stored, stored by somebody else, past
     its retention date, or no longer decryptable under the current key. The last two delete the
     row on the way out, so an expired paper stops existing the first time it is asked for.
+
+    A key service that cannot be reached is not one of those four: `DocumentKeyUnavailableError`
+    propagates (becoming a 503) precisely so a KMS outage or a revoked credential cannot be
+    mistaken for a corrupt row and delete the library it could not read.
     """
     row = db.execute(
         select(LiteratureDocument).where(

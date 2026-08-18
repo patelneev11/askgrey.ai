@@ -35,6 +35,9 @@ dependencies = [
     # AES-GCM for the stored document bytes. Already present transitively via pdfminer.six;
     # pinned here because the storage layer depends on it directly.
     "cryptography==50.0.0",
+    # KMS only, for envelope-encrypting stored documents. Imported lazily, so a deployment
+    # with no DOCUMENT_KMS_KEY_ID never builds a client and needs no AWS credentials.
+    "boto3==1.43.67",
 ]
 
 [project.optional-dependencies]

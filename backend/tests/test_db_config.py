@@ -1,11 +1,20 @@
 """What the process does with the database URL it is handed."""
 
+import base64
+
 import pytest
 
 from app.core.config import Settings
 from app.db.session import engine_options
 
-DEPLOYED = {"environment": "production", "jwt_secret": "x" * 48}
+# A deployed environment also has to own the key its stored papers are readable under, which
+# is asserted in test_config.py; these settings carry one so the database rules can be read
+# on their own.
+DEPLOYED = {
+    "environment": "production",
+    "jwt_secret": "x" * 48,
+    "document_encryption_key": base64.b64encode(b"k" * 32).decode(),
+}
 
 
 def test_development_keeps_the_file_backed_sqlite_default() -> None:

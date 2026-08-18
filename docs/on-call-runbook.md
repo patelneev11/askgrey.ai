@@ -27,8 +27,11 @@ Startup refuses rather than running insecurely. Read the first lines of the cont
 
 - `JWT_SECRET` missing, placeholder, or under 32 characters in a non-development environment.
 - `CORS_ORIGINS` containing `*` outside development.
+- Neither `DOCUMENT_KMS_KEY_ID` nor `DOCUMENT_ENCRYPTION_KEY` set outside development. Set the
+  KMS key id (or a base64 32-byte key); do not work around it by rotating `JWT_SECRET` into
+  service as the document key, which is exactly what this check exists to prevent.
 
-Both are configuration, fixed on the host and redeployed. Never "fix" them by setting
+All three are configuration, fixed on the host and redeployed. Never "fix" them by setting
 `ENVIRONMENT=development` in a deployed environment — that also disables HSTS.
 
 ## 2. A user reports a specific failure
@@ -63,6 +66,19 @@ If the user only says "it broke": Sentry, filtered by their user id.
 
 Counters are per process and reset on restart, so a redeploy erases the evidence — capture the
 snapshot before restarting anything.
+
+### Stored papers return 503
+
+`stored documents are temporarily unavailable` with `the document key service is unavailable` in
+the log means KMS refused or could not be reached. Nothing is lost — that status exists so a key
+outage cannot be mistaken for corruption and delete the rows. Check, in order: the KMS key's state
+(`Enabled`, not `Disabled` or `PendingDeletion`), the task role's `kms:Decrypt` on it, `AWS_REGION`,
+and KMS throttling in CloudWatch. Uploads fail the same way and for the same reason: a document is
+not stored under a weaker key when KMS is unavailable.
+
+A 404 on a paper that existed is the opposite case: the row failed authentication and was deleted
+(`discarding an undecryptable stored document`). That is a changed key or a tampered row, and the
+user can add the paper again.
 
 ## 4. Spend spike
 

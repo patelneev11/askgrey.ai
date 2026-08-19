@@ -15,6 +15,10 @@ class AnthropicError(RuntimeError):
     """A Claude call that did not produce usable text. Callers re-raise in their own vocabulary."""
 
 
+class AnthropicEmptyResponseError(AnthropicError):
+    """A reply with no text, e.g. a refusal. Retryable, unlike an HTTP status or a bad key."""
+
+
 def strip_code_fence(content: str) -> str:
     """Drop a ```-fenced wrapper the model added despite being told not to."""
     stripped = content.strip()
@@ -97,7 +101,7 @@ class AnthropicMessagesClient:
             if isinstance(block, dict) and isinstance(block.get("text"), str)
         )
         if not text.strip():
-            raise AnthropicError("Claude returned no text content")
+            raise AnthropicEmptyResponseError("Claude returned no text content")
         return text
 
     def _meter(self, usage: object) -> None:

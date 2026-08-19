@@ -8,6 +8,7 @@ from app.api.deps import ClientIp, LlmUser, ThrottledUser
 from app.api.export import download_response
 from app.core import audit
 from app.core.config import get_settings
+from app.models.user import User
 from app.services.export import ExportError, ExportFormat
 from app.services.grants import (
     MAX_PAGE_SIZE,
@@ -42,6 +43,7 @@ from app.services.grants.review_board import (
     MAX_TEXT_CHARS,
     MIN_TEXT_CHARS,
     BoardReport,
+    PersonaSpec,
     PersonaSummary,
     ProposalSection,
     ReviewBoard,
@@ -272,6 +274,28 @@ def review_board_personas(_user: ThrottledUser, board: Board) -> list[PersonaSum
     return board.personas()
 
 
+def _audit_section_sent(
+    user: User,
+    ip: str | None,
+    request: ReviewBoardRequest,
+    personas: list[PersonaSpec],
+    *,
+    outcome: audit.Outcome,
+) -> None:
+    audit.record(
+        "grant_section.sent_to_llm",
+        outcome=outcome,
+        actor=str(user.id),
+        client_ip=ip,
+        detail={
+            "chars": len(request.text),
+            "personas": ",".join(persona.id for persona in personas),
+            "vendor": "anthropic",
+            "model": get_settings().llm_model,
+        },
+    )
+
+
 @router.post("/review-board", response_model=BoardReport)
 async def review_board(
     user: LlmUser,
@@ -287,22 +311,20 @@ async def review_board(
     """
     try:
         personas = board.select(request.personas or None)
-        if board.available:
-            # Note that draft proposal text left the deployment for the model vendor. Provenance
-            # only — never the draft itself, the persona prompts, or the scores. Not recorded
-            # when no reviewer is configured, since then nothing is sent.
-            audit.record(
-                "grant_section.sent_to_llm",
-                actor=str(user.id),
-                client_ip=ip,
-                detail={
-                    "chars": len(request.text),
-                    "personas": ",".join(persona.id for persona in personas),
-                    "vendor": "anthropic",
-                    "model": get_settings().llm_model,
-                },
-            )
-        return await board.review(request.to_section(), request.personas or None)
+        if not board.available:
+            # Raises `ReviewBoardUnavailableError`, so nothing is audited as sent: with no
+            # reviewer configured, no draft text reaches a vendor.
+            return await board.review(request.to_section(), request.personas or None)
+        # Note that draft proposal text left the deployment for the model vendor. Provenance
+        # only — never the draft itself, the persona prompts, or the scores. Recorded after the
+        # attempt so the outcome is the outcome of the call rather than of reaching this line.
+        try:
+            report = await board.review(request.to_section(), request.personas or None)
+        except ReviewBoardError:
+            _audit_section_sent(user, ip, request, personas, outcome="failure")
+            raise
+        _audit_section_sent(user, ip, request, personas, outcome="success")
+        return report
     except (InvalidQueryError, ReviewBoardError) as exc:
         raise _handle(exc) from exc
     finally:

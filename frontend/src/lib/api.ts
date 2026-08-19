@@ -388,6 +388,12 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /**
+     * The `detail` the API itself sent, when it sent one. A status with no detail came from
+     * something between the browser and the API — a dev proxy, a load balancer — so a caller
+     * that wants to explain the failure in its own words can tell the two apart.
+     */
+    readonly detail?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -473,7 +479,7 @@ async function send(
     if (response.status === 401 && renewable && token && !path.startsWith('/auth/')) {
       return renew(path, init, timeoutMs);
     }
-    throw new ApiError(detail ?? `Request failed (${response.status})`, response.status);
+    throw new ApiError(detail ?? `Request failed (${response.status})`, response.status, detail);
   }
   logger.debug('api.ok', { route, duration_ms: durationMs });
   return response;

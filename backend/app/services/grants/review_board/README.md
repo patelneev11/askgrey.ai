@@ -68,6 +68,10 @@ review of the science, and a fabricated study-section score is worse than no sco
   funding outcome, and a 3 from a persona here is not a 3 from a study section. Every report
   carries `validation_status: "unvalidated"` and a `caveat` string saying so, in the payload
   rather than only in this file, because the score is what a reader will remember.
+- A model can decline. When a persona's reply carries no text or no scoreable JSON, that persona
+  is asked once more; if the second ask is also unusable the whole report fails with a 502 rather
+  than returning a report with a persona missing. HTTP failures — a rejected key, a 429 — are not
+  retried, since they answer the same way twice.
 - A persona is a prompt, not a reviewer. It has no memory of the applicant, no knowledge of the
   other applications it is being scored against, and no access to the rest of the application.
 - Scores vary between runs and between models. Two runs of the same section can differ by

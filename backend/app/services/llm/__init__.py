@@ -3,6 +3,7 @@
 from .anthropic import (
     DEFAULT_ANTHROPIC_VERSION,
     DEFAULT_BASE_URL,
+    AnthropicEmptyResponseError,
     AnthropicError,
     AnthropicMessagesClient,
     strip_code_fence,
@@ -11,6 +12,7 @@ from .anthropic import (
 __all__ = [
     "DEFAULT_ANTHROPIC_VERSION",
     "DEFAULT_BASE_URL",
+    "AnthropicEmptyResponseError",
     "AnthropicError",
     "AnthropicMessagesClient",
     "strip_code_fence",

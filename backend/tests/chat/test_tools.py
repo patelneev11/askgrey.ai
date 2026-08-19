@@ -18,9 +18,11 @@ from app.services.clinicaltrials import (
     TrialSearch,
     TrialStatus,
 )
+from app.services.library import ArtifactKind, SaveArtifactRequest, save_artifact
 from app.services.literature import WorkspaceWrite, save_workspace
 from app.services.protocols import ProtocolDraft, ProtocolStep
 from app.services.protocols.history import create_protocol
+from app.services.screening.sar import SarService
 from app.services.users import create_user
 
 OWNER = ("owner@askgrey.ai", "obsidian-workspace-1")
@@ -202,3 +204,45 @@ async def test_the_trial_search_counts_the_statuses_itself(
     assert detail["total_matched"] == 159
     # The cursor has to survive into the payload: the model may not invent one.
     assert detail["next_page_token"] == "cursor-2"
+
+
+def test_the_trial_search_cannot_ask_for_a_page_it_would_have_to_cut() -> None:
+    # The API allows 100 a page; a hundred projected records overflow the turn budget, and the cut
+    # is what let a status tally describe records the answer never received.
+    tool = ToolRegistry().get("search_clinical_trials")
+    assert tool is not None
+
+    properties = tool.definition().input_schema["properties"]
+    assert isinstance(properties, dict)
+    page_size = properties["page_size"]
+    assert isinstance(page_size, dict)
+
+    assert page_size["maximum"] == 50
+    assert "character for character" in tool.definition().description
+
+
+@pytest.mark.asyncio
+async def test_a_saved_record_carries_the_rule_for_naming_what_is_in_it(db: Session) -> None:
+    # A screening row that gives a formula and no name was answered by naming the compound from
+    # memory; the rule travels with the record because that is the instruction answers follow.
+    owner_id, _ = accounts(db)
+    descriptors = SarService.from_settings().profile("CC(C)NCC(O)COc1cccc2ccccc12")
+    saved = save_artifact(
+        db,
+        user_id=owner_id,
+        request=SaveArtifactRequest(
+            kind=ArtifactKind.SCREENING_DESCRIPTORS,
+            title="C16H21NO2 descriptors",
+            payload=descriptors.model_dump(mode="json"),
+        ),
+    )
+    tool = ToolRegistry().get("open_saved_work")
+    assert tool is not None
+
+    outcome = await tool.run(ToolContext(db=db, user_id=owner_id), {"artifact_id": saved.id})
+    detail = outcome.detail
+
+    assert isinstance(detail, dict)
+    assert detail["artifact"]
+    rule = str(detail["how_to_report_this"])
+    assert "do not supply the compound's name" in rule

@@ -23,9 +23,6 @@ from sqlalchemy.orm import Session
 
 from app.services.chat.models import Citation
 from app.services.clinicaltrials import (
-    MAX_PAGE_SIZE as MAX_TRIAL_PAGE_SIZE,
-)
-from app.services.clinicaltrials import (
     ClinicalTrialsRequestError,
     ClinicalTrialsResponseError,
     ClinicalTrialsService,
@@ -244,7 +241,17 @@ async def _open_saved_work(context: ToolContext, arguments: ArtifactInput) -> To
         return ToolOutcome(summary=str(exc), ok=False)
     return ToolOutcome(
         summary=f"{artifact.title} ({artifact.kind})",
-        detail=artifact.model_dump(mode="json"),
+        # The naming rule rides with the record rather than living only in the system prompt: a
+        # screening row that carries a formula and no name was three times answered by naming the
+        # compound from memory, and a rule next to the data is the one the answer follows.
+        detail={
+            "artifact": artifact.model_dump(mode="json"),
+            "how_to_report_this": (
+                "Name every compound, target, sponsor and identifier with exactly the string this "
+                "record uses. Where it gives only a formula or a SMILES, report the formula or the "
+                "SMILES: do not supply the compound's name, even one you are sure of."
+            ),
+        },
         citations=(
             Citation(label=artifact.title, source=str(artifact.kind), identifier=artifact.id),
         ),
@@ -352,6 +359,12 @@ async def _lookup_compound(_context: ToolContext, arguments: CompoundInput) -> T
     )
 
 
+# The API allows a hundred studies a page, but the chat tool asks for at most fifty: fifty
+# projected records fit the turn's budget whole, and a page that is never cut is a page whose
+# status tally and delivered records cannot disagree.
+CHAT_TRIAL_PAGE_SIZE = 50
+
+
 class TrialInput(BaseModel):
     condition: str = Field(default="", max_length=200)
     intervention: str = Field(default="", max_length=200)
@@ -359,7 +372,7 @@ class TrialInput(BaseModel):
     term: str = Field(default="", max_length=200)
     phases: list[TrialPhase] = Field(default_factory=list, max_length=8)
     statuses: list[TrialStatus] = Field(default_factory=list, max_length=12)
-    page_size: int = Field(default=10, ge=1, le=MAX_TRIAL_PAGE_SIZE)
+    page_size: int = Field(default=10, ge=1, le=CHAT_TRIAL_PAGE_SIZE)
     page_token: str = Field(default="", max_length=400)
 
 
@@ -400,6 +413,9 @@ async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) 
     finally:
         await service.aclose()
     more = " — more pages available" if page.has_more else ""
+    # Counted over the records that are about to be sent. A page this size is never cut, so this
+    # tally and the delivered records describe the same set; counting a larger page here would
+    # hand the answer a breakdown of records the trim then took away.
     tally: Counter[str] = Counter(
         trial.status.value if trial.status else "UNSPECIFIED" for trial in page.trials
     )
@@ -707,7 +723,9 @@ TOOLS: tuple[ChatTool, ...] = (
             "Search ClinicalTrials.gov by condition, intervention, sponsor or free text, "
             "optionally filtered by phase and recruitment status. Paginated: to read past the "
             "records you were sent, call again with `page_token` set to the result's "
-            "`next_page_token` rather than repeating the search with a larger `page_size`."
+            "`next_page_token`, copied character for character. The token is opaque: never "
+            "construct, edit or guess one, and never repeat the search with a larger `page_size` "
+            "instead."
         ),
         input_model=TrialInput,
         handler=_search_clinical_trials,

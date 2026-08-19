@@ -4,6 +4,7 @@ import { Button } from '@/components/Button';
 import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
+import { SavedLibrary } from '@/components/SavedLibrary';
 import { StatusPill } from '@/components/StatusPill';
 import { api } from '@/lib/api';
 import {
@@ -143,6 +144,23 @@ export function ReviewBoard() {
         )
       }
     >
+      <SavedLibrary<BoardReport>
+        kind="grants_review_board"
+        current={
+          report
+            ? {
+                title: `${report.section_name} — mock review`,
+                subtitle: `${report.reviews.length} personas · unvalidated`,
+                payload: report,
+              }
+            : null
+        }
+        onOpen={(payload) => {
+          setReport(payload);
+          setError(null);
+        }}
+      />
+
       <CaveatBand label="Unvalidated mock review.">
         Scores and critiques are written by a language model role-playing reviewer personas. They
         are not calibrated against real NIH or SBIR reviewer scores and carry no predictive value

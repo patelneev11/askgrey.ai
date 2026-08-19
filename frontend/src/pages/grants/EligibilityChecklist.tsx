@@ -4,6 +4,7 @@ import { Button } from '@/components/Button';
 import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
+import { SavedLibrary } from '@/components/SavedLibrary';
 import { StatusPill } from '@/components/StatusPill';
 import { api } from '@/lib/api';
 import {
@@ -332,6 +333,23 @@ export function EligibilityChecklist() {
           {error}
         </p>
       )}
+
+      <SavedLibrary<EligibilityReport>
+        kind="grants_eligibility"
+        current={
+          report
+            ? {
+                title: `${program} eligibility${profile.name ? ` — ${profile.name}` : ''}`,
+                subtitle: report.summary,
+                payload: report,
+              }
+            : null
+        }
+        onOpen={(payload) => {
+          setReport(payload);
+          setError(null);
+        }}
+      />
 
       <CaveatBand label="Not a legal determination.">
         These are the encoded SBA baseline thresholds, not the agency's own supplements. Blank

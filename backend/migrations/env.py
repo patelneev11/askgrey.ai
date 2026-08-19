@@ -15,6 +15,7 @@ from app.models.base import Base
 
 # Importing the models is what puts the tables on Base.metadata; autogenerate compares
 # against this, so a model that is not imported here looks like a table to drop.
+from app.models.library import SavedArtifact  # noqa: F401
 from app.models.literature import LiteratureDocument, LiteratureWorkspace  # noqa: F401
 from app.models.session import RefreshSession  # noqa: F401
 from app.models.user import User  # noqa: F401

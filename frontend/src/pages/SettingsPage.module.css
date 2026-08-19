@@ -65,7 +65,19 @@
   line-height: var(--line-height-normal);
 }
 
-.select,
+/* Server-reported values, so they wrap rather than truncate a scheme name into a half-truth. */
+.value {
+  flex-shrink: 0;
+  max-width: 46%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: right;
+}
+
 .textValue {
   flex-shrink: 0;
   padding: var(--space-2) var(--space-3);
@@ -73,50 +85,13 @@
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
   white-space: nowrap;
 }
 
-.textValue {
-  font-family: var(--font-family-mono);
+.footnote {
+  color: var(--color-text-tertiary);
   font-size: var(--font-size-2xs);
-}
-
-.toggle {
-  position: relative;
-  flex-shrink: 0;
-  width: 36px;
-  height: 20px;
-  padding: 0;
-  background: var(--color-surface-inset);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-full);
-  cursor: not-allowed;
-  opacity: 0.7;
-  transition:
-    background var(--duration-fast) var(--easing-standard),
-    border-color var(--duration-fast) var(--easing-standard);
-}
-
-.toggleOn {
-  background: var(--color-accent-pipeline-surface);
-  border-color: var(--color-accent-pipeline-muted);
-}
-
-.knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  background: var(--color-text-tertiary);
-  border-radius: var(--radius-full);
-  transition:
-    transform var(--duration-fast) var(--easing-standard),
-    background var(--duration-fast) var(--easing-standard);
-}
-
-.toggleOn .knob {
-  background: var(--color-accent-pipeline);
-  transform: translateX(16px);
+  line-height: var(--line-height-relaxed);
 }

@@ -12,8 +12,9 @@ export interface TabIntro {
 }
 
 /**
- * What each destination is for and what to do first there, shown once per tab. Sample surfaces
- * say so here rather than letting a new user assume the numbers came from their data.
+ * What each destination is for and what to do first there, shown once per tab. A surface whose
+ * numbers are approximations, or whose scope is narrower than its name suggests, says so here
+ * rather than letting a new user assume otherwise.
  */
 export const TAB_INTROS: TabIntro[] = [
   {
@@ -22,7 +23,7 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Literature turns a pile of papers into a cited table',
     body: [
       'Add PDFs or PMC links, describe what to pull out of them, and each phrase in that goal becomes a column. Click any value to open the passage it came from; exports keep the citations attached.',
-      'Wired end-to-end to live services rather than sample records.',
+      'Wired end-to-end to live services: PubMed and PMC for the papers, Anthropic for the columns.',
     ],
     caveat:
       'Text from the documents you add is sent to Anthropic (Claude) to generate the columns. Do not add material you are not permitted to share with a third-party processor.',
@@ -75,10 +76,10 @@ export const TAB_INTROS: TabIntro[] = [
   {
     id: 'workspace',
     path: '/workspace',
-    title: 'Workspace holds your org, seats and connected systems',
+    title: 'Workspace counts what this account holds',
     body: [
-      'Members, roles and the ELN and storage integrations your agents can read from are listed here.',
-      'Everything on this page is a sample record and read-only: inviting members and connecting systems is not implemented yet.',
+      'Your stored papers and their retention window, the work you have saved from each tab, your audit activity and which data sources this deployment can reach — all counted from your own records.',
+      'An account is the only unit that exists today: shared workspaces, seats, per-member roles and third-party integrations are not built, so the page says so rather than showing them.',
     ],
   },
   {
@@ -93,10 +94,10 @@ export const TAB_INTROS: TabIntro[] = [
   {
     id: 'settings',
     path: '/settings',
-    title: 'Settings will hold workspace-wide configuration',
+    title: 'Settings reports how this deployment is configured',
     body: [
-      'Model routing, retention and integration credentials are configured here for everyone in the workspace.',
-      'These values are a sample of the settings model and every control is read-only — apart from replaying the first-run tour, which works.',
+      'The model in use, how long a sign-in lasts, how stored papers are encrypted, how long they and the audit log are kept, and every sign-in this account currently holds.',
+      'These are the running deployment’s own values, not editable from the app. Signing out everywhere and replaying the first-run tour are the two actions here.',
     ],
   },
 ];

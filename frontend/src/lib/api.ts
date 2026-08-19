@@ -68,6 +68,42 @@ export interface AuditFeed {
   retention_days: number;
 }
 
+/** Mirrors `AccountOverview` in `backend/app/services/account.py`, scoped to the caller. */
+export interface AccountOverview {
+  account: {
+    email: string;
+    full_name: string;
+    role: string;
+    provider: string;
+    created_at: string;
+  };
+  storage: {
+    stored_papers: number;
+    stored_bytes: number;
+    retention_days: number;
+    next_expiry: string | null;
+  };
+  saved_work: {
+    counts: Record<string, number>;
+    total: number;
+    last_saved_at: string | null;
+  };
+  audit_events: number;
+  sessions: { id: string; issued_at: string; expires_at: string }[];
+  upstreams: { name: string; detail: string; configured: boolean }[];
+  platform: {
+    environment: string;
+    release: string;
+    llm_model: string;
+    extraction_available: boolean;
+    document_encryption: string;
+    access_token_ttl_minutes: number;
+    refresh_token_ttl_days: number;
+    audit_retention_days: number;
+    llm_daily_call_budget: number;
+  };
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -606,6 +642,10 @@ export const api = {
 
   logout: () => send('/auth/logout', { method: 'POST', credentials: 'include' }),
 
+  /** Revoke every refresh session this account holds, not just this browser's. */
+  logoutAll: (token?: string) =>
+    send('/auth/logout-all', { method: 'POST', credentials: 'include' }, token),
+
   me: (token: string) => request<User>('/auth/me', {}, token),
 
   ssoConfig: () => request<SSOConfig>('/auth/sso'),
@@ -671,6 +711,10 @@ export const api = {
   /** Delete one stored paper. A paper stored by another account is a 404, not a deletion. */
   deleteDocument: (documentId: string, token?: string) =>
     send(`/literature/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }, token),
+
+  /** This account's own identity, storage, saved work, sessions and deployment configuration. */
+  accountOverview: (token?: string) =>
+    request<AccountOverview>('/account/overview', {}, token),
 
   /** This account's own security events, newest first. There is no parameter for whose. */
   auditEvents: (kind?: AuditKind, token?: string) =>

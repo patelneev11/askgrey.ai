@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.account import router as account_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.clinicaltrials import router as clinicaltrials_router
@@ -99,6 +100,7 @@ app.include_router(library_router, prefix="/api")
 app.include_router(regulatory_guidelines_router, prefix="/api")
 app.include_router(screening_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
+app.include_router(account_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 
 

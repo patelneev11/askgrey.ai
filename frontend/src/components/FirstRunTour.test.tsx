@@ -43,7 +43,7 @@ describe('first-run tour', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
   });
 
-  it('states plainly which tabs are live and which are previews', async () => {
+  it('states plainly what each group of tabs runs on, and what is missing', async () => {
     const user = userEvent.setup();
     renderTour();
 
@@ -54,8 +54,11 @@ describe('first-run tour', () => {
     expect(dialog).toHaveTextContent(
       /Literature, Screening, Protocol, Regulatory and Grants all run against real services/i,
     );
-    expect(dialog).toHaveTextContent(/Workspace, Audit and Settings are still read-only previews/i);
-    expect(dialog).toHaveTextContent(/Do not read it as a result/i);
+    expect(dialog).toHaveTextContent(/Workspace, Audit and Settings report your account/i);
+    // The absent org features are named here, because the pages no longer draw them at all.
+    expect(dialog).toHaveTextContent(
+      /shared workspaces, seats and third-party integrations are not built/i,
+    );
   });
 
   it('skips: closes immediately and stays closed on the next visit', async () => {

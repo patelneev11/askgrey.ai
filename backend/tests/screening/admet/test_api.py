@@ -29,7 +29,7 @@ def test_the_response_carries_every_estimate_with_its_model_basis(client: TestCl
     assert response.status_code == 200
     body = response.json()
     assert body["molecular_formula"] == "C32H41NO2"
-    assert "not measured" in body["caveat"]
+    assert "Nothing here is measured on this compound" in body["caveat"]
 
     estimates = {item["key"]: item for item in body["estimates"]}
     assert estimates.keys() >= {"gi_absorption", "bbb_penetration", "herg", "cyp_alerts"}
@@ -39,13 +39,51 @@ def test_the_response_carries_every_estimate_with_its_model_basis(client: TestCl
     assert estimates["herg"]["outcome"] == "unfavourable"
 
 
+def test_the_trained_models_are_returned_with_their_provenance(client: TestClient) -> None:
+    body = client.post(
+        ADMET, json={"smiles": TERFENADINE.smiles}, headers=auth_header(client)
+    ).json()
+    estimates = {item["key"]: item for item in body["estimates"]}
+
+    for key in (
+        "herg_blockade",
+        "plasma_protein_binding",
+        "cyp3a4_inhibition",
+        "cyp2d6_inhibition",
+        "cyp2c9_inhibition",
+    ):
+        estimate = estimates[key]
+        assert estimate["available"] is True, key
+        assert estimate["verdict"]
+        assert "Gradient-boosted decision trees" in estimate["model_basis"]
+        assert "not a measurement" in estimate["model_basis"]
+        assert "Therapeutics Data Commons" in estimate["citation"]
+        assert [item["label"] for item in estimate["inputs"]][-1] == "Applicability domain"
+
+    assert "% bound" in estimates["plasma_protein_binding"]["verdict"]
+    assert "calibrated probability" in estimates["herg_blockade"]["verdict"]
+
+
+def test_a_structure_outside_the_training_space_is_refused_rather_than_extrapolated(
+    client: TestClient,
+) -> None:
+    body = client.post(ADMET, json={"smiles": "CCO"}, headers=auth_header(client)).json()
+    estimates = {item["key"]: item for item in body["estimates"]}
+
+    for key in ("herg_blockade", "plasma_protein_binding", "cyp3a4_inhibition"):
+        estimate = estimates[key]
+        assert estimate["available"] is False, key
+        assert estimate["outcome"] == "unavailable"
+        assert "applicability domain" in estimate["reason"]
+
+
 def test_unavailable_properties_are_returned_as_such_rather_than_omitted(
     client: TestClient,
 ) -> None:
     body = client.post(ADMET, json={"smiles": ASPIRIN.smiles}, headers=auth_header(client)).json()
     estimates = {item["key"]: item for item in body["estimates"]}
 
-    for key in ("plasma_protein_binding", "cyp_inhibition"):
+    for key in ("cyp_inhibition_other_isoforms",):
         estimate = estimates[key]
         assert estimate["available"] is False
         assert estimate["outcome"] == "unavailable"

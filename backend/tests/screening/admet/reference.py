@@ -49,6 +49,15 @@ MANNITOL = ReferenceCompound(
     "Poorly absorbed in humans despite low molecular weight; osmotic laxative.",
 )
 
+# Far smaller than anything in the QSAR training sets, and used here for that: a fitted model must
+# refuse it rather than extrapolate.
+ETHANOL = ReferenceCompound(
+    "ethanol",
+    "CCO",
+    "C2H6O",
+    "Two heavy atoms; outside the chemical space of every drug-like training set here.",
+)
+
 # CNS-active, brain-penetrant.
 CAFFEINE = ReferenceCompound(
     "caffeine",
@@ -122,6 +131,7 @@ ALL_COMPOUNDS: tuple[ReferenceCompound, ...] = (
     IBUPROFEN,
     SUCROSE,
     MANNITOL,
+    ETHANOL,
     CAFFEINE,
     DIAZEPAM,
     ATORVASTATIN,

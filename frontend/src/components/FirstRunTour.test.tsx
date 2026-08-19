@@ -43,7 +43,7 @@ describe('first-run tour', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
   });
 
-  it('states plainly which tabs are live and which are samples', async () => {
+  it('states plainly which tabs are live and which are previews', async () => {
     const user = userEvent.setup();
     renderTour();
 
@@ -51,7 +51,10 @@ describe('first-run tour', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/Screening, Protocol and Grants currently show/i);
+    expect(dialog).toHaveTextContent(
+      /Literature, Screening, Protocol, Regulatory and Grants all run against real services/i,
+    );
+    expect(dialog).toHaveTextContent(/Workspace, Audit and Settings are still read-only previews/i);
     expect(dialog).toHaveTextContent(/Do not read it as a result/i);
   });
 

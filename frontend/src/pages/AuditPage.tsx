@@ -99,7 +99,9 @@ export function AuditPage() {
         </div>
       }
     >
-      <p className={styles.day}>Today · August 13, 2026</p>
+      {/* A fixed sample day, said so: labelling illustrative rows "Today" made a stale date
+          look like a bug and implied the activity was the reader's own. */}
+      <p className={styles.day}>An illustrative day · not your workspace's activity</p>
       <ol className={styles.timeline}>
         {events.map((event) => (
           <li key={event.hash} className={styles.event}>
@@ -117,7 +119,8 @@ export function AuditPage() {
         ))}
       </ol>
       <p className={styles.retention}>
-        Entries are append-only and retained for 7 years to satisfy 21 CFR Part 11.
+        Recording is not implemented yet. The intent is append-only entries retained for 7 years
+        to satisfy 21 CFR Part 11; nothing you do in the app appears here today.
       </p>
     </PageCanvas>
   );

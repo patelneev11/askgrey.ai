@@ -167,6 +167,26 @@ def cursor_context(db: Session, *, conversation_id: str, user_id: str) -> str:
     )
 
 
+def known_page_tokens(db: Session, *, conversation_id: str, user_id: str) -> frozenset[str]:
+    """Every cursor a tool in this thread has actually handed back.
+
+    A prompt cannot stop the model writing a plausible-looking cursor of its own — told a page it
+    was not given exists, it hand-built one twice — so a `page_token` is only spent if it appears
+    here, and an invented one never reaches the provider.
+    """
+    _owned(db, conversation_id=conversation_id, user_id=user_id)
+    tokens: set[str] = set()
+    for message in _messages(db, conversation_id=conversation_id):
+        for step in message.steps:
+            detail = step.detail
+            if not isinstance(detail, dict):
+                continue
+            token = detail.get("next_page_token")
+            if isinstance(token, str) and token:
+                tokens.add(token)
+    return frozenset(tokens)
+
+
 def resolve_references(db: Session, *, user_id: str, references: list[ChatReference]) -> str:
     """Render the caller's @-referenced work as a context block.
 

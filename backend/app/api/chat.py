@@ -26,6 +26,7 @@ from app.services.chat.store import (
     delete_conversation,
     get_conversation,
     history_for_model,
+    known_page_tokens,
     list_conversations,
     resolve_references,
 )
@@ -173,7 +174,11 @@ async def send_message(
         user_id=user_id,
     )
 
-    context = ToolContext(db=db, user_id=user_id)
+    context = ToolContext(
+        db=db,
+        user_id=user_id,
+        page_tokens=set(known_page_tokens(db, conversation_id=conversation_id, user_id=user_id)),
+    )
 
     async def stream() -> AsyncIterator[str]:
         try:

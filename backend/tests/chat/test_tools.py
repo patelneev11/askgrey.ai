@@ -222,6 +222,109 @@ def test_the_trial_search_cannot_ask_for_a_page_it_would_have_to_cut() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_cursor_the_conversation_never_received_is_not_spent(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Told a further page existed, the model hand-built a token out of the query and blamed the
+    # provider for rejecting it. A cursor is opaque, so an unrecognised one never leaves here.
+    called: list[str | None] = []
+
+    class StubService:
+        async def search(
+            self, search: TrialSearch, *, page_size: int = 10, page_token: str | None = None
+        ) -> TrialPage:
+            called.append(page_token)
+            return TrialPage(search=search, page_size=page_size)
+
+        async def aclose(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        ClinicalTrialsService, "from_settings", classmethod(lambda cls: StubService())
+    )
+    tool = ToolRegistry().get("search_clinical_trials")
+    assert tool is not None
+    owner_id, _ = accounts(db)
+
+    outcome = await tool.run(
+        ToolContext(db=db, user_id=owner_id),
+        {"condition": "progeria", "page_token": '{"pageNum":2}'},
+    )
+
+    assert outcome.ok is False
+    assert called == [], "an invented cursor must not reach ClinicalTrials.gov"
+    assert "You supplied a `page_token`" in outcome.summary
+
+
+@pytest.mark.asyncio
+async def test_a_page_the_api_gives_no_total_for_reports_none(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # v2 sends the size of the result set with the first page only, so a later page's fallback
+    # total is its own length: 143,516 matches would be reported as 50.
+    page = TrialPage(
+        search=TrialSearch(condition="cancer"),
+        trials=[TrialRecord(nct_id="NCT00000001", status=TrialStatus.COMPLETED)],
+        total_count=1,
+        total_count_known=False,
+        page_size=50,
+    )
+
+    class StubService:
+        async def search(
+            self, search: TrialSearch, *, page_size: int = 10, page_token: str | None = None
+        ) -> TrialPage:
+            return page
+
+        async def aclose(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        ClinicalTrialsService, "from_settings", classmethod(lambda cls: StubService())
+    )
+    tool = ToolRegistry().get("search_clinical_trials")
+    assert tool is not None
+    owner_id, _ = accounts(db)
+    context = ToolContext(db=db, user_id=owner_id, page_tokens={"cursor-1"})
+
+    outcome = await tool.run(context, {"condition": "cancer", "page_token": "cursor-1"})
+    detail = outcome.detail
+
+    assert isinstance(detail, dict)
+    assert detail["total_matched"] is None
+    assert "State no total from this result" in str(detail["total_matched_note"])
+    assert "matched" not in outcome.summary
+
+
+@pytest.mark.asyncio
+async def test_a_returned_cursor_becomes_spendable_in_the_same_turn(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class StubService:
+        async def search(
+            self, search: TrialSearch, *, page_size: int = 10, page_token: str | None = None
+        ) -> TrialPage:
+            return TrialPage(search=search, page_size=page_size, next_page_token="cursor-2")
+
+        async def aclose(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        ClinicalTrialsService, "from_settings", classmethod(lambda cls: StubService())
+    )
+    tool = ToolRegistry().get("search_clinical_trials")
+    assert tool is not None
+    owner_id, _ = accounts(db)
+    context = ToolContext(db=db, user_id=owner_id)
+
+    first = await tool.run(context, {"condition": "cancer"})
+    second = await tool.run(context, {"condition": "cancer", "page_token": "cursor-2"})
+
+    assert first.ok is True
+    assert second.ok is True, "a cursor this turn was handed has to be usable in this turn"
+
+
+@pytest.mark.asyncio
 async def test_a_saved_record_carries_the_rule_for_naming_what_is_in_it(db: Session) -> None:
     # A screening row that gives a formula and no name was answered by naming the compound from
     # memory; the rule travels with the record because that is the instruction answers follow.

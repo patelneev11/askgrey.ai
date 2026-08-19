@@ -75,6 +75,7 @@ class ClinicalTrialsService:
             search=search,
             trials=trials,
             total_count=total if isinstance(total, int) else len(trials),
+            total_count_known=isinstance(total, int),
             page_size=page_size,
             next_page_token=token if isinstance(token, str) and token else None,
         )

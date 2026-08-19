@@ -131,12 +131,15 @@ class TrialPage(BaseModel):
 
     ClinicalTrials.gov paginates with an opaque `nextPageToken` rather than offsets, so the
     caller carries `next_page_token` back into the following request. `total_count` is the size
-    of the whole result set, not of this page.
+    of the whole result set, not of this page — but v2 reports it only on the first page of a
+    walk, so on a later page it falls back to the records in hand and `total_count_known` is
+    false. A caller that states a total has to check that flag first.
     """
 
     search: TrialSearch
     trials: list[TrialRecord] = Field(default_factory=list)
     total_count: int = 0
+    total_count_known: bool = True
     page_size: int = 0
     next_page_token: str | None = None
 

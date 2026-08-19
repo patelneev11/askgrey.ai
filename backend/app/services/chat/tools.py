@@ -105,10 +105,16 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 @dataclass(frozen=True)
 class ToolContext:
-    """Everything a tool is allowed to know: the caller's account, and a database session."""
+    """Everything a tool is allowed to know: the caller's account, and a database session.
+
+    `page_tokens` is the set of paging cursors this thread's tools have handed back, seeded from
+    the stored turns and grown as the current turn pages on. A cursor is opaque, so one that is
+    not in here was written by the model rather than received, and is refused before it is spent.
+    """
 
     db: Session
     user_id: str
+    page_tokens: set[str] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -392,7 +398,19 @@ def _compact_trial(trial: TrialRecord) -> dict[str, JsonValue]:
     }
 
 
-async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) -> ToolOutcome:
+async def _search_clinical_trials(context: ToolContext, arguments: TrialInput) -> ToolOutcome:
+    if arguments.page_token and arguments.page_token not in context.page_tokens:
+        # Refused here rather than at ClinicalTrials.gov, so the trace says who wrote the token
+        # instead of showing a provider error for a value the provider never issued.
+        return ToolOutcome(
+            summary=(
+                "You supplied a `page_token` that no search in this conversation returned, so it "
+                "was not sent. Cursors are opaque and cannot be written from a query: page only "
+                "with a `next_page_token` a result gave you, and where there is none, say the "
+                "records you have are all there are."
+            ),
+            ok=False,
+        )
     service = ClinicalTrialsService.from_settings()
     query = TrialSearch(
         sponsor=arguments.sponsor,
@@ -420,19 +438,36 @@ async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) 
         trial.status.value if trial.status else "UNSPECIFIED" for trial in page.trials
     )
     status_counts: dict[str, JsonValue] = dict(tally)
+    if page.next_page_token:
+        # Remembered so the next page can be paged for, and so a token this conversation never
+        # received is recognisable as one the model wrote.
+        context.page_tokens.add(page.next_page_token)
+    # A page of full records overflows the turn's budget and gets cut, so the records are
+    # projected to the fields an answer cites and the per-status tally is counted here: an
+    # answer that has to count a long list itself gets the count wrong.
+    detail: dict[str, JsonValue] = {
+        "query": query.model_dump(mode="json"),
+        "returned": len(page.trials),
+        "status_counts": status_counts,
+        "next_page_token": page.next_page_token or "",
+        "trials": [_compact_trial(trial) for trial in page.trials],
+    }
+    if page.total_count_known:
+        detail["total_matched"] = page.total_count
+        matched = f" of {page.total_count} matched"
+    else:
+        # The API sends the size of the whole result set with the first page only. Repeating this
+        # page's own length as the total would tell the researcher a search of 143,516 found 50.
+        detail["total_matched"] = None
+        detail["total_matched_note"] = (
+            "ClinicalTrials.gov reports how many studies the query matched on the first page of a "
+            "search only, and this page is not it. State no total from this result; the total from "
+            "the first page of the same search still stands."
+        )
+        matched = ""
     return ToolOutcome(
-        summary=f"{len(page.trials)} trial(s) returned of {page.total_count} matched{more}",
-        # A page of full records overflows the turn's budget and gets cut, so the records are
-        # projected to the fields an answer cites and the per-status tally is counted here: an
-        # answer that has to count a long list itself gets the count wrong.
-        detail={
-            "query": query.model_dump(mode="json"),
-            "returned": len(page.trials),
-            "total_matched": page.total_count,
-            "status_counts": status_counts,
-            "next_page_token": page.next_page_token or "",
-            "trials": [_compact_trial(trial) for trial in page.trials],
-        },
+        summary=f"{len(page.trials)} trial(s) returned{matched}{more}",
+        detail=detail,
         citations=tuple(
             Citation(
                 label=trial.title or trial.nct_id,

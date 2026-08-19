@@ -30,9 +30,10 @@ const STEPS: Step[] = [
   },
   {
     eyebrow: 'What is real today',
-    title: 'The five research tabs are live; the admin pages are not',
-    body: 'Literature, Screening, Protocol, Regulatory and Grants all run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov, grants.gov and SBIR searches behind them. Workspace, Audit and Settings are still read-only previews of the org, activity and configuration model.',
-    caveat: 'Anything marked Sample data is illustrative. Do not read it as a result.',
+    title: 'Every tab runs on your own data',
+    body: 'Literature, Screening, Protocol, Regulatory and Grants all run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov, grants.gov and SBIR searches behind them. Workspace, Audit and Settings report your account: what you have stored and saved, what the agents did, and how this deployment is configured.',
+    caveat:
+      'An account is the only unit that exists: shared workspaces, seats and third-party integrations are not built, and the grant review board is a mock panel.',
   },
   {
     eyebrow: 'Before you trust it',

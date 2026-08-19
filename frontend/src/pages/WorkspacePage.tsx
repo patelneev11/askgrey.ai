@@ -142,7 +142,7 @@ export function WorkspacePage() {
                 <dd>{dateOf(overview.account.created_at)}</dd>
               </div>
             </dl>
-            <div className={styles.seats}>
+            <div className={styles.retention}>
               <Meter
                 label={`Stored papers · ${sizeOf(overview.storage.stored_bytes)}`}
                 value={daysLeftOf(overview.storage)}

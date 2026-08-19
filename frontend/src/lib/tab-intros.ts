@@ -45,6 +45,7 @@ export const TAB_INTROS: TabIntro[] = [
     body: [
       'The outline on the left is the shape of the experiment; each step opens its full method, reagents and timings on the right.',
       'The draft is generated from the goal you describe, and the master mix calculator does exact arithmetic on the volumes you enter. Nothing here is pre-filled sample text.',
+      'Saved protocols and their version history persist to your account, so a draft is still there after a reload.',
     ],
     caveat:
       'Agent-drafted content requires qualified researcher review before anyone runs it at the bench.',

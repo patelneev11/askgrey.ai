@@ -151,6 +151,16 @@ export interface SavedProtocol {
   updated_at: string;
 }
 
+/** One row of the saved-protocol list: enough to reopen it, without its payload. */
+export interface SavedProtocolSummary {
+  id: string;
+  title: string;
+  goal: string;
+  current_version: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProtocolChange {
   kind: 'added' | 'removed' | 'modified' | 'reordered';
   field: string;

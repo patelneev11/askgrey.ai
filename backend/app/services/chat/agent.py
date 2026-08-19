@@ -38,9 +38,13 @@ from app.services.llm.tool_use import (
 )
 
 DEFAULT_MAX_STEPS = 6
-# A tool result is fed back to the model, so its size is spend. Trimmed rather than summarised:
-# a trimmed payload still says what it is, a summary invites invention.
-MAX_DETAIL_CHARS = 8000
+# A tool result is fed back to the model, so its size is spend. Oversized results keep their first
+# records rather than being replaced by a placeholder: a model handed "result too large" answers
+# the question from memory and invents identifiers that look real, which is the one failure this
+# whole design exists to prevent. The ceiling is generous enough that a single-compound ADMET
+# profile and a ten-record search arrive whole, since those are the results most likely to be
+# quoted back with identifiers.
+MAX_DETAIL_CHARS = 24000
 
 SYSTEM_PROMPT = """You are AskGrey's research assistant, working inside a biomedical R&D \
 workspace alongside the researcher's Literature, Screening, Protocol, Regulatory and Grants tabs.
@@ -52,6 +56,8 @@ the researcher's real data, not an example.
 saved item id, or quotation. If a tool did not return it, you do not have it.
 - When you have not run a tool, say what you would run instead of answering from memory.
 - Refer to identifiers exactly as the tools returned them, so every claim can be checked.
+- A result carrying `truncated` was cut to fit: it holds the first records only. Report those, say \
+how many of the total you are showing, and never fill the remainder in from memory.
 
 What the results are, and are not:
 - ADMET and SAR output is model prediction with an applicability-domain caveat, never a \
@@ -265,8 +271,10 @@ def _assistant_blocks(turn: TurnComplete) -> list[dict[str, object]]:
 
 
 def _tool_result_block(step: ToolStep) -> dict[str, object]:
+    # `step.detail` is already bounded; the summary rides on top of it, so the envelope gets its own
+    # allowance rather than slicing a record in half to hit the same number.
     payload = json.dumps({"summary": step.summary, "result": step.detail}, separators=(",", ":"))[
-        :MAX_DETAIL_CHARS
+        : MAX_DETAIL_CHARS + 1000
     ]
     return {
         "type": "tool_result",
@@ -276,10 +284,47 @@ def _tool_result_block(step: ToolStep) -> dict[str, object]:
     }
 
 
+def _measure(detail: JsonValue) -> int:
+    return len(json.dumps(detail, separators=(",", ":")))
+
+
+def _fewer_records(records: list[JsonValue], budget: int) -> list[JsonValue]:
+    """The longest prefix of `records` that serialises within `budget`."""
+    kept: list[JsonValue] = []
+    for record in records:
+        if _measure([*kept, record]) > budget:
+            break
+        kept.append(record)
+    return kept
+
+
 def _bounded(detail: JsonValue) -> JsonValue:
-    """Keep a payload the browser can render a card from, and stop well short of a whole paper."""
+    """
+    Keep a payload the browser can render a card from, and stop well short of a whole paper.
+
+    An oversized result is shortened, never withheld. A search returns its records under one key,
+    so the longest of those lists loses its tail and the payload says what it dropped; the model is
+    told in the system prompt that a `truncated` result must not be completed from memory.
+    """
     if detail is None:
         return None
-    if len(json.dumps(detail, separators=(",", ":"))) <= MAX_DETAIL_CHARS:
+    if _measure(detail) <= MAX_DETAIL_CHARS:
         return detail
-    return {"trimmed": True, "note": f"result larger than {MAX_DETAIL_CHARS} characters"}
+    if isinstance(detail, list):
+        kept = _fewer_records(detail, MAX_DETAIL_CHARS - 120)
+        return {"records": kept, "truncated": {"shown": len(kept), "total": len(detail)}}
+    if isinstance(detail, dict):
+        lists = {key: value for key, value in detail.items() if isinstance(value, list) and value}
+        if lists:
+            longest = max(lists, key=lambda key: _measure(lists[key]))
+            records = lists[longest]
+            # The rest of the payload is metadata the answer needs (query, model, caveats), so the
+            # records get whatever is left of the budget after it.
+            overhead = _measure({**detail, longest: []})
+            kept = _fewer_records(records, max(MAX_DETAIL_CHARS - overhead - 120, 0))
+            trimmed: dict[str, JsonValue] = {**detail, longest: kept}
+            trimmed["truncated"] = {"field": longest, "shown": len(kept), "total": len(records)}
+            if _measure(trimmed) <= MAX_DETAIL_CHARS:
+                return trimmed
+    text = json.dumps(detail, separators=(",", ":"))[: MAX_DETAIL_CHARS - 120]
+    return {"partial_json": text, "truncated": {"note": "result cut mid-record; rerun narrower"}}

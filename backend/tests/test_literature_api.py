@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api import deps
+from app.core.crypto import DocumentKeyUnavailableError
 from app.models.user import User
 from app.services import literature
 from app.services.literature import MAX_TABLE_JSON_BYTES
@@ -274,3 +276,31 @@ def test_reading_and_deleting_a_paper_are_on_the_audit_feed(
     assert "literature.document_read" in names
     # Provenance only: the audit feed never carries the paper.
     assert "%PDF" not in str(listed)
+
+
+def test_a_key_service_outage_is_a_503_and_the_paper_survives_it(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """503, not 404 and not 500: the paper is fine, the key service is not.
+
+    A 404 would tell the user their upload is gone (and the delete-on-unreadable path would make
+    that true); a 500 reads as a bug in this app. 503 is the one that says retry.
+    """
+    headers = auth_header(client, CREDENTIALS)
+    store(db, CREDENTIALS["email"])
+
+    def unavailable(*_args: object, **_kwargs: object) -> bytes:
+        raise DocumentKeyUnavailableError("kms is not answering")
+
+    monkeypatch.setattr(literature, "decrypt_document", unavailable)
+
+    response = client.get(f"/api/literature/documents/{DOCUMENT_ID}/pdf", headers=headers)
+
+    assert response.status_code == 503
+    # No key detail, key id or ARN reaches the caller.
+    assert response.json() == {
+        "detail": "stored documents are temporarily unavailable; retry shortly"
+    }
+    monkeypatch.undo()
+    recovered = client.get(f"/api/literature/documents/{DOCUMENT_ID}/pdf", headers=headers)
+    assert recovered.status_code == 200

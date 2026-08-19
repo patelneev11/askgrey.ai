@@ -2,8 +2,9 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
@@ -21,6 +22,7 @@ from app.api.regulatory_guidelines import router as regulatory_guidelines_router
 from app.api.screening import router as screening_router
 from app.api.system import router as system_router
 from app.core.config import get_settings
+from app.core.crypto import DocumentKeyUnavailableError
 from app.core.errors import init_error_tracking
 from app.core.headers import SecurityHeadersMiddleware
 from app.core.logging import RequestLoggingMiddleware, configure_logging
@@ -49,6 +51,8 @@ init_error_tracking(settings)
 # separate sink without turning on debug logging for everything else.
 logging.getLogger("askgrey.audit").setLevel(logging.INFO)
 
+logger = logging.getLogger("askgrey.main")
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -58,6 +62,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # that appears on first run.
     if settings.environment == "development":
         Base.metadata.create_all(bind=engine)
+    # Which key stored papers are being sealed under, so "why can't it read them" starts from a
+    # fact in the log rather than a guess about the environment. Names a scheme, never a key.
+    logger.info(
+        "document storage key configured",
+        extra={"scheme": settings.document_encryption_scheme},
+    )
     yield
 
 
@@ -90,6 +100,21 @@ app.include_router(regulatory_guidelines_router, prefix="/api")
 app.include_router(screening_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
+
+
+@app.exception_handler(DocumentKeyUnavailableError)
+def _key_service_unavailable(_: Request, exc: DocumentKeyUnavailableError) -> JSONResponse:
+    """A key service that cannot be reached is a dependency outage, not a server bug.
+
+    503 rather than 500 so the client retries instead of treating the paper as broken, and so
+    the failure reads as "KMS is down" in the logs. The message is the operator's, not the
+    exception's: which key is configured and why it refused is not a caller's business.
+    """
+    logger.error("the document key service is unavailable", extra={"reason": str(exc)})
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "stored documents are temporarily unavailable; retry shortly"},
+    )
 
 
 @app.get("/api/health", tags=["system"])

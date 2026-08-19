@@ -141,8 +141,16 @@ class Settings(BaseSettings):
     # Stored document bytes are encrypted by the app before they reach the database, so a
     # dump, a provider backup or a replica is ciphertext. Base64, 32 bytes decoded; empty
     # derives the key from JWT_SECRET (see app.core.crypto), which keeps a clone runnable at
-    # the cost of making stored papers unreadable if that secret is rotated.
+    # the cost of making stored papers unreadable if that secret is rotated — allowed in
+    # development only, and refused at boot elsewhere by the validator below.
     document_encryption_key: str = ""
+    # KMS key id, ARN or alias for envelope encryption. Set it and each document gets its own
+    # data key minted by KMS, stored only in wrapped form, with the master key never entering
+    # this process and every read recorded in CloudTrail. Empty means the local key above.
+    document_kms_key_id: str = ""
+    # Region for the KMS client. Empty defers to the ambient AWS configuration (AWS_REGION,
+    # the instance profile, ~/.aws/config), which is what an ECS task normally has.
+    aws_region: str = ""
     # How long a stored paper is kept. Enforced on every read and write rather than by a cron:
     # an expired row is never served, and is deleted the moment it is next encountered.
     document_retention_days: int = 90
@@ -230,6 +238,25 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _require_a_document_key_of_its_own_outside_development(self) -> "Settings":
+        """A deployed environment must own the key its stored papers are readable under.
+
+        With neither set the key is derived from `JWT_SECRET`, which means rotating that secret
+        — the thing you rotate first after a suspected token leak — destroys every stored
+        paper, and one secret's blast radius covers both sessions and documents. Failing at boot
+        is the only way that surfaces before it costs data.
+        """
+        if self.environment == "development":
+            return self
+        if not (self.document_encryption_key.strip() or self.document_kms_key_id.strip()):
+            raise ValueError(
+                "set DOCUMENT_KMS_KEY_ID (KMS envelope encryption) or DOCUMENT_ENCRYPTION_KEY "
+                "(a base64 32-byte key) outside development; deriving the document key from "
+                f"JWT_SECRET ties stored papers to it (environment={self.environment!r})"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _reject_unusable_retention_windows(self) -> "Settings":
         """A zero or negative window would delete on write, which is a silently broken store."""
         for name in ("document_retention_days", "audit_retention_days"):
@@ -256,6 +283,13 @@ class Settings(BaseSettings):
             if url.startswith(prefix):
                 return "postgresql+psycopg://" + url[len(prefix) :]
         return url
+
+    @property
+    def document_encryption_scheme(self) -> str:
+        """Which key the next stored document will be sealed under, for logs and /api/health."""
+        if self.document_kms_key_id.strip():
+            return "kms"
+        return "local-key" if self.document_encryption_key.strip() else "derived-from-jwt-secret"
 
     @property
     def serves_frontend(self) -> bool:

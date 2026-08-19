@@ -4,9 +4,11 @@ import base64
 import os
 
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.core.config import Settings
 from app.core.crypto import (
+    ENVELOPE_MAGIC,
     DecryptionError,
     DocumentKeyError,
     decrypt_document,
@@ -104,3 +106,34 @@ def test_a_configured_key_must_decode_to_32_bytes() -> None:
 def test_a_configured_key_must_be_base64() -> None:
     with pytest.raises(DocumentKeyError):
         document_key(settings("not-base64-at-all-!!"))
+
+
+def test_rows_written_before_the_envelope_existed_still_decrypt() -> None:
+    """The first version of this store wrote a bare nonce followed by the ciphertext.
+
+    Those rows predate the header that now says which key sealed them, so they are read as what
+    they are: locally sealed. Without this they would fail to authenticate and be deleted.
+    """
+    configured = settings(a_key())
+    nonce = os.urandom(12)
+    unframed = nonce + AESGCM(document_key(configured)).encrypt(nonce, PDF, b"u1:d1")
+
+    assert decrypt_document(unframed, user_id="u1", document_id="d1", settings=configured) == PDF
+
+
+def test_an_envelope_declaring_an_unknown_scheme_is_refused() -> None:
+    # A row written by a future version this build cannot read; guessing at it would be worse.
+    configured = settings(a_key())
+    forged = ENVELOPE_MAGIC + bytes([99]) + (0).to_bytes(2, "big") + os.urandom(40)
+
+    with pytest.raises(DecryptionError):
+        decrypt_document(forged, user_id="u1", document_id="d1", settings=configured)
+
+
+def test_an_envelope_truncated_inside_its_header_is_refused() -> None:
+    configured = settings(a_key())
+
+    with pytest.raises(DecryptionError):
+        decrypt_document(
+            ENVELOPE_MAGIC + b"\x01", user_id="u1", document_id="d1", settings=configured
+        )

@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.crypto import DocumentKeyUnavailableError
 from app.models.base import Base
 from app.models.literature import LiteratureDocument
 from app.models.user import User
@@ -188,3 +189,25 @@ def test_a_paper_no_longer_decryptable_is_dropped_rather_than_raising(db: Sessio
     assert service.get_document(db, user_id, "abc123ff") is None
 
     assert db.execute(select(LiteratureDocument)).scalar_one_or_none() is None
+
+
+def test_an_unreachable_key_service_does_not_take_the_library_with_it(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The counterpart to the test above, and the reason the two failures are separate types.
+
+    An unreadable row is deleted; a key service that cannot say whether the row is readable
+    must leave it alone, or one KMS outage empties every account's library.
+    """
+    user_id = make_user(db, "one@askgrey.ai")
+    service.store_document(db, user_id, document_id="abc123ff", content=b"%PDF-1.4 body")
+
+    def unavailable(*_args: object, **_kwargs: object) -> bytes:
+        raise DocumentKeyUnavailableError("kms is not answering")
+
+    monkeypatch.setattr(service, "decrypt_document", unavailable)
+
+    with pytest.raises(DocumentKeyUnavailableError):
+        service.get_document(db, user_id, "abc123ff")
+
+    assert db.execute(select(LiteratureDocument)).scalar_one_or_none() is not None

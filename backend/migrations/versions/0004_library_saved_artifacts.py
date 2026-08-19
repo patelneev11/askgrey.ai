@@ -3,8 +3,8 @@
 One table for every output a researcher explicitly keeps, keyed by kind, with the endpoint's own
 response as the payload.
 
-Revision ID: 0003_library
-Revises: 0002_protocols
+Revision ID: 0004_library
+Revises: 0003_documents_audit
 Create Date: 2026-08-16 01:20:00.000000
 """
 
@@ -13,8 +13,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0003_library"
-down_revision: str | None = "0002_protocols"
+revision: str = "0004_library"
+down_revision: str | None = "0003_documents_audit"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

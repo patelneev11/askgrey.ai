@@ -3,8 +3,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from app.api.deps import ClientIp, LlmUser, ThrottledUser
+from app.api.deps import ClientIp, DbSession, LlmUser, ThrottledUser
 from app.api.export import download_response
 from app.core import audit
 from app.core.config import get_settings
@@ -250,6 +251,7 @@ def export_budget(
     user: ThrottledUser,
     ip: ClientIp,
     calculator: Calculator,
+    db: DbSession,
     request: BudgetRequest,
     fmt: Annotated[ExportFormat, Query(alias="format")] = ExportFormat.XLSX,
 ) -> Response:
@@ -264,6 +266,8 @@ def export_budget(
         actor=str(user.id),
         client_ip=ip,
         detail={"format": fmt.value, "program": budget.program.value},
+        db=db,
+        user_id=str(user.id),
     )
     return response
 
@@ -281,12 +285,15 @@ def _audit_section_sent(
     personas: list[PersonaSpec],
     *,
     outcome: audit.Outcome,
+    db: Session,
 ) -> None:
     audit.record(
         "grant_section.sent_to_llm",
         outcome=outcome,
         actor=str(user.id),
         client_ip=ip,
+        db=db,
+        user_id=str(user.id),
         detail={
             "chars": len(request.text),
             "personas": ",".join(persona.id for persona in personas),
@@ -301,6 +308,7 @@ async def review_board(
     user: LlmUser,
     ip: ClientIp,
     board: Board,
+    db: DbSession,
     request: ReviewBoardRequest,
 ) -> BoardReport:
     """
@@ -321,9 +329,9 @@ async def review_board(
         try:
             report = await board.review(request.to_section(), request.personas or None)
         except ReviewBoardError:
-            _audit_section_sent(user, ip, request, personas, outcome="failure")
+            _audit_section_sent(user, ip, request, personas, outcome="failure", db=db)
             raise
-        _audit_section_sent(user, ip, request, personas, outcome="success")
+        _audit_section_sent(user, ip, request, personas, outcome="success", db=db)
         return report
     except (InvalidQueryError, ReviewBoardError) as exc:
         raise _handle(exc) from exc

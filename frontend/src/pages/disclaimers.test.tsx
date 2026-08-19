@@ -1,10 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OnboardingProvider } from '@/lib/onboarding';
 
-import { AuditPage } from './AuditPage';
 import { ProtocolPage } from './ProtocolPage';
 import { RegulatoryPage, REGULATORY_REVIEW_NOTICE } from './RegulatoryPage';
 import { RegulatoryProvider } from './regulatory/state';
@@ -75,26 +73,5 @@ describe('sample surfaces', () => {
     for (const toggle of screen.getAllByRole('switch')) {
       expect(toggle).toBeDisabled();
     }
-  });
-
-  it('dates the audit timeline as illustrative and does not claim to record activity', () => {
-    render(<AuditPage />);
-
-    expect(screen.getByText(/not your workspace's activity/i)).toBeInTheDocument();
-    expect(screen.queryByText(/^Today/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Recording is not implemented yet/i)).toBeInTheDocument();
-  });
-
-  it('actually filters the audit timeline instead of only looking active', async () => {
-    render(<AuditPage />);
-
-    expect(screen.getByText('Sample data')).toBeInTheDocument();
-    const before = screen.getAllByRole('listitem').length;
-
-    await userEvent.click(screen.getByRole('button', { name: 'Exports' }));
-
-    const after = screen.getAllByRole('listitem');
-    expect(after.length).toBeLessThan(before);
-    expect(after[0]).toHaveTextContent('Exported protocol to Benchling');
   });
 });

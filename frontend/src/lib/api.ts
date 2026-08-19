@@ -49,6 +49,25 @@ export interface ExportOptions {
   filename_stem?: string;
 }
 
+/** One security event from `GET /api/audit/events`, scoped by the server to the caller. */
+export interface AuditEvent {
+  id: string;
+  occurred_at: string;
+  event: string;
+  kind: AuditKind;
+  outcome: string;
+  client_ip: string;
+  /** Provenance only — which document, how many bytes, which model. Never content. */
+  detail: Record<string, string | number | boolean | null>;
+}
+
+export type AuditKind = 'agent' | 'human' | 'export';
+
+export interface AuditFeed {
+  events: AuditEvent[];
+  retention_days: number;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -648,6 +667,14 @@ export const api = {
     );
     return response.blob();
   },
+
+  /** Delete one stored paper. A paper stored by another account is a 404, not a deletion. */
+  deleteDocument: (documentId: string, token?: string) =>
+    send(`/literature/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }, token),
+
+  /** This account's own security events, newest first. There is no parameter for whose. */
+  auditEvents: (kind?: AuditKind, token?: string) =>
+    request<AuditFeed>(`/audit/events${kind ? `?kind=${kind}` : ''}`, {}, token),
 
   /** Deterministic RDKit descriptors and drug-likeness rule sets for one structure. */
   screeningDescriptors: (smiles: string, token?: string) =>

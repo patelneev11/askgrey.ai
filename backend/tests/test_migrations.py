@@ -24,6 +24,7 @@ TABLES = {
     "literature_workspaces",
     "literature_documents",
     "saved_artifacts",
+    "audit_events",
 }
 
 

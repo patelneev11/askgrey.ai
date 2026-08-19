@@ -86,7 +86,7 @@ def register(
             status.HTTP_409_CONFLICT, "That account could not be created with those details"
         )
     user = user_service.create_user(db, payload.email, payload.password, payload.full_name)
-    audit.record("auth.register", actor=user.id, client_ip=ip)
+    audit.record("auth.register", actor=user.id, client_ip=ip, db=db, user_id=user.id)
     return _sign_in(db, response, user.id)
 
 
@@ -104,7 +104,7 @@ def login(
     if user is None:
         audit.record("auth.login", outcome="failure", actor=payload.email, client_ip=ip)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
-    audit.record("auth.login", actor=user.id, client_ip=ip)
+    audit.record("auth.login", actor=user.id, client_ip=ip, db=db, user_id=user.id)
     return _sign_in(db, response, user.id)
 
 
@@ -135,7 +135,7 @@ def refresh(
     user_id, replacement = rotated
     if user_service.get_by_id(db, user_id) is None:
         raise invalid
-    audit.record("auth.refresh", actor=user_id, client_ip=ip)
+    audit.record("auth.refresh", actor=user_id, client_ip=ip, db=db, user_id=user_id)
     _set_refresh_cookie(response, replacement)
     return TokenResponse(access_token=create_token(user_id, "access"))
 
@@ -149,7 +149,7 @@ def logout(
 ) -> Response:
     if refresh_token:
         user_id = session_service.revoke(db, refresh_token)
-        audit.record("auth.logout", actor=user_id, client_ip=ip)
+        audit.record("auth.logout", actor=user_id, client_ip=ip, db=db, user_id=user_id)
     _clear_refresh_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
@@ -159,7 +159,7 @@ def logout(
 def logout_all(db: DbSession, response: Response, ip: ClientIp, user: CurrentUser) -> Response:
     """Sign the account out everywhere — the lever to pull when a device is lost."""
     session_service.revoke_all(db, user.id)
-    audit.record("auth.logout_all", actor=user.id, client_ip=ip)
+    audit.record("auth.logout_all", actor=user.id, client_ip=ip, db=db, user_id=user.id)
     _clear_refresh_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response

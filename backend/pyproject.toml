@@ -35,6 +35,9 @@ dependencies = [
     # directly to evaluate the exported trees.
     "numpy==2.2.6",
     "sentry-sdk==2.66.1",
+    # AES-GCM for the stored document bytes. Already present transitively via pdfminer.six;
+    # pinned here because the storage layer depends on it directly.
+    "cryptography==50.0.0",
 ]
 
 [project.optional-dependencies]

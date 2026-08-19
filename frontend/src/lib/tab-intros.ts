@@ -86,8 +86,8 @@ export const TAB_INTROS: TabIntro[] = [
     path: '/audit',
     title: 'Audit records what the agents did',
     body: [
-      'Agent runs, document reads and exports land here with the model and inputs that produced them, filterable by kind.',
-      'The timeline shown is sample data; your own activity is not recorded here yet.',
+      'Your sign-ins, document reads, model calls and exports land here with the provenance that produced them, filterable by kind.',
+      'Only this workspace’s own events are recorded, kept for a configured window, and never the document text itself.',
     ],
   },
   {

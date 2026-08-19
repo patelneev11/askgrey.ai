@@ -7,6 +7,7 @@ import { OnboardingProvider } from '@/lib/onboarding';
 import { AuditPage } from './AuditPage';
 import { ProtocolPage } from './ProtocolPage';
 import { RegulatoryPage, REGULATORY_REVIEW_NOTICE } from './RegulatoryPage';
+import { RegulatoryProvider } from './regulatory/state';
 import { SettingsPage } from './SettingsPage';
 import { WorkspacePage } from './WorkspacePage';
 
@@ -39,7 +40,11 @@ describe('unvalidated / draft disclaimers', () => {
   // Regulatory is the highest-liability surface: the warning is asserted per pane, because a
   // reviewer reading a long draft in one pane must not be able to scroll away from it.
   it('warns in both Regulatory panes that drafts need regulatory affairs review', () => {
-    render(<RegulatoryPage />);
+    render(
+      <RegulatoryProvider>
+        <RegulatoryPage />
+      </RegulatoryProvider>,
+    );
 
     const notes = screen.getAllByRole('note');
     expect(notes).toHaveLength(2);

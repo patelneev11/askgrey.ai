@@ -9,6 +9,7 @@ import {
   type GuidelineReference,
   type Jurisdiction,
   type RequirementFinding,
+  type SnapshotFreshness,
 } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 
@@ -21,6 +22,43 @@ const JURISDICTIONS: { value: Jurisdiction; label: string }[] = [
   { value: 'ema', label: 'EMA' },
   { value: 'pmda', label: 'PMDA' },
 ];
+
+const SNAPSHOT_TONE: Record<SnapshotFreshness['status'], 'validated' | 'idle' | 'warning'> = {
+  current: 'validated',
+  review_due: 'idle',
+  stale: 'warning',
+};
+
+const SNAPSHOT_LABEL: Record<SnapshotFreshness['status'], string> = {
+  current: 'Reference snapshot current',
+  review_due: 'Reference snapshot review overdue',
+  stale: 'Reference snapshot stale',
+};
+
+/**
+ * How old the encoded expectations are, and what to do about it.
+ *
+ * The age is the backend's, computed from the date a human last read the source documents; a
+ * `current` snapshot is not a claim that the encoded set is complete or legally in force. Rendered
+ * wherever a comparison is offered or shown, because a finding is only as current as this line.
+ */
+export function SnapshotStatus({ snapshot }: { snapshot: SnapshotFreshness }) {
+  const stale = snapshot.status === 'stale';
+  return (
+    <div
+      className={[styles.snapshot, stale ? styles.snapshotStale : ''].filter(Boolean).join(' ')}
+      role={stale ? 'alert' : 'status'}
+    >
+      <StatusPill tone={SNAPSHOT_TONE[snapshot.status]}>
+        {SNAPSHOT_LABEL[snapshot.status]} · {snapshot.age_days} days old
+      </StatusPill>
+      <p className={stale ? styles.notice : styles.hint}>{snapshot.message}</p>
+      {snapshot.status !== 'current' && (
+        <p className={styles.hint}>{snapshot.update_procedure}</p>
+      )}
+    </div>
+  );
+}
 
 const STATUS_CLASS: Record<RequirementFinding['status'], string> = {
   addressed: styles.addressed,
@@ -35,7 +73,8 @@ export interface DraftSource {
   text: string;
 }
 
-export function useGuidelines() {
+/** `enabled` defers the reference listing until the tab is opened; see `RegulatoryProvider`. */
+export function useGuidelines(enabled = true) {
   const [reference, setReference] = useState<GuidelineReference | null>(null);
   const [sectionId, setSectionId] = useState('');
   const [draftText, setDraftText] = useState('');
@@ -46,6 +85,7 @@ export function useGuidelines() {
 
   // The vintage of the shipped datasets, so the UI can state what it compared against.
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     api
       .guidelineReference(getAccessToken())
@@ -58,7 +98,7 @@ export function useGuidelines() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [enabled]);
 
   const toggleJurisdiction = useCallback((value: Jurisdiction) => {
     setJurisdictions((prev) =>
@@ -139,6 +179,8 @@ export function GuidelineForm({ controller, sources }: GuidelineFormProps) {
         void submit();
       }}
     >
+      {reference?.snapshot && <SnapshotStatus snapshot={reference.snapshot} />}
+
       <TextField
         label="Section id"
         value={sectionId}
@@ -261,6 +303,8 @@ export function GuidelineOutput({ controller }: { controller: GuidelineControlle
         {report.min_words_to_judge} words is too short for the engine to judge
       </p>
 
+      {report.snapshot && <SnapshotStatus snapshot={report.snapshot} />}
+
       {report.jurisdictions.map((jurisdiction) => {
         const grouped = {
           addressed: jurisdiction.findings.filter((finding) => finding.status === 'addressed'),
@@ -281,7 +325,8 @@ export function GuidelineOutput({ controller }: { controller: GuidelineControlle
               </div>
             </div>
             <p className={styles.meta}>
-              reference {jurisdiction.version} · transcribed {jurisdiction.retrieved}
+              reference {jurisdiction.version} · transcribed {jurisdiction.retrieved} ·{' '}
+              {jurisdiction.freshness.age_days} days old · {jurisdiction.freshness.status}
             </p>
 
             {(['missing', 'indeterminate', 'addressed'] as const).map((status) =>

@@ -1,19 +1,15 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { Button } from '@/components/Button';
 import { CaveatBand } from '@/components/CaveatBand';
 import { Panel } from '@/components/Panel';
 import { DualPaneWorkspace } from '@/layouts/DualPaneWorkspace';
 
-import {
-  GuidelineForm,
-  GuidelineOutput,
-  useGuidelines,
-  type DraftSource,
-} from './regulatory/GuidelineView';
-import { IndForm, IndOutput, useIndDraft } from './regulatory/IndView';
-import { PreclinicalForm, PreclinicalOutput, usePreclinical } from './regulatory/PreclinicalView';
+import { GuidelineForm, GuidelineOutput, type DraftSource } from './regulatory/GuidelineView';
+import { IndForm, IndOutput } from './regulatory/IndView';
+import { PreclinicalForm, PreclinicalOutput } from './regulatory/PreclinicalView';
 import styles from './regulatory/regulatory.module.css';
+import { useRegulatory, type RegulatoryFeature } from './regulatory/state-context';
 
 /**
  * The banner every generated view in this tab carries, verbatim.
@@ -24,10 +20,8 @@ import styles from './regulatory/regulatory.module.css';
 export const REGULATORY_REVIEW_NOTICE =
   'Agent-drafted content. Requires qualified regulatory affairs review before any regulatory use.';
 
-type Feature = 'preclinical' | 'ind' | 'guidelines';
-
 const FEATURES: {
-  id: Feature;
+  id: RegulatoryFeature;
   label: string;
   inputs: string;
   output: string;
@@ -59,7 +53,7 @@ interface SlotProps {
   children: ReactNode;
 }
 
-/** Inactive features stay mounted so switching tabs does not discard entered data. */
+/** Inactive features stay mounted so switching sub-features does not discard entered data. */
 function Slot({ active, label, children }: SlotProps) {
   return (
     <section aria-label={label} hidden={!active}>
@@ -69,11 +63,12 @@ function Slot({ active, label, children }: SlotProps) {
 }
 
 export function RegulatoryPage() {
-  const [feature, setFeature] = useState<Feature>('preclinical');
-  const preclinical = usePreclinical();
-  const ind = useIndDraft();
-  const guidelines = useGuidelines();
+  // State lives in `RegulatoryProvider`, above the router, so leaving the tab and coming back
+  // does not throw away an entered study or a drafted narrative.
+  const { preclinical, ind, guidelines, feature, setFeature, activate } = useRegulatory();
   const active = FEATURES.find((entry) => entry.id === feature) ?? FEATURES[0];
+
+  useEffect(activate, [activate]);
 
   // Anything already drafted in this tab can be checked directly, rather than the user
   // re-typing a section and checking something subtly different from what was drafted.

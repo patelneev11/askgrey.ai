@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date
+from collections.abc import Sequence
+from datetime import date, timedelta
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,117 @@ LIMITATIONS = (
     "section satisfies the requirement, and 'missing' can mean the section says the right thing in "
     "words the engine does not know."
 )
+
+
+# How the snapshot is expected to be maintained, in days since the `retrieved` date.
+#
+# The interval is a maintenance policy, not a regulatory one: no authority publishes on a schedule.
+# 90 days is a quarterly review, short enough that a revision is unlikely to sit unnoticed for long
+# (PMDA's points-to-consider document is revised roughly annually); past 180 days the snapshot is
+# declared stale, because at that age nobody should be told it reflects current guidance.
+SNAPSHOT_REVIEW_INTERVAL_DAYS = 90
+SNAPSHOT_STALE_AFTER_DAYS = 180
+
+# Where the manual refresh is written down. Pointed at from the payload so the person who sees the
+# warning is told where to act, rather than only that something is old.
+SNAPSHOT_UPDATE_PROCEDURE = (
+    "Refresh manually: app/services/regulatory/guidelines/README.md, 'Refreshing the data' - read "
+    "each document in docs/regulatory-sources.md against reference/<jurisdiction>.json, then bump "
+    "that file's 'version' and 'retrieved'. Nothing is fetched at runtime by design."
+)
+
+
+class SnapshotStatus(str, Enum):
+    """
+    How much trust the snapshot's age earns.
+
+    `REVIEW_DUE` does not mean the data is wrong and `CURRENT` does not mean it is complete or
+    legally current: the status is a statement about when a human last read the source documents,
+    which is the only thing the age of a file can support.
+    """
+
+    CURRENT = "current"
+    REVIEW_DUE = "review_due"
+    STALE = "stale"
+
+
+class SnapshotFreshness(BaseModel):
+    """The age of a shipped snapshot against the maintenance policy, computed, never asserted."""
+
+    version: str
+    retrieved: date
+    age_days: int
+    review_interval_days: int = SNAPSHOT_REVIEW_INTERVAL_DAYS
+    stale_after_days: int = SNAPSHOT_STALE_AFTER_DAYS
+    review_due_on: date
+    stale_on: date
+    status: SnapshotStatus
+    message: str
+    update_procedure: str = SNAPSHOT_UPDATE_PROCEDURE
+
+
+def assess_freshness(version: str, retrieved: date, today: date) -> SnapshotFreshness:
+    """
+    Age one snapshot. Deterministic in `today`, so a caller can ask about any date.
+
+    A negative age (a `retrieved` date in the future) is reported as 0 days and `REVIEW_DUE`: the
+    file is inconsistent rather than fresh, and treating it as current would hide that.
+    """
+    age = (today - retrieved).days
+    review_due_on = retrieved + timedelta(days=SNAPSHOT_REVIEW_INTERVAL_DAYS)
+    stale_on = retrieved + timedelta(days=SNAPSHOT_STALE_AFTER_DAYS)
+    if age < 0:
+        return SnapshotFreshness(
+            version=version,
+            retrieved=retrieved,
+            age_days=0,
+            review_due_on=review_due_on,
+            stale_on=stale_on,
+            status=SnapshotStatus.REVIEW_DUE,
+            message=(
+                f"Snapshot {version} is dated {retrieved.isoformat()}, in the future. Treat the "
+                "vintage as unknown and re-read the source documents."
+            ),
+        )
+    if age >= SNAPSHOT_STALE_AFTER_DAYS:
+        status = SnapshotStatus.STALE
+        message = (
+            f"Snapshot {version} was read from the source documents {age} days ago "
+            f"({retrieved.isoformat()}), past the {SNAPSHOT_STALE_AFTER_DAYS}-day limit. Findings "
+            "may reflect superseded guidance; check every requirement against the cited document "
+            "before relying on this report."
+        )
+    elif age >= SNAPSHOT_REVIEW_INTERVAL_DAYS:
+        status = SnapshotStatus.REVIEW_DUE
+        message = (
+            f"Snapshot {version} was read from the source documents {age} days ago "
+            f"({retrieved.isoformat()}); a review was due on {review_due_on.isoformat()}. It has "
+            "not been checked against the sources since."
+        )
+    else:
+        status = SnapshotStatus.CURRENT
+        message = (
+            f"Snapshot {version} was read from the source documents {age} days ago "
+            f"({retrieved.isoformat()}); the next review is due {review_due_on.isoformat()}. That "
+            "is when a human last read the sources, not a statement that the data is complete or "
+            "legally current."
+        )
+    return SnapshotFreshness(
+        version=version,
+        retrieved=retrieved,
+        age_days=age,
+        review_due_on=review_due_on,
+        stale_on=stale_on,
+        status=status,
+        message=message,
+    )
+
+
+def oldest(snapshots: Sequence[SnapshotFreshness]) -> SnapshotFreshness | None:
+    """The snapshot a UI should lead with: the one whose age is worst."""
+    if not snapshots:
+        return None
+    return max(snapshots, key=lambda snapshot: snapshot.age_days)
 
 
 class Jurisdiction(str, Enum):
@@ -84,6 +196,7 @@ class JurisdictionFindings(BaseModel):
     jurisdiction: Jurisdiction
     version: str
     retrieved: date
+    freshness: SnapshotFreshness
     findings: list[RequirementFinding] = Field(default_factory=list)
     out_of_scope_requirement_ids: list[str] = Field(default_factory=list)
 
@@ -104,6 +217,8 @@ class GuidelineCheckReport(BaseModel):
     word_count: int
     min_words_to_judge: int
     jurisdictions: list[JurisdictionFindings] = Field(default_factory=list)
+    # The worst-aged snapshot the report drew on, so one line can state how old the comparison is.
+    snapshot: SnapshotFreshness | None = None
     requires_expert_review: bool = True
     review_notice: str = REVIEW_NOTICE
     limitations: str = LIMITATIONS
@@ -130,6 +245,7 @@ class ReferenceJurisdiction(BaseModel):
     jurisdiction: Jurisdiction
     version: str
     retrieved: date
+    freshness: SnapshotFreshness
     notes: str = ""
     requirements: list[ReferenceRequirement] = Field(default_factory=list)
 
@@ -138,6 +254,7 @@ class ReferenceLibrary(BaseModel):
     """Vintage plus contents of the shipped datasets, so a UI can show what it is comparing to."""
 
     jurisdictions: list[ReferenceJurisdiction] = Field(default_factory=list)
+    snapshot: SnapshotFreshness | None = None
     requires_expert_review: bool = True
     review_notice: str = REVIEW_NOTICE
     limitations: str = LIMITATIONS

@@ -64,7 +64,8 @@ const STATUS_LABEL: Record<IndDraft['sections'][number]['status'], string> = {
   not_drafted: 'not drafted',
 };
 
-export function useIndDraft() {
+/** `enabled` defers the structure request until the tab is opened; see `RegulatoryProvider`. */
+export function useIndDraft(enabled = true) {
   const [structure, setStructure] = useState<IndStructure | null>(null);
   const [structureError, setStructureError] = useState<string | null>(null);
   const [program, setProgram] = useState({
@@ -80,6 +81,7 @@ export function useIndDraft() {
 
   // The section list is the dated CTD transcription the backend owns; the UI never hardcodes it.
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     api
       .indStructure(getAccessToken())
@@ -92,7 +94,7 @@ export function useIndDraft() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [enabled]);
 
   const toggleSection = useCallback((id: string) => {
     setSelected((prev) =>

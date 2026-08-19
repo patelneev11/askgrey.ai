@@ -22,6 +22,7 @@ from app.services.chat.store import (
     ChatRequestError,
     append_message,
     create_conversation,
+    cursor_context,
     delete_conversation,
     get_conversation,
     history_for_model,
@@ -154,6 +155,11 @@ async def send_message(
     except ChatRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     history = history_for_model(db, conversation_id=conversation_id, user_id=user_id)
+    # Carried separately from the references because it is not the researcher's attachment: it is
+    # what the previous turn's tools handed back and the replayed prose cannot hold.
+    cursors = cursor_context(db, conversation_id=conversation_id, user_id=user_id)
+    if cursors:
+        reference_context = f"{reference_context}\n\n{cursors}" if reference_context else cursors
     audit.record(
         "chat.message_sent",
         actor=user_id,

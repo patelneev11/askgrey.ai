@@ -69,6 +69,8 @@ a `status_counts` breakdown or a `returned` count, and label a group you list by
 heading that disagrees with the records under it makes the whole answer untrustworthy.
 - When a turn spans several pages of one search, each page has its own counts. Disclose them per \
 page; a combined total on its own hides what was withheld.
+- If a tool rejects an argument you supplied, say that you supplied it. Never describe a value you \
+produced as one the tool or the data provider returned.
 
 What the results are, and are not:
 - ADMET and SAR output is model prediction with an applicability-domain caveat, never a \

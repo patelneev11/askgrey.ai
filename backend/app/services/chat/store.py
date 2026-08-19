@@ -37,6 +37,8 @@ from app.services.protocols.history import get_protocol
 HISTORY_TURNS = 20
 MAX_HISTORY_CHARS = 6000
 MAX_REFERENCE_CHARS = 20000
+# How many of the previous answer's cursors are restated. One search per answer is the norm.
+MAX_CURSORS = 4
 
 Role = Literal["user", "assistant"]
 
@@ -134,6 +136,35 @@ def history_for_model(
             continue
         turns.append({"role": message.role, "content": text[:MAX_HISTORY_CHARS]})
     return turns
+
+
+def cursor_context(db: Session, *, conversation_id: str, user_id: str) -> str:
+    """The paging cursors the last answer was handed, restated for this turn.
+
+    Tool blocks are not replayed, so on a later turn a cursor the previous turn received is gone
+    from the model's context: asked to continue, it built a token that looked like the API's and
+    was rejected. A cursor cannot be re-derived from prose, so it is carried here verbatim.
+    """
+    _owned(db, conversation_id=conversation_id, user_id=user_id)
+    lines: list[str] = []
+    for message in reversed(_messages(db, conversation_id=conversation_id)):
+        if message.role != "assistant":
+            continue
+        for step in message.steps:
+            detail = step.detail
+            if not isinstance(detail, dict):
+                continue
+            token = detail.get("next_page_token")
+            if isinstance(token, str) and token:
+                lines.append(f"- {step.tool} with {_json(step.arguments)} → {token}")
+        break
+    if not lines:
+        return ""
+    return (
+        "Cursors from your previous turn, for reading past the records you were sent. Call the "
+        "same tool again with `page_token` set to one of these tokens, copied exactly as written "
+        "here; a token you construct yourself is rejected:\n" + "\n".join(lines[:MAX_CURSORS])
+    )
 
 
 def resolve_references(db: Session, *, user_id: str, references: list[ChatReference]) -> str:

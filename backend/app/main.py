@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.account import router as account_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
+from app.api.chat import router as chat_router
 from app.api.clinicaltrials import router as clinicaltrials_router
 from app.api.export import router as export_router
 from app.api.grants import router as grants_router
@@ -31,6 +32,10 @@ from app.core.spa import mount_spa
 from app.db.session import engine
 from app.models.audit import AuditEvent  # noqa: F401  (registers the table)
 from app.models.base import Base
+from app.models.chat import (  # noqa: F401  (registers the tables)
+    ChatConversation,
+    ChatMessage,
+)
 from app.models.library import SavedArtifact  # noqa: F401  (registers the table)
 from app.models.literature import (  # noqa: F401  (registers the tables)
     LiteratureDocument,
@@ -102,6 +107,7 @@ app.include_router(screening_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
 app.include_router(account_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 
 @app.exception_handler(DocumentKeyUnavailableError)

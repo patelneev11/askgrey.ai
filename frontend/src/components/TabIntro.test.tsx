@@ -43,6 +43,7 @@ describe('first-encounter tab notices', () => {
 
   it('covers every destination in the shell', () => {
     expect(TAB_INTROS.map((intro) => intro.path)).toEqual([
+      '/assistant',
       '/literature',
       '/screening',
       '/protocol',

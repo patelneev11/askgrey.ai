@@ -130,6 +130,14 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1024
     llm_timeout_seconds: float = 30.0
 
+    # The chat tab streams and may run several tool steps in one turn, so it is sized larger and
+    # given longer than a single-shot service call. `chat_max_tool_steps` is the ceiling on tool
+    # rounds per message: without it a model that keeps asking for one more search spends the
+    # account's whole daily budget on one question.
+    chat_max_tokens: int = 4096
+    chat_timeout_seconds: float = 120.0
+    chat_max_tool_steps: int = 6
+
     # Observability. The DSN is empty in development, which turns error reporting into a
     # no-op rather than requiring a Sentry project to run the app.
     sentry_dsn: str = ""

@@ -45,6 +45,26 @@ also breaks vitest):
 Node 20.18 prints a "Vite requires Node 20.19+" warning and still works — noise unless the build
 itself fails.
 
+### Reload-sensitive tests need the single-origin build, not the dev server
+
+Pressing F5 against `:5173` logs you out, so any assertion about state surviving a reload must run
+against the built SPA served by FastAPI:
+
+```bash
+(cd frontend && npm run build)
+cd backend && FRONTEND_DIST_DIR=$PWD/../frontend/dist .venv/bin/uvicorn app.main:app --port 8000
+```
+
+### Environment gotchas that cost time
+
+- Chrome's CDP endpoint here is **IPv6-only**: `http://[::1]:29229/json/list`. The IPv4 port hosts a
+  different Chrome, as do the Vite listeners.
+- `export DISPLAY=:0` before any `wmctrl`/`xdotool` call, otherwise they fail with no display.
+- There is **no `sqlite3` CLI** — query the dev DB with `backend/.venv/bin/python` and the stdlib
+  `sqlite3` module.
+- The login password field intermittently drops a trailing `!`. Type `TestPassword123`, then send
+  `shift+1` as a separate keystroke.
+
 ## Auth
 
 - Register from the login page: click **"No workspace yet? Create one"**, which reveals a
@@ -617,3 +637,266 @@ predicted pKi/ADMET/toxicity values and Protocol/Regulatory's drafted IND/CTD te
 surfaces where a missing "unvalidated / requires researcher review" warning is highest-consequence.
 Note that a `Sample data` pill speaks to *provenance*, not *reliability* — it does not discharge
 the disclaimer requirement.
+
+## Encrypted document storage + audit trail (tickets #23/#24, PR #74)
+
+### Serve the built SPA single-origin when the test involves a reload
+
+Reload-persistence assertions are untestable on the Vite dev server, because F5 at `:5173` can log
+you out (StrictMode double-mount → `auth.refresh_reuse` denied). Build once and let FastAPI serve
+it, then do all browser work at `:8000`:
+
+```bash
+(cd frontend && npm run build)
+(cd backend && ANTHROPIC_API_KEY=… FRONTEND_DIST_DIR="$PWD/../frontend/dist" \
+   .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000)
+```
+
+F5 at `:8000` keeps the session. Verify that before trusting any "survives reload" result.
+
+### Inspecting the DB: there is no `sqlite3` CLI
+
+Use the venv interpreter and the stdlib module instead:
+`backend/.venv/bin/python -c "import sqlite3; ..."` against `backend/askgrey.db`.
+
+### Proving `literature_documents.content` is really ciphertext
+
+Four independent checks, all cheap — don't stop at the first:
+
+- `content[:5] != b"%PDF-"` **and** `b"%PDF" not in content` (a partially-encrypted blob still
+  contains the marker somewhere).
+- `len(content) == byte_size + 28` — a 12-byte nonce plus a 16-byte GCM tag. If the length *equals*
+  `byte_size`, plaintext is being stored.
+- Distinctive plaintext from the paper (e.g. `b"Ziprasidone"`, an extracted value) is absent.
+- **The strongest discriminator:** upload the *same* PDF from two accounts. `document_id` is a digest
+  of the bytes, so both rows share it — but the two `content` blobs must **differ**, which is what
+  actually demonstrates a fresh nonce and AAD bound to `user_id:document_id`. Identical blobs would
+  mean deterministic encryption even though every other check above passes.
+
+Round-trip matters too: the owner's `GET /api/literature/documents/{id}/pdf` must return `200` with
+a body starting `%PDF-`, or you've proven storage is opaque but not that it's *recoverable*.
+
+### Cross-account 404s: compare the response *bytes*, not just the status
+
+The security property is indistinguishability, so assert the foreign-but-existing id and a
+never-existing id (`deadbeefdeadbeef`) return byte-identical bodies:
+
+```python
+s1,_,b1 = req(f'/api/literature/documents/{A_DOC}/pdf', B_TOKEN)   # expect 404
+s2,_,b2 = req('/api/literature/documents/deadbeefdeadbeef/pdf', B_TOKEN)
+assert s1==s2 and b1==b2   # b'{"detail":"no such document"}'
+```
+
+Use **B's own bearer token** from B's own login, not a cookie lifted from A's browser session.
+Two traps: run these while A's document still **exists** (otherwise a 404 proves absence, not
+isolation), and never let B upload the same PDF first — the byte-digest id would collide and a `200`
+would legitimately be B's own copy.
+
+Deletion is scoped the same way. After the owner deletes, another account's row holding the *same*
+`document_id` must survive — that's what shows delete is per-user rather than keyed on the digest.
+
+### Make "no prompt/document text leaks into the audit log" greppable
+
+Plant a sentinel in the extraction goal (e.g. `sample size, primary efficacy endpoint,
+QTCSENTINEL9142`). It becomes a real column, so it travels the whole prompt path; then assert the
+string is absent from both the raw `GET /api/audit/events` JSON and the rendered `/audit` text.
+Also check extracted values, `sk-ant`, `Bearer `, the literal `ANTHROPIC_API_KEY`, and a `"goal"`
+key inside `detail`. `AuditPage.tsx`'s `detailOf` prints **every** `detail` key verbatim on screen,
+so a new backend detail field surfaces in the UI without a frontend change — re-check the rendered
+page, not only the JSON.
+
+**Expected `detail` keys are provenance only:** `document_id`, `bytes`, `vendor`, `model`, `source`,
+`format`, `rows`, `documents_deleted`. Note `source` is the **filename**, so a paper's subject can
+appear in the audit feed via its own filename (e.g. `trial_ziprasidone.pdf`) — that is user-supplied
+provenance rather than document text, but flag it if filenames could be sensitive.
+
+### Giving the Exports filter something real without a browser
+
+Exports are audited server-side, so POST the *real* table straight from the saved workspace:
+
+```python
+ws = GET /api/literature/workspace            # -> {'goal','sources','table','stored_document_ids'}
+POST /api/export/xlsx  {'table': ws['table']} # -> 200, body starts b'PK', logs export.downloaded
+```
+
+`kind` bucketing lives in `services/audit.py`: `export` markers win, then `agent`
+(`sent_to_llm`, `llm.`, `extraction.`, `budget_`), else `human`. Good API-level filter oracle:
+`agent` → only `document.sent_to_llm`; `human` → auth events + `literature.document_read`;
+`export` → only `export.downloaded`. Identical counts across all three means the filter never
+reached the API.
+
+Note `auth.register` renders as "Created this workspace" and `auth.refresh` as "Renewed a session" —
+registering via the UI auto-signs-in, so a fresh account shows **no** separate "Signed in" row until
+an explicit login. Don't report that as a missing login event.
+
+Retention text is API-driven: `/audit` shows `retention_days` (**365**, `audit_retention_days`),
+while document `expires_at` uses `DOCUMENT_RETENTION_DAYS` (**90**). Two different windows — don't
+conflate them.
+
+## When the X server dies mid-run
+
+This box has twice lost the whole GUI stack mid-session (uvicorn, Chrome and X all gone;
+`/tmp/.X11-unix` empty; `computer` returns "Computer-use engine is not yet initialized"). You can
+restart uvicorn yourself, but **re-provisioning X is not something the agent can do** — escalate it.
+
+Salvage the recording from the raw segments; the final segment is usually truncated
+(`ffmpeg.log` ends `received signal 15`) and needs a remux before it will concat:
+
+```bash
+ffmpeg -y -i <run>-raw-001.mkv -c copy /tmp/fix001.mkv     # "File ended prematurely" is expected
+printf "file '<abs>/…-raw-000.mkv'\nfile '/tmp/fix001.mkv'\n" > /tmp/cc.txt
+ffmpeg -y -f concat -safe 0 -i /tmp/cc.txt -c:v libx264 -crf 26 -pix_fmt yuv420p salvaged.mp4
+```
+
+The salvaged file has **no annotation overlays** (those are added by the editing pass that died), so
+say so when handing it over. Prefer finishing blocked steps API-only and labelling the UI portion
+untested over silently dropping them.
+
+### Uploading a PDF without the GTK chooser
+
+The native chooser doesn't hand files back to Chrome here; set the file input over CDP
+(`/home/ubuntu/cdp_setfile.py`, which calls `DOM.setFileInputFiles`). Its target filter must match
+the port under test — it defaults to matching `localhost:` so it works at both `:5173` and `:8000`.
+
+Chrome's CDP endpoint has appeared on **both** `http://[::1]:29229/json/list` (IPv6) and
+`http://127.0.0.1:29229/json/list` (IPv4) on different boots. If the helper fails with connection
+refused, check `ss -ltnp | grep 29229` and swap the host rather than assuming Chrome is down.
+
+### If Chrome died (renderer crash) but X is still up
+
+Check `ls /tmp/.X11-unix` first: if `X0` exists, X is fine and only Chrome needs restarting — you do
+not need the platform to re-provision anything.
+
+```bash
+DISPLAY=:0 setsid nohup /home/ubuntu/.local/bin/google-chrome --remote-debugging-port=29229 \
+  --remote-allow-origins='*' --no-first-run --no-default-browser-check \
+  --user-data-dir=/home/ubuntu/.config/google-chrome > /tmp/chrome.log 2>&1 < /dev/null &
+```
+
+Reusing the same `--user-data-dir` preserves the login **and** the Literature extraction state, so
+you usually land straight back on a populated workspace and can skip re-upload/re-extraction. Two
+follow-ups: dismiss the "Restore pages?" bubble and the onboarding tour, and note that
+`wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz` *does* work against this Chrome.
+
+**Caveat that will cost you time:** the platform `browser_console` tool fails with "Could not connect
+to Chrome via CDP" against a Chrome you started by hand, even though the `computer` tool still
+screenshots and clicks it fine. Drive JS evaluation over CDP yourself instead —
+`/home/ubuntu/cdp_eval.py '<js expr>'` evaluates with `awaitPromise`/`returnByValue`, so
+`(async()=>{...})()` works and is what you want for multi-second sampling loops.
+
+### Backgrounded servers keep dying with the shell (exit -1)
+
+Under memory pressure the `exec` shells here get killed (`exit code: -1`), taking any `cmd &`
+child with them, so the backend silently never comes up. Start long-lived servers from a
+**detached script** instead, then poll health separately:
+
+```bash
+cat > /tmp/start_real.sh <<'EOF'
+#!/bin/bash
+pkill -9 -f 'uvicorn app.main:app' >/dev/null 2>&1; sleep 3
+cd /home/ubuntu/repos/askgrey/backend || exit 1
+export FRONTEND_DIST_DIR='/home/ubuntu/repos/askgrey/frontend/dist'
+exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+EOF
+chmod +x /tmp/start_real.sh
+(setsid nohup /tmp/start_real.sh > /tmp/uv.log 2>&1 &)
+```
+
+### Forcing an LLM failure: the `env` parameter will NOT override the session secret
+
+`ANTHROPIC_API_KEY` is auto-injected into every shell, and it **wins over** the `exec` tool's
+`env` parameter. A "forced failure" started that way silently runs against the *real* key and
+returns `200`, which looks like the failure path is broken when it is really untested. Override on
+the command line and always verify before trusting the result:
+
+```bash
+exec env ANTHROPIC_API_KEY='sk-ant-api03-BOGUS…' .venv/bin/uvicorn app.main:app --port 8000
+tr '\0' '\n' < /proc/$(pgrep -f 'uvicorn app.main:app' | head -1)/environ | grep ANTHROPIC
+```
+
+A bogus-but-well-formed key is the path that produces an audited failure: the board reports itself
+`available`, attempts the call, gets `Claude returned HTTP 401`, returns **502** with the detail in
+`ApiError`, and audits `grant_section.sent_to_llm` with `outcome=failure`. An **absent** key instead
+503s and audits *nothing* by design — so use a bogus key, not no key, to test failure auditing.
+
+### Diagnosing a blank pdf.js citation canvas (recurring bug)
+
+Symptom: the citation pane header reads `quote found on this page`, highlight rects are positioned
+correctly, but the `<canvas>` stays at its browser-default **300x150** intrinsic size and paints
+nothing, with **no** error text (`CitationViewer` only renders `error` when the `catch` runs; the
+`width === 0` and `cancelled || !canvas || !context` branches return silently).
+
+Storage, asset paths and CSP have all been ruled out in past runs — don't re-litigate them. The
+fast discriminator is to **count worker fetches**, which exposes a respawn loop:
+
+```js
+performance.getEntriesByType('resource').filter(e => /pdf\.worker/.test(e.name)).length
+```
+
+A healthy render fetches the worker once or twice. Seeing the resource buffer saturated (240 of 250
+entries in ~7 s) means pdf.js is being re-instantiated tens of times per second: `getDocument()`
+never settles, so `canvas.width` is never assigned, and the renderer eventually OOMs (`Aw, Snap!`,
+error code 5) — which on this box also takes down Chrome, X and uvicorn. Note that the effect's
+cleanup only sets `cancelled = true`; it never calls `doc.destroy()`/`worker.destroy()`, so every
+re-run leaks a worker. Check whether `fitWidth` is oscillating (a scrollbar toggling flips the
+frame width, retriggering the `[file, citation, width]` effect) before blaming the file identity —
+`fileFor` is memoised on `filesByDocument` and the PDF is fetched once.
+
+**Root cause and fix (resolved at `ea2b06c`; keep this as the reference pattern).** The oscillation
+was a *self-referential layout loop*, not sub-pixel jitter: `.frame` had `overflow: auto`, so the
+scrollbar's appearance narrowed the frame → the page re-fitted smaller → the shorter page stopped
+overflowing → the scrollbar left → the width swung back, forever, spawning a worker per swing. The
+swing was between **integer** widths exactly one scrollbar apart (measured 625px ↔ 635px), which is
+why an earlier `Math.floor` fix did nothing. Two things fixed it: `scrollbar-gutter: stable` on
+`.frame` (the gutter is reserved whether or not the page overflows, so width no longer depends on
+content height) and a `Set` of already-painted widths that refuses to raster the same width twice.
+
+If a blank canvas ever returns, measure in this order — each step distinguishes a different cause:
+
+```js
+// 1. is the width oscillating? sample repeatedly; a healthy pane reports ONE distinct value
+const ps = document.querySelector('[class*=pageStack]');
+setInterval(() => console.log(ps.style.width), 250);   // two values ~10-17px apart = the loop
+// 2. did it actually paint pixels? a correctly-SIZED but white canvas must not pass
+const c = document.querySelector('canvas'); const d = c.getContext('2d')
+  .getImageData(0, 0, c.width, c.height).data;
+let painted = 0; for (let i = 0; i < d.length; i += 4 * 97)
+  if (d[i + 3] > 0 && !(d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245)) painted++;
+```
+
+Healthy reference numbers at a ~580px pane: `canvas.width/height` ≈ `582x751`, ~1600 of ~4500
+sampled pixels painted, **2** worker fetches, one distinct `.pageStack` width, `load` well under 1.
+Raise the buffer first (`performance.setResourceTimingBufferSize(3000)`) or a loop will saturate it
+and hide its own size. Always `performance.clearResourceTimings()` right before the click you are
+measuring, otherwise you attribute an earlier render's workers to this one.
+
+Two traps when asserting the *fixed* behaviour:
+
+- **A settled width is not proof on its own.** `!rendered && !error` renders `Rendering page N…`.
+  Assert that this text is **absent** as well as `role="alert"` count 0 — "no alert" was the old
+  silent-failure signature, so it is only good news when the placeholder is gone too.
+- **Zoom-out intentionally does not re-raster.** Returning to a width already in the painted set
+  early-returns, so `canvas.width` keeps the *larger* raster while `.pageStack` shrinks (e.g. canvas
+  stays `1137x1468` at a 758px pane). The canvas is `width/height: 100%`, so this only ever costs
+  sharpness. Do not file it as a stale-canvas bug — but do check the pane is not stranded on
+  `Rendering page N…`, which is the one way that early return could theoretically strand it.
+- A continuous splitter **drag** passes through many intermediate widths and rasters each once, so
+  expect a bounded bump (~8 workers for one drag), not 1. What matters is that it **stops growing**
+  once you release.
+
+### API-only payload shapes (for when the browser is unavailable)
+
+These bit me; the validation errors are the only documentation:
+
+- `BoundingBox` is `{x0, top, x1, bottom}` — *not* `x0/y0/x1/y1` and *not* `left/top/right/bottom`.
+- `ExtractionCell.status` ∈ `grounded | ungrounded | not_found` (not `extracted`).
+- `PreclinicalReport` input: `DoseGroup` uses `label` (not `name`), `dose` is a
+  `Quantity {value, unit}`, `glp_status` ∈ `compliant | non_compliant | not_reported`.
+- `POST /api/library` re-validates `payload` against the model that produced it, so you must feed
+  it a genuine endpoint response; hand-written payloads 422. Kinds are a closed set
+  (`screening_*`, `regulatory_preclinical|regulatory_ind`, `grants_eligibility|budget|review_board`).
+- A fresh `POST /api/auth/login` is a reasonable stand-in for F5 when proving the saved library is
+  server-side: list `/api/library`, then `GET /api/library/{id}` and compare the payload for
+  equality against what was saved.
+- The xlsx export writes two sheets — `Review table` and a `Sources` sheet carrying page, quote,
+  block id and position — so verify with `openpyxl`, not by grepping `xl/sharedStrings.xml`.

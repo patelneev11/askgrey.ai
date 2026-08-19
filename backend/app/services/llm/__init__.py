@@ -6,6 +6,7 @@ from .anthropic import (
     AnthropicEmptyResponseError,
     AnthropicError,
     AnthropicMessagesClient,
+    AnthropicTruncatedResponseError,
     strip_code_fence,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "AnthropicEmptyResponseError",
     "AnthropicError",
     "AnthropicMessagesClient",
+    "AnthropicTruncatedResponseError",
     "strip_code_fence",
 ]

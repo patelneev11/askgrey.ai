@@ -93,7 +93,9 @@ class Settings(BaseSettings):
 
     # Protocol drafting. A full protocol is longer than a query translation, so it gets its own
     # token ceiling and a timeout that tolerates the larger completion.
-    protocol_draft_max_tokens: int = 4096
+    # 4096 truncated a routine multi-stage assay (a western blot with lysis and readout) mid-JSON,
+    # so the ceiling is a limit on runaway output rather than on an ordinary protocol.
+    protocol_draft_max_tokens: int = 8192
     protocol_draft_timeout_seconds: float = 90.0
     protocol_review_max_tokens: int = 2048
 

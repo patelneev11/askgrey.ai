@@ -1,11 +1,36 @@
 import { act, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { citation, paperRow } from '@/test/fixtures';
 
 import { CitationViewer } from './CitationViewer';
 
+const destroy = vi.fn(() => Promise.resolve());
+const getDocument = vi.fn(() => ({
+  promise: Promise.resolve({
+    destroy,
+    getPage: () =>
+      Promise.resolve({
+        getViewport: ({ scale }: { scale: number }) => ({
+          width: 612 * scale,
+          height: 792 * scale,
+        }),
+        render: () => ({ promise: Promise.resolve() }),
+      }),
+  }),
+}));
+
+vi.mock('pdfjs-dist', () => ({
+  GlobalWorkerOptions: { workerSrc: '' },
+  getDocument: (...args: unknown[]) => getDocument(...(args as [])),
+}));
+
 describe('CitationViewer', () => {
+  beforeEach(() => {
+    destroy.mockClear();
+    getDocument.mockClear();
+  });
+
   it('prompts for a selection when no citation is open', () => {
     render(<CitationViewer target={null} />);
     expect(screen.getByText('No passage selected')).toBeInTheDocument();
@@ -97,6 +122,54 @@ describe('CitationViewer', () => {
       expect(stack.style.width).toBe('900px');
     } finally {
       globalThis.ResizeObserver = original;
+    }
+  });
+
+  it('opens one document per settled width and destroys it, so workers cannot pile up', async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], 'paper.pdf', { type: 'application/pdf' });
+    // jsdom's File has no `arrayBuffer`, and without it the render bails before pdf.js is reached.
+    Object.defineProperty(file, 'arrayBuffer', { value: () => Promise.resolve(new ArrayBuffer(3)) });
+    let notify: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(callback: (entries: { contentRect: { width: number } }[]) => void) {
+        notify = callback;
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    // jsdom has no 2d context, and the render path stops short of painting without one.
+    const context = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue({} as CanvasRenderingContext2D);
+    // Nor `scrollIntoView`, which the viewer calls once the page has painted.
+    HTMLElement.prototype.scrollIntoView = () => undefined;
+
+    try {
+      const { unmount } = render(
+        <CitationViewer
+          target={{ row: paperRow(), columnLabel: 'sample size', citation: citation() }}
+          fileFor={() => file}
+        />,
+      );
+
+      await act(async () => notify?.([{ contentRect: { width: 625.5 } }]));
+      // Sub-pixel jitter around the same layout width must not count as a new width, or every
+      // wobble opens another document and its worker.
+      await act(async () => notify?.([{ contentRect: { width: 625.71 } }]));
+      await act(async () => notify?.([{ contentRect: { width: 625.09 } }]));
+      expect(getDocument).toHaveBeenCalledTimes(1);
+
+      await act(async () => notify?.([{ contentRect: { width: 900 } }]));
+      expect(getDocument).toHaveBeenCalledTimes(2);
+      expect(destroy).toHaveBeenCalledTimes(1);
+
+      unmount();
+      expect(destroy).toHaveBeenCalledTimes(2);
+    } finally {
+      globalThis.ResizeObserver = original;
+      context.mockRestore();
     }
   });
 

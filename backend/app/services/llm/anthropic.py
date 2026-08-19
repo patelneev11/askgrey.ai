@@ -19,6 +19,15 @@ class AnthropicEmptyResponseError(AnthropicError):
     """A reply with no text, e.g. a refusal. Retryable, unlike an HTTP status or a bad key."""
 
 
+class AnthropicTruncatedResponseError(AnthropicError):
+    """The reply hit the token ceiling mid-sentence.
+
+    Worth its own type because the text that comes back is well-formed prose up to the cut and
+    then simply stops, so a JSON parser reports invalid syntax and the caller would otherwise
+    blame the model for a limit the deployment set.
+    """
+
+
 def strip_code_fence(content: str) -> str:
     """Drop a ```-fenced wrapper the model added despite being told not to."""
     stripped = content.strip()
@@ -102,6 +111,10 @@ class AnthropicMessagesClient:
         )
         if not text.strip():
             raise AnthropicEmptyResponseError("Claude returned no text content")
+        if body.get("stop_reason") == "max_tokens":
+            raise AnthropicTruncatedResponseError(
+                f"Claude's reply was cut off at the {self.max_tokens}-token ceiling"
+            )
         return text
 
     def _meter(self, usage: object) -> None:

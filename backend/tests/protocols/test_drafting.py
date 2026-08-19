@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 
 from app.services.protocols import (
@@ -197,6 +198,24 @@ async def test_an_upstream_failure_surfaces_as_a_drafter_error() -> None:
     drafter, _ = make_drafter(claude_response({"error": "nope"}, status_code=500))
 
     with pytest.raises(DrafterError):
+        await drafter.draft(draft_request())
+    await drafter.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_draft_cut_off_at_the_token_ceiling_says_what_to_do_about_it() -> None:
+    """A truncated reply is unparsable JSON, but "invalid JSON" sends the user hunting a
+    fabricated model fault instead of narrowing the goal."""
+    cut_off = httpx.Response(
+        200,
+        json={
+            "content": [{"type": "text", "text": '"title": "Western blot", "materials": [{"nam'}],
+            "stop_reason": "max_tokens",
+        },
+    )
+    drafter, _ = make_drafter(cut_off)
+
+    with pytest.raises(DrafterError, match="outgrew the response limit"):
         await drafter.draft(draft_request())
     await drafter.aclose()
 

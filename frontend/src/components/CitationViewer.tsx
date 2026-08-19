@@ -1,3 +1,4 @@
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { StatusPill } from '@/components/StatusPill';
@@ -52,20 +53,26 @@ function PdfPage({ file, citation, zoom }: { file: File; citation: Citation; zoo
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
-    setFitWidth(frame.clientWidth);
+    // Whole pixels only: the observed width is fractional and oscillates by sub-pixels, which
+    // would re-raster the page on every wobble.
+    setFitWidth(Math.floor(frame.clientWidth));
     if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => setFitWidth(entry.contentRect.width));
+    const observer = new ResizeObserver(([entry]) =>
+      setFitWidth(Math.floor(entry.contentRect.width)),
+    );
     observer.observe(frame);
     return () => observer.disconnect();
   }, []);
 
   // Zoom multiplies the fit-to-width raster: at laptop widths a whole journal page scaled
   // into a ~400px pane is not legible, so the user has to be able to magnify it.
-  const width = fitWidth * zoom;
+  const width = Math.floor(fitWidth * zoom);
 
   useEffect(() => {
     if (width === 0) return;
-    let cancelled = false;
+    // Each run owns the document it opened: pdf.js spawns a worker per document, so a leaked one
+    // keeps respawning workers and the page never paints.
+    const run = { cancelled: false, doc: null as PDFDocumentProxy | null };
 
     const render = async () => {
       setRendered(false);
@@ -79,25 +86,29 @@ function PdfPage({ file, citation, zoom }: { file: File; citation: Citation; zoo
 
         const data = new Uint8Array(await file.arrayBuffer());
         const doc = await pdfjs.getDocument({ data }).promise;
+        run.doc = doc;
+        if (run.cancelled) return;
         const page = await doc.getPage(citation.page_number);
         const base = page.getViewport({ scale: 1 });
         const viewport = page.getViewport({ scale: width / base.width });
 
         const canvas = canvasRef.current;
         const context = canvas?.getContext('2d');
-        if (cancelled || !canvas || !context) return;
+        if (run.cancelled || !canvas || !context) return;
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ canvasContext: context, viewport }).promise;
-        if (!cancelled) setRendered(true);
+        if (!run.cancelled) setRendered(true);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not render page');
+        if (!run.cancelled)
+          setError(cause instanceof Error ? cause.message : 'Could not render page');
       }
     };
 
     void render();
     return () => {
-      cancelled = true;
+      run.cancelled = true;
+      void run.doc?.destroy();
     };
   }, [file, citation, width]);
 

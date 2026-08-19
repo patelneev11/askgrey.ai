@@ -358,6 +358,7 @@ class TrialInput(BaseModel):
     phases: list[TrialPhase] = Field(default_factory=list, max_length=8)
     statuses: list[TrialStatus] = Field(default_factory=list, max_length=12)
     page_size: int = Field(default=10, ge=1, le=MAX_TRIAL_PAGE_SIZE)
+    page_token: str = Field(default="", max_length=400)
 
 
 async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) -> ToolOutcome:
@@ -371,15 +372,18 @@ async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) 
         statuses=arguments.statuses,
     )
     try:
-        page = await service.search(query, page_size=arguments.page_size)
+        page = await service.search(
+            query, page_size=arguments.page_size, page_token=arguments.page_token or None
+        )
     except TrialQueryError as exc:
         return ToolOutcome(summary=str(exc), ok=False)
     except (ClinicalTrialsRequestError, ClinicalTrialsResponseError) as exc:
         return ToolOutcome(summary=f"ClinicalTrials.gov request failed: {exc}", ok=False)
     finally:
         await service.aclose()
+    more = " — more pages available" if page.has_more else ""
     return ToolOutcome(
-        summary=f"{len(page.trials)} trial(s) returned of {page.total_count} matched",
+        summary=f"{len(page.trials)} trial(s) returned of {page.total_count} matched{more}",
         detail=page.model_dump(mode="json"),
         citations=tuple(
             Citation(
@@ -669,7 +673,9 @@ TOOLS: tuple[ChatTool, ...] = (
         tab="Literature",
         description=(
             "Search ClinicalTrials.gov by condition, intervention, sponsor or free text, "
-            "optionally filtered by phase and recruitment status."
+            "optionally filtered by phase and recruitment status. Paginated: to read past the "
+            "records you were sent, call again with `page_token` set to the result's "
+            "`next_page_token` rather than repeating the search with a larger `page_size`."
         ),
         input_model=TrialInput,
         handler=_search_clinical_trials,

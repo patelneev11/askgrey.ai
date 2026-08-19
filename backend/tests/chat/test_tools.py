@@ -135,3 +135,16 @@ async def test_no_tool_can_save_edit_or_delete_the_researchers_work() -> None:
     for tool in TOOLS:
         assert not tool.name.startswith(("save", "delete", "update", "push", "send")), tool.name
         assert "eln" not in tool.name.split("_"), tool.name
+
+
+def test_the_trial_search_offers_a_cursor_so_a_cut_result_can_be_continued() -> None:
+    # Without a cursor the model answers a "find 50" request by retrying with ever larger pages,
+    # which are cut again; the token is the only way past the records it was sent.
+    tool = ToolRegistry().get("search_clinical_trials")
+    assert tool is not None
+
+    properties = tool.definition().input_schema["properties"]
+
+    assert isinstance(properties, dict)
+    assert "page_token" in properties
+    assert "next_page_token" in tool.definition().description

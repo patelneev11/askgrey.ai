@@ -56,8 +56,14 @@ the researcher's real data, not an example.
 saved item id, or quotation. If a tool did not return it, you do not have it.
 - When you have not run a tool, say what you would run instead of answering from memory.
 - Refer to identifiers exactly as the tools returned them, so every claim can be checked.
-- A result carrying `truncated` was cut to fit: it holds the first records only. Report those, say \
-how many of the total you are showing, and never fill the remainder in from memory.
+- A result carrying `truncated` was cut before it reached you: you have `records_sent_to_you` of \
+`records_the_tool_returned`, and the rest do not exist for you. State that count in your answer, \
+never claim the full set was returned, and never fill the remainder in from memory. Any other \
+count in the payload (a total matched by the query, say) is a different number and does not \
+describe what you were given.
+- Do not add a fact the tools did not return, not even one you are confident of, such as naming a \
+compound the payload identifies only by formula. Say what the result says, and say the rest is not \
+in it.
 
 What the results are, and are not:
 - ADMET and SAR output is model prediction with an applicability-domain caveat, never a \
@@ -298,6 +304,28 @@ def _fewer_records(records: list[JsonValue], budget: int) -> list[JsonValue]:
     return kept
 
 
+def _cut_notice(*, sent: int, returned: int, field: str = "") -> dict[str, JsonValue]:
+    """
+    Say what was withheld in words the reader of the payload cannot mistake for something else.
+
+    Terse keys were read as a display detail and the answer then claimed every record had arrived,
+    so the counts name who received them and the note states the obligation outright.
+    """
+    notice: dict[str, JsonValue] = {
+        "records_sent_to_you": sent,
+        "records_the_tool_returned": returned,
+        "note": (
+            f"Only the first {sent} of {returned} records were sent to you; the remaining "
+            f"{returned - sent} were not, and you do not have them. Report only the records above, "
+            f"tell the researcher you are showing {sent} of {returned}, and offer a narrower "
+            "search for the rest."
+        ),
+    }
+    if field:
+        notice["cut_field"] = field
+    return notice
+
+
 def _bounded(detail: JsonValue) -> JsonValue:
     """
     Keep a payload the browser can render a card from, and stop well short of a whole paper.
@@ -311,8 +339,11 @@ def _bounded(detail: JsonValue) -> JsonValue:
     if _measure(detail) <= MAX_DETAIL_CHARS:
         return detail
     if isinstance(detail, list):
-        kept = _fewer_records(detail, MAX_DETAIL_CHARS - 120)
-        return {"records": kept, "truncated": {"shown": len(kept), "total": len(detail)}}
+        kept = _fewer_records(detail, MAX_DETAIL_CHARS - 600)
+        return {
+            "records": kept,
+            "truncated": _cut_notice(sent=len(kept), returned=len(detail)),
+        }
     if isinstance(detail, dict):
         lists = {key: value for key, value in detail.items() if isinstance(value, list) and value}
         if lists:
@@ -321,10 +352,19 @@ def _bounded(detail: JsonValue) -> JsonValue:
             # The rest of the payload is metadata the answer needs (query, model, caveats), so the
             # records get whatever is left of the budget after it.
             overhead = _measure({**detail, longest: []})
-            kept = _fewer_records(records, max(MAX_DETAIL_CHARS - overhead - 120, 0))
+            kept = _fewer_records(records, max(MAX_DETAIL_CHARS - overhead - 600, 0))
             trimmed: dict[str, JsonValue] = {**detail, longest: kept}
-            trimmed["truncated"] = {"field": longest, "shown": len(kept), "total": len(records)}
+            trimmed["truncated"] = _cut_notice(sent=len(kept), returned=len(records), field=longest)
             if _measure(trimmed) <= MAX_DETAIL_CHARS:
                 return trimmed
-    text = json.dumps(detail, separators=(",", ":"))[: MAX_DETAIL_CHARS - 120]
-    return {"partial_json": text, "truncated": {"note": "result cut mid-record; rerun narrower"}}
+    text = json.dumps(detail, separators=(",", ":"))[: MAX_DETAIL_CHARS - 600]
+    return {
+        "partial_json": text,
+        "truncated": {
+            "note": (
+                "This result was cut mid-record before it reached you, so it is incomplete and the "
+                "missing part was not sent to you. Say the result was too large to return in full "
+                "and ask for a narrower query rather than answering from memory."
+            )
+        },
+    }

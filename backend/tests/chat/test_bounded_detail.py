@@ -39,7 +39,15 @@ def test_an_oversized_search_keeps_records_and_its_metadata() -> None:
     # The metadata the answer needs is not what gets dropped.
     assert bounded["total_count"] == 900
     assert bounded["query"] == "ziprasidone"
-    assert bounded["truncated"] == {"field": "trials", "shown": len(kept), "total": 60}
+    notice = bounded["truncated"]
+    assert isinstance(notice, dict)
+    assert notice["records_sent_to_you"] == len(kept)
+    assert notice["records_the_tool_returned"] == 60
+    assert notice["cut_field"] == "trials"
+    # The note has to say the missing records were not delivered: terse counts alone were read as a
+    # display detail, and the answer then claimed all 60 had arrived.
+    assert "you do not have them" in str(notice["note"])
+    assert f"{len(kept)} of 60" in str(notice["note"])
     assert len(json.dumps(bounded, separators=(",", ":"))) <= MAX_DETAIL_CHARS
 
 
@@ -50,7 +58,10 @@ def test_an_oversized_list_becomes_records_with_a_count() -> None:
     records = bounded["records"]
     assert isinstance(records, list)
     assert records
-    assert bounded["truncated"] == {"shown": len(records), "total": 60}
+    notice = bounded["truncated"]
+    assert isinstance(notice, dict)
+    assert notice["records_sent_to_you"] == len(records)
+    assert notice["records_the_tool_returned"] == 60
     assert len(json.dumps(bounded, separators=(",", ":"))) <= MAX_DETAIL_CHARS
 
 
@@ -59,7 +70,9 @@ def test_a_payload_with_no_records_to_drop_is_cut_and_says_so() -> None:
 
     assert isinstance(bounded, dict)
     assert "partial_json" in bounded
-    assert isinstance(bounded["truncated"], dict)
+    notice = bounded["truncated"]
+    assert isinstance(notice, dict)
+    assert "not sent to you" in str(notice["note"])
     assert len(json.dumps(bounded, separators=(",", ":"))) <= MAX_DETAIL_CHARS
 
 

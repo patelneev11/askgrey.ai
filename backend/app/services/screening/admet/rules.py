@@ -1,11 +1,12 @@
 """
 Published physicochemical rules for the ADMET estimates.
 
-Chosen deliberately over asking an LLM for pharmacokinetic numbers, and over shipping a QSAR
-regression we cannot validate: every estimate here is a classification from a peer-reviewed rule
-whose thresholds are published, whose inputs are deterministic RDKit descriptors, and whose scope
-is stated in the payload. Where no such rule exists for a property (plasma protein binding,
-isoform-level CYP inhibition), the property is returned as unavailable rather than estimated.
+Chosen deliberately over asking an LLM for pharmacokinetic numbers: every estimate here is a
+classification from a peer-reviewed rule whose thresholds are published, whose inputs are
+deterministic RDKit descriptors, and whose scope is stated in the payload. Properties that no such
+rule can reach — plasma protein binding, isoform-level CYP inhibition, hERG blockade probability —
+are served by the trained QSAR models in `qsar_presentation.py` instead, or returned as unavailable
+where neither a rule nor a validated model exists.
 
 See README.md in this package for the selection rationale and the known limitations.
 """
@@ -169,55 +170,27 @@ def bbb_penetration(values: Descriptors2D) -> AdmetEstimate:
     )
 
 
-def plasma_protein_binding() -> AdmetEstimate:
-    """Explicitly unavailable: no rule of this kind can produce a defensible bound fraction."""
+def cyp_isoforms_not_modelled() -> AdmetEstimate:
+    """CYP1A2 and CYP2C19, and substrate prediction for any isoform: no model is served."""
     return AdmetEstimate(
-        key="plasma_protein_binding",
-        label="Plasma protein binding",
+        key="cyp_inhibition_other_isoforms",
+        label="CYP1A2 / CYP2C19 inhibition and CYP substrate prediction",
         available=False,
         outcome=Outcome.UNAVAILABLE,
         model_basis=(
-            "No estimate is produced. Published PPB models are regressions trained on measured "
-            "fraction-unbound data (or require ionisation state and albumin/AGP binding site "
-            "assumptions); reproducing one here would mean shipping weights we cannot validate, "
-            "and the descriptor-level correlation with lipophilicity is far too weak to quote a "
-            "percentage from."
+            "No call is produced for these endpoints. Trained classifiers are served for CYP3A4, "
+            "CYP2D6 and CYP2C9 inhibition (see those estimates); CYP1A2 and CYP2C19 inhibition and "
+            "substrate identification for any isoform are not modelled here, and a verdict "
+            "extrapolated from the three that are would be a guess wearing a model's clothes."
         ),
         reason=(
-            "Unavailable. Fraction bound cannot be derived from 2D descriptors by any published "
-            "rule with an error bar small enough to act on, and this service will not print a "
-            "percentage it cannot ground."
+            "Unavailable for these isoforms and for substrate prediction. What is provided instead "
+            "is the CYP structural-alert list, which reports documented mechanism-based "
+            "inactivation motifs and is a substructure match, not a prediction of inhibition."
         ),
         requires=(
-            "A validated QSAR trained on measured fu (e.g. an open ADMET model with a published "
-            "training set and applicability domain), or an equilibrium-dialysis / "
-            "ultrafiltration measurement in the relevant species."
-        ),
-        predicted=False,
-    )
-
-
-def cyp_inhibition_unavailable() -> AdmetEstimate:
-    """Isoform-level CYP inhibition/substrate calls need trained classifiers we do not have."""
-    return AdmetEstimate(
-        key="cyp_inhibition",
-        label="CYP450 inhibition / substrate prediction (per isoform)",
-        available=False,
-        outcome=Outcome.UNAVAILABLE,
-        model_basis=(
-            "No per-isoform call is produced. Isoform-level inhibition and substrate prediction "
-            "(CYP1A2/2C9/2C19/2D6/3A4) is done with machine-learning classifiers trained on "
-            "screening datasets; without the training data and an applicability-domain check, a "
-            "per-isoform verdict here would be a guess wearing a model's clothes."
-        ),
-        reason=(
-            "Unavailable per isoform. What is provided instead is the CYP structural-alert list "
-            "below, which reports documented mechanism-based inactivation motifs and is a "
-            "substructure match, not a prediction of inhibition."
-        ),
-        requires=(
-            "A trained, validated CYP classifier with a published training set, or in vitro "
-            "microsomal / recombinant-isoform inhibition data."
+            "A classifier trained and scaffold-validated on the corresponding assay data, or in "
+            "vitro microsomal / recombinant-isoform inhibition and substrate-depletion data."
         ),
         predicted=False,
     )

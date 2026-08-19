@@ -27,8 +27,44 @@ def write_workspace(user: ThrottledUser, db: DbSession, payload: WorkspaceWrite)
 
 
 @router.delete("/workspace", status_code=status.HTTP_204_NO_CONTENT)
-def delete_workspace(user: ThrottledUser, db: DbSession) -> Response:
-    literature_service.clear_workspace(db, str(user.id))
+def delete_workspace(user: ThrottledUser, db: DbSession, ip: ClientIp) -> Response:
+    """Clear the saved workspace and delete the papers stored behind it."""
+    documents = literature_service.clear_workspace(db, str(user.id))
+    audit.record(
+        "literature.workspace_deleted",
+        actor=str(user.id),
+        client_ip=ip,
+        detail={"documents_deleted": documents},
+        db=db,
+        user_id=str(user.id),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_document(
+    user: ThrottledUser,
+    db: DbSession,
+    ip: ClientIp,
+    document_id: DocumentId,
+) -> Response:
+    """Delete one stored paper.
+
+    Scoped like the read: a document stored by somebody else is a 404, indistinguishable from
+    one that was never stored, so a delete cannot be used to probe another account's library.
+    """
+    deleted = literature_service.delete_document(db, str(user.id), document_id)
+    audit.record(
+        "literature.document_deleted",
+        outcome="success" if deleted else "failure",
+        actor=str(user.id),
+        client_ip=ip,
+        detail={"document_id": document_id},
+        db=db,
+        user_id=str(user.id),
+    )
+    if not deleted:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such document")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -58,6 +94,8 @@ def read_document(
         actor=str(user.id),
         client_ip=ip,
         detail={"document_id": document_id, "bytes": document.byte_size},
+        db=db,
+        user_id=str(user.id),
     )
     return Response(
         content=document.content,

@@ -76,9 +76,9 @@ const GROUPS: Group[] = [
       },
       {
         label: 'Audit retention',
-        help: 'Append-only trail retention period.',
+        help: 'Server-configured window for the security log; see Audit Trails for the value in force.',
         control: 'select',
-        value: '7 years',
+        value: 'Server configured',
       },
       {
         label: 'Block export of flagged compounds',

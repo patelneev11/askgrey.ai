@@ -5,13 +5,17 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 # The strongest caveat in the screening tab, and the reason this module exists in the shape it
-# does: every estimate below is a classification computed from two or three 2D descriptors by a
-# published rule, not a measured or fitted pharmacokinetic value.
+# does: every estimate below is either a classification from a published physicochemical rule or
+# the output of a QSAR model fitted to public assay data — never a measurement of this compound.
 ADMET_CAVEAT = (
-    "Predicted ADMET classifications from published physicochemical rules applied to computed "
-    "descriptors — not measured, not fitted to this compound, and not a probability. Every field "
-    "states its own basis. Confirm experimentally (Caco-2/PAMPA, microsomal, hERG patch clamp, "
-    "plasma binding) before any series or candidate decision."
+    "Predicted ADMET properties, from two bases the fields keep separate: published "
+    "physicochemical rules applied to computed descriptors, and QSAR models trained on public "
+    "assay data and validated on compounds sharing no scaffold with their training sets. Nothing "
+    "here is measured on this compound; a model probability is an estimate carrying the held-out "
+    "error its field quotes, and a property is returned as unavailable rather than guessed when "
+    "the structure falls outside a model's applicability domain. Confirm experimentally "
+    "(Caco-2/PAMPA, microsomal, hERG patch clamp, plasma binding) before any series or candidate "
+    "decision."
 )
 
 ALERT_CAVEAT = (

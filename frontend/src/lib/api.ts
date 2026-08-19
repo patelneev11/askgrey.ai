@@ -12,7 +12,14 @@ import type {
   PersonaSummary,
   ReviewBoardRequest,
 } from './grants';
+import type {
+  ArtifactKind,
+  SaveArtifactRequest,
+  SavedArtifact,
+  SavedArtifactSummary,
+} from './library';
 import { logger } from './observability';
+import { notifySessionExpired, setAccessToken } from './session';
 import type {
   CalculationEntry,
   ChecklistItem,
@@ -23,6 +30,7 @@ import type {
   ProtocolReview,
   RecalculationResponse,
   SavedProtocol,
+  SavedProtocolSummary,
 } from './protocols';
 import type {
   AdmetProfile,
@@ -39,6 +47,25 @@ export interface ExportOptions {
   include_metadata?: boolean;
   bom?: boolean;
   filename_stem?: string;
+}
+
+/** One security event from `GET /api/audit/events`, scoped by the server to the caller. */
+export interface AuditEvent {
+  id: string;
+  occurred_at: string;
+  event: string;
+  kind: AuditKind;
+  outcome: string;
+  client_ip: string;
+  /** Provenance only — which document, how many bytes, which model. Never content. */
+  detail: Record<string, string | number | boolean | null>;
+}
+
+export type AuditKind = 'agent' | 'human' | 'export';
+
+export interface AuditFeed {
+  events: AuditEvent[];
+  retention_days: number;
 }
 
 export interface TokenResponse {
@@ -278,6 +305,25 @@ export interface RequirementFinding {
   explanation: string;
 }
 
+/**
+ * How old the shipped guideline snapshot is, computed by the backend from its `retrieved` date.
+ *
+ * `status` is a statement about when a human last read the source documents, not about whether the
+ * encoded expectations are complete or legally in force.
+ */
+export interface SnapshotFreshness {
+  version: string;
+  retrieved: string;
+  age_days: number;
+  review_interval_days: number;
+  stale_after_days: number;
+  review_due_on: string;
+  stale_on: string;
+  status: 'current' | 'review_due' | 'stale';
+  message: string;
+  update_procedure: string;
+}
+
 export interface GuidelineCheckReport {
   section_id: string;
   word_count: number;
@@ -286,9 +332,12 @@ export interface GuidelineCheckReport {
     jurisdiction: Jurisdiction;
     version: string;
     retrieved: string;
+    freshness: SnapshotFreshness;
     findings: RequirementFinding[];
     out_of_scope_requirement_ids: string[];
   }[];
+  /** The worst-aged snapshot behind the report, or null when nothing was compared. */
+  snapshot: SnapshotFreshness | null;
   requires_expert_review: boolean;
   review_notice: string;
   limitations: string;
@@ -299,6 +348,7 @@ export interface GuidelineReference {
     jurisdiction: Jurisdiction;
     version: string;
     retrieved: string;
+    freshness: SnapshotFreshness;
     notes: string;
     requirements: {
       id: string;
@@ -308,6 +358,7 @@ export interface GuidelineReference {
       expectation: string;
     }[];
   }[];
+  snapshot: SnapshotFreshness | null;
   requires_expert_review: boolean;
   review_notice: string;
   limitations: string;
@@ -356,6 +407,12 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /**
+     * The `detail` the API itself sent, when it sent one. A status with no detail came from
+     * something between the browser and the API — a dev proxy, a load balancer — so a caller
+     * that wants to explain the failure in its own words can tell the two apart.
+     */
+    readonly detail?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -395,6 +452,7 @@ async function send(
   init: RequestInit,
   token?: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  renewable = true,
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   // FormData bodies must keep the boundary the browser generates for them.
@@ -437,10 +495,35 @@ async function send(
       duration_ms: durationMs,
       request_id: response.headers.get('X-Request-ID'),
     });
-    throw new ApiError(detail ?? `Request failed (${response.status})`, response.status);
+    if (response.status === 401 && renewable && token && !path.startsWith('/auth/')) {
+      return renew(path, init, timeoutMs);
+    }
+    throw new ApiError(detail ?? `Request failed (${response.status})`, response.status, detail);
   }
   logger.debug('api.ok', { route, duration_ms: durationMs });
   return response;
+}
+
+/**
+ * Swap an expired access token for a fresh one and run the request again.
+ *
+ * The access token lives in memory for 30 minutes and was previously only minted at page
+ * load, so a user who spent longer than that reading papers and writing a goal got
+ * "Not authenticated" from every call — most visibly from an upload — while the app still
+ * showed them signed in. `renewable` is false on the retry, so a still-401 reply ends here.
+ */
+async function renew(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  let renewed: TokenResponse;
+  try {
+    renewed = await refresh();
+  } catch {
+    // The refresh cookie is gone or revoked too: this session is over, say so rather than
+    // leaving the user clicking a dead workspace.
+    notifySessionExpired();
+    throw new ApiError('Your session expired. Sign in again to continue.', 401);
+  }
+  setAccessToken(renewed.access_token);
+  return send(path, init, renewed.access_token, timeoutMs, false);
 }
 
 async function request<T>(
@@ -585,6 +668,14 @@ export const api = {
     return response.blob();
   },
 
+  /** Delete one stored paper. A paper stored by another account is a 404, not a deletion. */
+  deleteDocument: (documentId: string, token?: string) =>
+    send(`/literature/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }, token),
+
+  /** This account's own security events, newest first. There is no parameter for whose. */
+  auditEvents: (kind?: AuditKind, token?: string) =>
+    request<AuditFeed>(`/audit/events${kind ? `?kind=${kind}` : ''}`, {}, token),
+
   /** Deterministic RDKit descriptors and drug-likeness rule sets for one structure. */
   screeningDescriptors: (smiles: string, token?: string) =>
     request<DescriptorProfile>(
@@ -686,8 +777,40 @@ export const api = {
       token,
     ),
 
+  /** The caller's saved protocols, so a save is reachable again after a reload. */
+  listProtocols: (token?: string) => request<SavedProtocolSummary[]>('/protocols', {}, token),
+
+  loadProtocol: (id: string, token?: string) =>
+    request<SavedProtocol>(`/protocols/${encodeURIComponent(id)}`, {}, token),
+
   protocolHistory: (id: string, token?: string) =>
     request<ProtocolHistory>(`/protocols/${encodeURIComponent(id)}/history`, {}, token),
+
+  /**
+   * Keep one result in the saved library.
+   *
+   * Called only when the researcher asks to save: the backend re-validates the payload against the
+   * model that produced it, so a stored result keeps the caveats it was shown with.
+   */
+  saveArtifact: <T>(request_: SaveArtifactRequest<T>, token?: string) =>
+    request<SavedArtifact<T>>(
+      '/library',
+      { method: 'POST', body: JSON.stringify(request_) },
+      token,
+    ),
+
+  listArtifacts: (kind: ArtifactKind, token?: string) =>
+    request<SavedArtifactSummary[]>(
+      `/library?kind=${encodeURIComponent(kind)}`,
+      {},
+      token,
+    ),
+
+  loadArtifact: <T>(id: string, token?: string) =>
+    request<SavedArtifact<T>>(`/library/${encodeURIComponent(id)}`, {}, token),
+
+  deleteArtifact: (id: string, token?: string) =>
+    send(`/library/${encodeURIComponent(id)}`, { method: 'DELETE' }, token),
 
   /**
    * Build the Benchling entry payload for a protocol.

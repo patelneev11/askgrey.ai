@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api, formatErrorDetail } from './api';
+import { getAccessToken, onSessionExpired, setAccessToken } from './session';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -49,8 +50,90 @@ describe('refresh', () => {
 
     // The next refresh is a genuinely new one, not the cached result of the last.
     settle = () => undefined;
-    void api.refresh();
+    const third = api.refresh();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Settled before leaving: an in-flight refresh is shared module state, and every later
+    // caller would await this same never-resolving promise.
+    settle(new Response(JSON.stringify({ access_token: 'b', token_type: 'bearer' })));
+    await third;
+  });
+});
+
+describe('an expired access token', () => {
+  const pdf = () => new File(['%PDF-1.4'], 'trial.pdf', { type: 'application/pdf' });
+
+  function json(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  afterEach(() => setAccessToken(undefined));
+
+  it('is renewed and the request retried, rather than surfacing "Not authenticated"', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ detail: 'Not authenticated' }, 401))
+      .mockResolvedValueOnce(json({ access_token: 'fresh', token_type: 'bearer' }))
+      .mockResolvedValueOnce(json({ table_id: 't1', columns: [], rows: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.extractFromUpload(pdf(), 'sample size', 'stale')).resolves.toMatchObject({
+      table_id: 't1',
+    });
+
+    const routes = fetchMock.mock.calls.map((call) => call[0] as string);
+    expect(routes).toEqual([
+      '/api/pdf-extraction/upload',
+      '/api/auth/refresh',
+      '/api/pdf-extraction/upload',
+    ]);
+    // The retry carries the renewed token, and it is now the session's token.
+    const retryHeaders = fetchMock.mock.calls[2][1].headers as Headers;
+    expect(retryHeaders.get('Authorization')).toBe('Bearer fresh');
+    expect(getAccessToken()).toBe('fresh');
+  });
+
+  it('ends the session when the refresh cookie cannot renew it either', async () => {
+    const expired = vi.fn();
+    const unsubscribe = onSessionExpired(expired);
+    setAccessToken('stale');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ detail: 'Not authenticated' }, 401))
+      .mockResolvedValueOnce(json({ detail: 'Not authenticated' }, 401));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.extractFromUpload(pdf(), 'sample size', 'stale')).rejects.toThrow(
+      /session expired/i,
+    );
+
+    expect(expired).toHaveBeenCalledTimes(1);
+    expect(getAccessToken()).toBeUndefined();
+    unsubscribe();
+  });
+
+  it('does not retry a rejected sign-in: a 401 there is the wrong password', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ detail: 'Invalid credentials' }, 401));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.login('user@example.org', 'wrong-password')).rejects.toThrow(
+      /Invalid credentials/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once only, so a server that always 401s cannot loop', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ detail: 'Not authenticated' }, 401))
+      .mockResolvedValueOnce(json({ access_token: 'fresh', token_type: 'bearer' }))
+      .mockResolvedValueOnce(json({ detail: 'Not authenticated' }, 401));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.loadWorkspace('stale')).rejects.toThrow(/Not authenticated/);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
 

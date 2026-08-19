@@ -44,6 +44,8 @@ environment:
 | `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE_SECONDS` | optional; sized against the database's connection limit divided by replica count |
 | `CORS_ORIGINS` | exact origins; `*` is rejected outside development. Empty is correct when the API serves the SPA itself |
 | `ANTHROPIC_API_KEY` | server-side only, never in a `VITE_` variable |
+| `DOCUMENT_KMS_KEY_ID` (+ `AWS_REGION`) | on AWS: a KMS key id, ARN or alias. Stored papers then get a per-document data key minted by KMS, the master key never enters the process, and every read is a CloudTrail record. The task role needs `kms:GenerateDataKey` and `kms:Decrypt` on that key only |
+| `DOCUMENT_ENCRYPTION_KEY` | the alternative off AWS: base64, 32 bytes decoded. One of this and `DOCUMENT_KMS_KEY_ID` is **required** outside development — the app refuses to boot with neither, because the fallback derives the document key from `JWT_SECRET` and rotating that would make every stored paper unreadable |
 | `SENTRY_DSN`, `RELEASE` | see [monitoring](./monitoring.md) |
 | `LLM_DAILY_COST_ALERT_USD`, `LLM_DAILY_CALL_BUDGET` | spend guards |
 | `FRONTEND_DIST_DIR` | set only for single-origin hosting, where FastAPI serves the built SPA (see below) |
@@ -92,7 +94,15 @@ Both are supported:
   `.env` is git-ignored and `backend/.env.example` holds names and blanks only.
 - Rotation is a host-side variable change plus a redeploy. Rotating `JWT_SECRET` invalidates
   every access token immediately and every refresh session at next use — expected, and the
-  correct response to a suspected leak.
+  correct response to a suspected leak. It no longer touches stored papers, which is why a
+  document key of its own is required outside development.
+- Rotating the KMS master key needs nothing from this app: existing rows hold data keys wrapped
+  under the previous key version, and KMS unwraps them by version. Rotating a local
+  `DOCUMENT_ENCRYPTION_KEY`, by contrast, orphans every row written under the old one (they are
+  then dropped on read and re-addable), so plan that as a migration rather than a variable change.
+- Turning KMS on later is safe in either order: the scheme is recorded in each stored row, so
+  papers sealed under the local key keep opening under it while new ones go to KMS. Keep both
+  variables set until the old rows have aged out of retention.
 - Logs are structured and never include header, cookie or key values; Sentry payloads are
   scrubbed in `backend/app/core/errors.py`.
 - A leaked key is disabled at the provider first and rotated second. Removing it from a repo
@@ -105,5 +115,11 @@ Both are supported:
   previous container serving traffic, and nothing takes a backup first.
 - Uploaded PDFs are `LargeBinary` rows rather than object-storage keys, so the database carries
   up to the per-user quota in blobs and every backup copies them.
+- No re-encryption job: there is no command that rewrites existing rows under a new scheme or a
+  new local key. Migration happens by writing new rows and letting old ones expire.
+- KMS is not cached: every read of a stored paper is a `kms:Decrypt` call. Fine at this volume,
+  and the first thing to revisit if per-request latency or KMS spend matters.
 - No blue/green or automatic rollback. Rollback is redeploying the previous commit.
-- No secret manager (Vault/KMS) — provider-held environment variables are the store.
+- No secret manager: provider-held environment variables are the store. KMS holds the document
+  master key when `DOCUMENT_KMS_KEY_ID` is set, but `JWT_SECRET` and `ANTHROPIC_API_KEY` are still
+  plain environment variables rather than Secrets Manager references.

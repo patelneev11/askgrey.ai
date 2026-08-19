@@ -1,10 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthProvider } from './auth';
 import { useAuth } from './auth-context';
-import { getAccessToken } from './session';
+import { getAccessToken, notifySessionExpired } from './session';
 
 const refresh = vi.fn();
 const login = vi.fn();
@@ -78,6 +78,22 @@ describe('AuthProvider', () => {
         <Probe />
       </AuthProvider>,
     );
+
+    await waitFor(() => expect(screen.getByText('signed out')).toBeInTheDocument());
+    expect(getAccessToken()).toBeUndefined();
+  });
+
+  it('stops showing a signed-in shell once a request finds the session unrenewable', async () => {
+    refresh.mockResolvedValue({ access_token: 'fresh', token_type: 'bearer' });
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('ada@lab.test')).toBeInTheDocument());
+
+    act(() => notifySessionExpired());
 
     await waitFor(() => expect(screen.getByText('signed out')).toBeInTheDocument());
     expect(getAccessToken()).toBeUndefined();

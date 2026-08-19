@@ -1,25 +1,59 @@
 # Document storage security design (T7 / issue #24)
 
-This is the design that persistence has to satisfy **before** it ships. It exists because the
-security review flagged storage as prospective: there is no persistence layer yet, so there is
-nothing to harden today, and the risk is that one gets added later without any of this.
+This is the design persistence has to satisfy. The first persistence layer has now shipped, so the
+sections below say which requirements it meets and which are still prospective.
 
-## What is true today — no persistent storage exists
+## What is true today — encrypted rows in the application database
 
-Be precise about this, because "uploaded files" sounds like storage:
+- An uploaded PDF is stored against the uploading account (`literature_documents`) so a reload can
+  still render a cited page. The stored bytes are AES-256-GCM ciphertext produced by
+  `backend/app/core/crypto.py`; the plaintext never reaches the database.
+- The ciphertext is bound to `user_id:document_id` as GCM associated data, so a row moved to
+  another account, relabelled with another document id, or edited in place fails authentication and
+  is dropped rather than served.
+- Reads, deletes and extraction re-runs go through `backend/app/services/literature.py`, which
+  filters on the caller's own `user_id`. Somebody else's document is a 404, indistinguishable from
+  one that was never stored.
+- Retention is `DOCUMENT_RETENTION_DAYS` (default 90). Expired rows are deleted when read and
+  purged on the next write; `DELETE /api/literature/documents/{id}` and clearing the workspace
+  delete immediately.
+- Extraction results and review-table state still live in the browser tab, not the database.
+- The key comes from one of two places, recorded per row rather than inferred from the current
+  configuration (see "Keys" below): a KMS-minted per-document data key, or one local key.
 
-- An uploaded PDF is read into memory in the request, parsed, and discarded when the response is
-  returned. No copy is written to disk, to object storage, or to the database.
-- Extraction tables and review-table state live in the browser tab. A reload clears the workspace.
-- The database holds users and refresh sessions only (`backend/app/models/`) — no documents, no
-  extraction results, no compound data.
+What is **not** yet true: there is no object store, no per-workspace key, and no scheduled purge
+job — retention is enforced opportunistically on access. Files also transit Anthropic during
+extraction; see `docs/llm-data-flow.md`.
 
-So today there is **no encryption at rest for uploaded documents, no retention policy and no
-deletion control** — not because they were skipped, but because there is nothing persisted to
-apply them to. Files do transit Anthropic during extraction; that flow is documented separately in
-`docs/llm-data-flow.md`. Nobody should tell a customer their documents are encrypted at rest.
+## Keys
 
-## Requirements for the first persistence layer
+`DOCUMENT_KMS_KEY_ID` set (the deployed configuration):
+
+- Storing a document calls `kms:GenerateDataKey` for a one-off 256-bit key, encrypts with it,
+  discards it, and stores only KMS's wrapped copy in the same column as the ciphertext.
+- Reading calls `kms:Decrypt` to unwrap that copy. The master key never enters the process, so a
+  stolen database dump is inert without the task role's KMS permissions.
+- `{app, user_id, document_id}` travels as the KMS encryption context, so the owner is
+  authenticated twice: by KMS at the unwrap and by AES-GCM at the decrypt. A wrapped key lifted
+  onto another account's row is refused at the first step.
+- Every read is a CloudTrail record, which is the point: access to stored papers becomes auditable
+  outside this app's own log. The master key rotates without re-encrypting a single row.
+- Cost and latency: one KMS call per store and per read.
+- The task role needs `kms:GenerateDataKey` and `kms:Decrypt` on that key, and nothing else.
+
+`DOCUMENT_ENCRYPTION_KEY` set instead: one local base64 32-byte key for every document. Simpler,
+and appropriate outside AWS, but rotating it makes existing rows unreadable and the key sits in the
+process's environment.
+
+Neither set: the key is derived from `JWT_SECRET` via HKDF. Development only — `Settings` refuses
+to boot any other environment that way, because rotating `JWT_SECRET` (the first thing rotated
+after a suspected token leak) would otherwise destroy every stored paper.
+
+A key service that cannot be reached is reported as `DocumentKeyUnavailableError` → HTTP 503, and
+is deliberately *not* a decryption failure: unreadable rows are deleted, so a KMS outage or a
+revoked credential must not be able to masquerade as corruption and empty the library.
+
+## Requirements for the persistence layer
 
 ### Tenancy and object keys
 
@@ -42,6 +76,13 @@ apply them to. Files do transit Anthropic during extraction; that flow is docume
 
 ### Encryption
 
+- Shipped: application-level AES-256-GCM before the bytes reach the database, keyed either by a
+  per-document KMS data key or by `DOCUMENT_ENCRYPTION_KEY`. This protects lost media and database
+  backups, not a compromised application, which holds the decrypt path either way.
+- Shipped: per-document keys under KMS, which is the rotatable, revocable, CloudTrail-audited
+  arrangement PHI-adjacent data needs. Encryption alone is not sufficient for PHI: that also
+  requires HIPAA-eligible AWS services with a BAA, and a zero-retention/BAA arrangement with
+  Anthropic before document text is sent for extraction.
 - At rest: server-side encryption on the bucket/volume with a managed KMS key, plus TLS in transit
   everywhere. This is the baseline, and it protects against lost media and misconfigured backups —
   not against a compromised application, which holds the decrypt path either way.

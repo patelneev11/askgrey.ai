@@ -11,6 +11,7 @@ from ..llm import (
     DEFAULT_BASE_URL,
     AnthropicError,
     AnthropicMessagesClient,
+    AnthropicTruncatedResponseError,
     strip_code_fence,
 )
 from .errors import DrafterError
@@ -254,6 +255,13 @@ class ClaudeProtocolDrafter:
                 prompt=build_prompt(request),
                 prefill="{",
             )
+        except AnthropicTruncatedResponseError as exc:
+            # A cut-off reply is broken JSON, and blaming the model for it sends the researcher
+            # looking for a fault that is ours: say the draft outgrew the limit and what to do.
+            raise DrafterError(
+                "the draft outgrew the response limit before it was finished — narrow the goal "
+                "to a single procedure, or split it into stages, and draft again"
+            ) from exc
         except AnthropicError as exc:
             raise DrafterError(str(exc)) from exc
         return parse_draft(text, request, model=self.model)

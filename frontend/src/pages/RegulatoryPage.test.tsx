@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api';
 import { setAccessToken } from '@/lib/session';
 
 import { REGULATORY_REVIEW_NOTICE, RegulatoryPage } from './RegulatoryPage';
+import { RegulatoryProvider } from './regulatory/state';
 
 const preclinicalReport = vi.fn();
 const indStructure = vi.fn();
@@ -137,16 +138,38 @@ const draft = {
   review_notice: NOTICE,
 };
 
+const freshness = {
+  version: '2026-08-16',
+  retrieved: '2026-08-16',
+  age_days: 12,
+  review_interval_days: 90,
+  stale_after_days: 180,
+  review_due_on: '2026-11-14',
+  stale_on: '2027-02-12',
+  status: 'current' as const,
+  message: 'Snapshot 2026-08-16 was read from the source documents 12 days ago (2026-08-16).',
+  update_procedure: 'Refresh manually: guidelines/README.md.',
+};
+
+const staleFreshness = {
+  ...freshness,
+  age_days: 400,
+  status: 'stale' as const,
+  message: 'Snapshot 2026-08-16 was read 400 days ago, past the 180-day limit.',
+};
+
 const reference = {
   jurisdictions: [
     {
       jurisdiction: 'fda' as const,
       version: '2026-08-16',
       retrieved: '2026-08-16',
+      freshness,
       notes: '',
       requirements: [
         {
           id: 'fda-batch-analyses',
+
           title: 'Batch analyses',
           ctd_sections: ['3.2.S.4.4'],
           citation: {
@@ -159,6 +182,7 @@ const reference = {
       ],
     },
   ],
+  snapshot: freshness,
   requires_expert_review: true,
   review_notice: 'Unvalidated drafting aid.',
   limitations: 'The reference data is a dated snapshot.',
@@ -173,6 +197,7 @@ const checkReport = {
       jurisdiction: 'fda' as const,
       version: '2026-08-16',
       retrieved: '2026-08-16',
+      freshness,
       findings: [
         {
           requirement_id: 'fda-batch-analyses',
@@ -208,6 +233,7 @@ const checkReport = {
       out_of_scope_requirement_ids: ['fda-container-closure'],
     },
   ],
+  snapshot: freshness,
   requires_expert_review: true,
   review_notice: 'Unvalidated drafting aid.',
   limitations: 'The reference data is a dated snapshot.',
@@ -219,6 +245,15 @@ const checkReport = {
  */
 function region(name: string) {
   return within(screen.getByRole('region', { name }));
+}
+
+/** The tab's state lives in the provider the app mounts above the router. */
+function renderRegulatory() {
+  return render(
+    <RegulatoryProvider>
+      <RegulatoryPage />
+    </RegulatoryProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -238,7 +273,7 @@ afterEach(() => {
 describe('Regulatory · preclinical', () => {
   it('sends the entered study table and shows the audit flags beside the draft', async () => {
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     const inputs = region('Preclinical inputs');
     await user.type(inputs.getByLabelText('Study id'), 'TOX-1');
@@ -278,7 +313,7 @@ describe('Regulatory · preclinical', () => {
       fixture_draft: true,
     });
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     const inputs = region('Preclinical inputs');
     await user.type(inputs.getByLabelText('Study id'), 'TOX-1');
@@ -294,7 +329,7 @@ describe('Regulatory · preclinical', () => {
 
   it('does not call a model-drafted report fixture output', async () => {
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     const inputs = region('Preclinical inputs');
     await user.type(inputs.getByLabelText('Study id'), 'TOX-1');
@@ -308,7 +343,7 @@ describe('Regulatory · preclinical', () => {
   it('shows a safe message when the draft fails and keeps the warning on screen', async () => {
     preclinicalReport.mockRejectedValue(new ApiError('drafting the narrative failed', 502));
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     const inputs = region('Preclinical inputs');
     await user.type(inputs.getByLabelText('Study id'), 'TOX-1');
@@ -322,7 +357,7 @@ describe('Regulatory · preclinical', () => {
 describe('Regulatory · IND', () => {
   it('offers only draftable headings from the dated tree and shows gaps per section', async () => {
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     await user.click(screen.getByRole('tab', { name: 'IND module 3 / 4' }));
     const inputs = region('IND inputs');
@@ -357,7 +392,7 @@ describe('Regulatory · IND', () => {
 describe('Regulatory · guidelines', () => {
   it('checks a drafted section and groups findings by status per jurisdiction', async () => {
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     await user.click(screen.getByRole('tab', { name: 'Guideline check' }));
     const inputs = region('Guideline inputs');
@@ -387,9 +422,44 @@ describe('Regulatory · guidelines', () => {
     expect(output.getByText('The reference data is a dated snapshot.')).toBeInTheDocument();
   });
 
+  // The snapshot's age is the shelf life of every finding, so it is stated before a check is run
+  // and again beside the results.
+  it('states how old the reference snapshot is on the form and on the report', async () => {
+    const user = userEvent.setup();
+    renderRegulatory();
+
+    await user.click(screen.getByRole('tab', { name: 'Guideline check' }));
+    const inputs = region('Guideline inputs');
+    expect(await inputs.findByRole('status')).toHaveTextContent(
+      /Reference snapshot current · 12 days old/,
+    );
+
+    await user.type(inputs.getByLabelText('Section id'), '3.2.S.4.4');
+    await user.type(inputs.getByLabelText('Draft section text'), 'Batch AG-0412-001.');
+    await user.click(inputs.getByRole('button', { name: 'Compare against jurisdictions' }));
+
+    const output = region('Guideline output');
+    expect(await output.findByRole('status')).toHaveTextContent(/12 days old/);
+    expect(output.getByText(/2026-08-16 · 12 days old · current/)).toBeInTheDocument();
+  });
+
+  it('warns loudly and says where to refresh when the snapshot is stale', async () => {
+    const user = userEvent.setup();
+    guidelineReference.mockResolvedValue({ ...reference, snapshot: staleFreshness });
+    guidelineCheck.mockResolvedValue({ ...checkReport, snapshot: staleFreshness });
+    renderRegulatory();
+
+    await user.click(screen.getByRole('tab', { name: 'Guideline check' }));
+    const inputs = region('Guideline inputs');
+    const warning = await inputs.findByRole('alert');
+    expect(warning).toHaveTextContent(/Reference snapshot stale · 400 days old/);
+    expect(warning).toHaveTextContent('past the 180-day limit');
+    expect(warning).toHaveTextContent('Refresh manually: guidelines/README.md.');
+  });
+
   it('can check a section drafted elsewhere in the tab without retyping it', async () => {
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     await user.click(screen.getByRole('tab', { name: 'IND module 3 / 4' }));
     let inputs = region('IND inputs');
@@ -416,7 +486,7 @@ describe('Regulatory · guidelines', () => {
 
   it('keeps entered data when switching between the sub-features', async () => {
     const user = userEvent.setup();
-    render(<RegulatoryPage />);
+    renderRegulatory();
 
     await user.type(region('Preclinical inputs').getByLabelText('Study id'), 'TOX-1');
     await user.click(screen.getByRole('tab', { name: 'Guideline check' }));

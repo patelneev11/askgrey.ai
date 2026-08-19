@@ -95,8 +95,8 @@ describe('first-encounter tab notices', () => {
     renderAt('/audit');
 
     const notice = screen.getByRole('dialog');
-    expect(notice).toHaveTextContent(/Agent runs, document reads and exports land here/i);
-    expect(notice).toHaveTextContent(/sample data/i);
+    expect(notice).toHaveTextContent(/document reads, model calls and exports land here/i);
+    expect(notice).toHaveTextContent(/never the document text itself/i);
     expect(screen.getByRole('button', { name: 'Got it' })).toBeInTheDocument();
   });
 

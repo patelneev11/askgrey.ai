@@ -6,7 +6,11 @@ import httpx
 import pytest
 
 from app.core.llm_cost import get_meter
-from app.services.llm import AnthropicError, AnthropicMessagesClient
+from app.services.llm import (
+    AnthropicError,
+    AnthropicMessagesClient,
+    AnthropicTruncatedResponseError,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -70,6 +74,44 @@ async def test_surfaces_unusable_replies_as_anthropic_errors(
 ) -> None:
     with pytest.raises(AnthropicError, match=message):
         await client(handler).complete(system="s", prompt="p")
+
+
+async def test_a_reply_cut_off_at_the_ceiling_says_so_instead_of_looking_malformed() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "content": [{"type": "text", "text": '"title": "Western blot", "steps": [{"tit'}],
+                "stop_reason": "max_tokens",
+                "usage": {"input_tokens": 900, "output_tokens": 256},
+            },
+        )
+
+    # The text is valid prose up to the cut, so every caller that parses it reports a syntax
+    # error and blames the model for a ceiling the deployment chose.
+    with pytest.raises(AnthropicTruncatedResponseError, match="cut off at the 256-token ceiling"):
+        await client(handler).complete(system="s", prompt="p")
+
+
+async def test_a_truncated_reply_is_still_billed_because_the_tokens_were_spent() -> None:
+    meter = get_meter()
+    meter.reset()
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "content": [{"type": "text", "text": "cut"}],
+                "stop_reason": "max_tokens",
+                "usage": {"input_tokens": 10, "output_tokens": 256},
+            },
+        )
+
+    with pytest.raises(AnthropicTruncatedResponseError):
+        await client(handler).complete(system="s", prompt="p")
+
+    assert meter.snapshot().output_tokens == 256
+    meter.reset()
 
 
 async def test_reports_a_transport_failure_rather_than_leaking_httpx() -> None:

@@ -12,6 +12,7 @@ import { LiteraturePage } from '@/pages/LiteraturePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { ProtocolPage } from '@/pages/ProtocolPage';
 import { RegulatoryPage } from '@/pages/RegulatoryPage';
+import { RegulatoryProvider } from '@/pages/regulatory/state';
 import { ScreeningPage } from '@/pages/ScreeningPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { WorkspacePage } from '@/pages/WorkspacePage';
@@ -38,7 +39,9 @@ export function AppRoutes() {
           <RequireAuth>
             <OnboardingProvider>
               <WorkspaceProvider>
-                <AppShell />
+                <RegulatoryProvider>
+                  <AppShell />
+                </RegulatoryProvider>
               </WorkspaceProvider>
             </OnboardingProvider>
           </RequireAuth>

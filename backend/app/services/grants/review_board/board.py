@@ -14,12 +14,13 @@ from app.services.grants.errors import InvalidQueryError
 from ...llm import (
     DEFAULT_ANTHROPIC_VERSION,
     DEFAULT_BASE_URL,
+    AnthropicEmptyResponseError,
     AnthropicError,
     AnthropicMessagesClient,
     strip_code_fence,
 )
 from .config import PersonaConfig, PersonaSpec, load_persona_config
-from .errors import ReviewBoardError, ReviewBoardUnavailableError
+from .errors import ReviewBoardError, ReviewBoardUnavailableError, ReviewOutputError
 from .models import (
     MAX_SCORE,
     MIN_SCORE,
@@ -136,13 +137,13 @@ def parse_review(raw: str, persona: PersonaSpec, criteria: list[str]) -> Persona
     try:
         payload = json.loads(body)
     except ValueError as exc:
-        raise ReviewBoardError(f"{persona.name} did not return valid JSON") from exc
+        raise ReviewOutputError(f"{persona.name} did not return valid JSON") from exc
     if not isinstance(payload, dict):
-        raise ReviewBoardError(f"{persona.name} did not return a JSON object")
+        raise ReviewOutputError(f"{persona.name} did not return a JSON object")
 
     entries = payload.get("scores")
     if not isinstance(entries, list):
-        raise ReviewBoardError(f"{persona.name} returned no scores array")
+        raise ReviewOutputError(f"{persona.name} returned no scores array")
 
     scores: list[CriterionScore] = []
     seen: set[str] = set()
@@ -153,7 +154,7 @@ def parse_review(raw: str, persona: PersonaSpec, criteria: list[str]) -> Persona
         seen.add(score.criterion)
         scores.append(score)
     if not scores:
-        raise ReviewBoardError(f"{persona.name} returned no score in {MIN_SCORE}-{MAX_SCORE}")
+        raise ReviewOutputError(f"{persona.name} returned no score in {MIN_SCORE}-{MAX_SCORE}")
 
     # Criteria keep their configured order, so two personas' tables line up on the core three.
     scores.sort(key=lambda score: criteria.index(score.criterion))
@@ -213,7 +214,7 @@ class ClaudePersonaReviewer:
             f"<section>\n{render_section(section)}\n</section>"
         )
 
-    async def review(
+    async def _attempt(
         self, persona: PersonaSpec, criteria: list[str], section: ProposalSection
     ) -> PersonaReview:
         try:
@@ -222,9 +223,35 @@ class ClaudePersonaReviewer:
                 prompt=self.build_prompt(criteria, section),
                 prefill="{",
             )
+        except AnthropicEmptyResponseError as exc:
+            raise ReviewOutputError(
+                f"{persona.name} returned an empty reply; the model may have declined this text"
+            ) from exc
         except AnthropicError as exc:
             raise ReviewBoardError(f"review by {persona.name} failed: {exc}") from exc
         return parse_review(raw, persona, criteria)
+
+    async def review(
+        self, persona: PersonaSpec, criteria: list[str], section: ProposalSection
+    ) -> PersonaReview:
+        """
+        One persona's review, retried once when the reply itself is unusable.
+
+        A refusal or a truncated JSON reply is often not reproducible, and one persona failing
+        fails the whole report, so it is worth a second ask. Transport and HTTP failures are not
+        retried: a rejected key or a 429 answers the same way twice.
+        """
+        try:
+            return await self._attempt(persona, criteria, section)
+        except ReviewOutputError:
+            pass
+        try:
+            return await self._attempt(persona, criteria, section)
+        except ReviewOutputError as exc:
+            raise ReviewOutputError(
+                f"{exc}. The board was asked twice and got nothing scoreable back; try again, "
+                "or rerun with the section text edited."
+            ) from exc
 
 
 class ReviewBoard:

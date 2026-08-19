@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
+import { SavedLibrary } from '@/components/SavedLibrary';
 import { StatusPill } from '@/components/StatusPill';
 import {
   api,
@@ -63,7 +64,8 @@ const STATUS_LABEL: Record<IndDraft['sections'][number]['status'], string> = {
   not_drafted: 'not drafted',
 };
 
-export function useIndDraft() {
+/** `enabled` defers the structure request until the tab is opened; see `RegulatoryProvider`. */
+export function useIndDraft(enabled = true) {
   const [structure, setStructure] = useState<IndStructure | null>(null);
   const [structureError, setStructureError] = useState<string | null>(null);
   const [program, setProgram] = useState({
@@ -79,6 +81,7 @@ export function useIndDraft() {
 
   // The section list is the dated CTD transcription the backend owns; the UI never hardcodes it.
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     api
       .indStructure(getAccessToken())
@@ -91,7 +94,7 @@ export function useIndDraft() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [enabled]);
 
   const toggleSection = useCallback((id: string) => {
     setSelected((prev) =>
@@ -149,6 +152,7 @@ export function useIndDraft() {
     evidence,
     setEvidence,
     draft,
+    setDraft,
     running,
     error,
     submit,
@@ -323,21 +327,41 @@ export function IndForm({ controller }: { controller: IndController }) {
 }
 
 export function IndOutput({ controller }: { controller: IndController }) {
-  const { draft, running } = controller;
+  const { draft, running, setDraft } = controller;
+
+  const library = (
+    <SavedLibrary<IndDraft>
+      kind="regulatory_ind"
+      current={
+        draft
+          ? {
+              title: `${draft.program_name} — IND sections`,
+              subtitle: `${draft.sections.length} drafted sections · requires expert review`,
+              payload: draft,
+            }
+          : null
+      }
+      onOpen={setDraft}
+    />
+  );
 
   if (!draft) {
     return (
-      <EmptyState title={running ? 'Drafting…' : 'No sections drafted yet'}>
-        <p>
-          Pick the CTD headings to draft and enter the data they should be drafted from. Sections
-          come back with whatever the data supports and an explicit list of what it does not.
-        </p>
-      </EmptyState>
+      <div className={styles.output}>
+        {library}
+        <EmptyState title={running ? 'Drafting…' : 'No sections drafted yet'}>
+          <p>
+            Pick the CTD headings to draft and enter the data they should be drafted from. Sections
+            come back with whatever the data supports and an explicit list of what it does not.
+          </p>
+        </EmptyState>
+      </div>
     );
   }
 
   return (
     <div className={styles.output}>
+      {library}
       <p className={styles.meta}>
         {draft.program_name} · drafted {new Date(draft.generated_at).toLocaleString()} · structure
         version {draft.reference.version} (transcribed {draft.reference.retrieved})

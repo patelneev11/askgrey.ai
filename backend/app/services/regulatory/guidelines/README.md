@@ -32,11 +32,33 @@ URL. Coverage is Module 3 (quality) and Module 4 / 2.6 (nonclinical) only, and w
 the subset each authority states in its own terms — it is not a transcription of the whole of any
 document.
 
+## How old the data is allowed to get
+
+Every dataset's age is computed from its `retrieved` date on each request and travels with the
+payload as `freshness` (per jurisdiction) and `snapshot` (the worst-aged one), so the UI can state
+the vintage instead of implying the comparison is current:
+
+| Age since `retrieved` | `status` | What it means |
+| --- | --- | --- |
+| under 90 days | `current` | A human read the sources within the review interval. Not a claim that the encoded set is complete or legally in force. |
+| 90–179 days | `review_due` | The quarterly review is overdue; the sources have not been re-read. |
+| 180 days or more | `stale` | Findings may reflect superseded guidance and must be checked requirement by requirement against the cited document. |
+
+A `retrieved` date in the future is reported as `review_due` with an age of 0 rather than as fresh.
+The thresholds live in `models.py` (`SNAPSHOT_REVIEW_INTERVAL_DAYS`, `SNAPSHOT_STALE_AFTER_DAYS`)
+and are a maintenance policy of this repo, not anything an authority publishes.
+
+`tests/test_regulatory_guidelines_freshness.py::test_shipped_snapshots_are_within_the_staleness_limit`
+is the forcing function: it warns once a review is overdue and **fails** once any shipped dataset
+passes 180 days. A red build there is not a broken test — it is the refresh below coming due.
+
 ## Refreshing the data
 
-Nobody automates this. The files are a snapshot read on the `retrieved` date and they go stale
-silently: the FDA and EMA texts change rarely, but PMDA's points-to-consider document is revised
-roughly annually. Refreshing is a manual review against the source:
+Nobody automates this, and nothing is fetched at runtime by design: the checker must stay
+deterministic and offline, and pulling regulatory sites from a request path would add both an SSRF
+surface and a silent dependency on someone else's uptime. The files are a snapshot read on the
+`retrieved` date: the FDA and EMA texts change rarely, but PMDA's points-to-consider document is
+revised roughly annually. Refreshing is a manual review against the source:
 
 1. Open the document in `docs/regulatory-sources.md` for the jurisdiction you are refreshing and
    read it against the file's `requirements`.

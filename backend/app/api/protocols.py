@@ -15,6 +15,7 @@ from app.services.protocols import (
     ProtocolReviewRequest,
     ProtocolService,
     SavedProtocolResponse,
+    SavedProtocolSummary,
     SaveProtocolRequest,
 )
 from app.services.protocols.calculator import (
@@ -49,6 +50,7 @@ from app.services.protocols.history import (
     get_history,
     get_protocol,
     get_version,
+    list_protocols,
     update_protocol,
 )
 
@@ -119,6 +121,13 @@ def save_protocol(
     return create_protocol(
         db, user_id=str(user.id), protocol=request.protocol, change_summary=request.change_summary
     )
+
+
+# Registered before the `/{protocol_id}` route so the empty path cannot be read as an id.
+@router.get("", response_model=list[SavedProtocolSummary])
+def list_saved_protocols(db: DbSession, user: ThrottledUser) -> list[SavedProtocolSummary]:
+    """The caller's saved protocols, newest edit first, so a save survives a page reload."""
+    return list_protocols(db, user_id=str(user.id))
 
 
 @router.get("/{protocol_id}", response_model=SavedProtocolResponse)

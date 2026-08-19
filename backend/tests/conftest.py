@@ -2,8 +2,8 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api import deps
@@ -28,13 +28,21 @@ def fresh_limiters() -> Iterator[None]:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    engine = create_engine(
+def engine() -> Iterator[Engine]:
+    """The database the API under test is talking to, so a test can inspect the rows it wrote."""
+    built = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=built)
+    yield built
+    Base.metadata.drop_all(bind=built)
+    built.dispose()
+
+
+@pytest.fixture
+def client(engine: Engine) -> Iterator[TestClient]:
     TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
     def override_get_db() -> Iterator[object]:
@@ -48,4 +56,13 @@ def client() -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def db(engine: Engine) -> Iterator[Session]:
+    """A session on the API's own database, for arranging state the HTTP surface cannot."""
+    session = sessionmaker(bind=engine, autocommit=False, autoflush=False)()
+    try:
+        yield session
+    finally:
+        session.close()

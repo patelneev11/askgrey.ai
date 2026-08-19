@@ -35,6 +35,7 @@ from .history import (
     ProtocolHistoryResponse,
     ProtocolVersionSummary,
     SavedProtocolResponse,
+    SavedProtocolSummary,
     SaveProtocolRequest,
     diff_protocols,
 )
@@ -98,6 +99,7 @@ __all__ = [
     "ProtocolVersionSummary",
     "SaveProtocolRequest",
     "SavedProtocolResponse",
+    "SavedProtocolSummary",
     "build_checklist",
     "build_export",
     "build_prompt",

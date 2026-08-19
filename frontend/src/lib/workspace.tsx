@@ -76,7 +76,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const requestedDocuments = useRef(new Set<string>());
   const goalRef = useRef(goal);
   const sourcesRef = useRef(sources);
+  const tableRef = useRef(table);
   const runningRef = useRef(false);
+
+  tableRef.current = table;
 
   const rememberFile = useCallback((documentId: string, file: File) => {
     requestedDocuments.current.add(documentId);
@@ -146,14 +149,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const removed = sourcesRef.current.find((source) => source.id === id);
       updateSources((current) => current.filter((source) => source.id !== id));
       if (!removed) return;
-      setTable((current) => {
-        const ids = new Set(removed.documentIds ?? []);
-        for (const row of current.rows) {
-          if (removed.url && row.source_url === removed.url) ids.add(row.document_id);
-          if (!removed.url && row.filename === removed.label) ids.add(row.document_id);
-        }
-        return withoutRows(current, ids);
-      });
+      const ids = new Set(removed.documentIds ?? []);
+      for (const row of tableRef.current.rows) {
+        if (removed.url && row.source_url === removed.url) ids.add(row.document_id);
+        if (!removed.url && row.filename === removed.label) ids.add(row.document_id);
+      }
+      // Removing a paper has to delete the stored bytes too, not just the row: leaving them until
+      // the retention window expires is not what the user asked for.
+      for (const documentId of ids) {
+        api.deleteDocument(documentId, getAccessToken()).catch(() => {
+          logger.warn('workspace.document_delete_failed', { document_id: documentId });
+        });
+      }
+      setTable((current) => withoutRows(current, ids));
       setTarget((current) =>
         current && (removed.documentIds ?? []).includes(current.row.document_id) ? null : current,
       );
@@ -173,12 +181,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setRunning(true);
     setError(null);
     setPendingColumns(goalLabels(trimmed));
-    const token = getAccessToken();
     const failures: string[] = [];
 
     // Papers are extracted one at a time so a slow or broken source never holds the whole
     // table hostage — each result lands as soon as it arrives.
     for (const source of queued) {
+      // Read per paper, not once: extracting a stack of PDFs outlasts an access token, and a
+      // renewal partway through the run leaves the token captured up front stale.
+      const token = getAccessToken();
       try {
         let result: ExtractionTable;
         if (source.file) {

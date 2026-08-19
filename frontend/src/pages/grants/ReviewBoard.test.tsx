@@ -135,7 +135,11 @@ describe('mock review board', () => {
   it('shows no scores at all when no model is configured', async () => {
     const user = userEvent.setup();
     reviewSection.mockRejectedValue(
-      new ApiError('the review board needs an LLM API key; no score is produced without one', 503),
+      new ApiError(
+        'the review board needs an LLM API key; no score is produced without one',
+        503,
+        'the review board needs an LLM API key; no score is produced without one',
+      ),
     );
     render(<ReviewBoard />);
 
@@ -148,8 +152,69 @@ describe('mock review board', () => {
     expect(screen.getByText('No review run yet')).toBeInTheDocument();
   });
 
+  it('says a refused review produced no scores', async () => {
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(
+      new ApiError(
+        'Strict Biostatistician returned an empty reply.',
+        502,
+        'Strict Biostatistician returned an empty reply.',
+      ),
+    );
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No scores were produced.');
+    expect(screen.getByText('No review run yet')).toBeInTheDocument();
+  });
+
+  it('asks the reader to sign in again rather than echoing an auth failure', async () => {
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(new ApiError('Not authenticated', 401, 'Not authenticated'));
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Your session has expired. Sign in again to run a review.',
+    );
+  });
+
+  it('says the board is unreachable when nothing but a status comes back', async () => {
+    // A dev proxy or a load balancer answering for a backend that is down: a status with no
+    // detail is not the model declining, and must not be worded as one.
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(new ApiError('Request failed (502)', 502));
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The review board could not be reached. Check your connection and try again.',
+    );
+  });
+
+  it('does not surface a network failure as a raw exception', async () => {
+    const user = userEvent.setup();
+    reviewSection.mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<ReviewBoard />);
+
+    await user.type(screen.getByLabelText('Draft section text'), DRAFT);
+    await user.click(screen.getByRole('button', { name: 'Run the board' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The review board could not be reached. Check your connection and try again.',
+    );
+  });
+
   it('says the personas could not be loaded rather than showing an empty board', async () => {
-    reviewPersonas.mockRejectedValue(new ApiError('personas are unusable', 500));
+    reviewPersonas.mockRejectedValue(
+      new ApiError('personas are unusable', 500, 'personas are unusable'),
+    );
     render(<ReviewBoard />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

@@ -4,6 +4,7 @@ import { Button } from '@/components/Button';
 import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
+import { SavedLibrary } from '@/components/SavedLibrary';
 import { StatusPill } from '@/components/StatusPill';
 import { api, type ExportFormat } from '@/lib/api';
 import { saveFile } from '@/lib/download';
@@ -90,6 +91,9 @@ function errorMessage(cause: unknown): string {
 export function BudgetPlanner() {
   const [draft, setDraft] = useState<BudgetRequest>(EMPTY_REQUEST);
   const [budget, setBudget] = useState<GrantBudget | null>(null);
+  // A budget reopened from the library was costed from a form this page no longer holds, so the
+  // export buttons would write the current (probably empty) form instead of what is on screen.
+  const [reopened, setReopened] = useState(false);
   const [running, setRunning] = useState(false);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +119,7 @@ export function BudgetPlanner() {
     setError(null);
     try {
       setBudget(await api.buildBudget(toRequest(draft), getAccessToken()));
+      setReopened(false);
     } catch (cause) {
       setError(errorMessage(cause));
       setBudget(null);
@@ -144,7 +149,7 @@ export function BudgetPlanner() {
           {budget && <StatusPill tone="validated">Rules {budget.rules_version}</StatusPill>}
           <Button
             size="sm"
-            disabled={budget === null || exporting !== null}
+            disabled={budget === null || reopened || exporting !== null}
             onClick={() => void download('xlsx')}
           >
             {exporting === 'xlsx' ? 'Exporting…' : 'Export .xlsx'}
@@ -152,7 +157,7 @@ export function BudgetPlanner() {
           <Button
             size="sm"
             variant="ghost"
-            disabled={budget === null || exporting !== null}
+            disabled={budget === null || reopened || exporting !== null}
             onClick={() => void download('csv')}
           >
             {exporting === 'csv' ? 'Exporting…' : 'Export .csv'}
@@ -349,6 +354,31 @@ export function BudgetPlanner() {
       {error && (
         <p className={styles.error} role="alert">
           {error}
+        </p>
+      )}
+
+      <SavedLibrary<GrantBudget>
+        kind="grants_budget"
+        current={
+          budget
+            ? {
+                title: draft.project_title || `${budget.program} ${budget.phase} budget`,
+                subtitle: `${money(budget.total)} over ${budget.period_months} months`,
+                payload: budget,
+              }
+            : null
+        }
+        onOpen={(payload) => {
+          setBudget(payload);
+          setReopened(true);
+          setError(null);
+        }}
+      />
+
+      {reopened && (
+        <p className={styles.provenance}>
+          Reopened from the library. The figures below are the ones that were costed when it was
+          saved; cost the budget again to export a file.
         </p>
       )}
 

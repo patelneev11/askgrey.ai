@@ -70,6 +70,8 @@ class ScriptedClaude(httpx.AsyncBaseTransport):
     Each reply scores exactly the criteria that persona's prompt asked for, so a test that
     changes the configured criteria does not also have to rewrite a recorded response. `extra`
     entries are appended verbatim, which is how the malformed-score tests inject a bad score.
+    `first_bodies` replies with each given body once, in order, before the well-formed reviews
+    resume, which is how the retry tests make a persona stumble and then recover.
     """
 
     def __init__(
@@ -79,6 +81,7 @@ class ScriptedClaude(httpx.AsyncBaseTransport):
         extra: list[dict[str, Any]] | None = None,
         replace_scores: list[dict[str, Any]] | None = None,
         body: str | None = None,
+        first_bodies: list[str] | None = None,
         status_code: int = 200,
         error: Exception | None = None,
     ) -> None:
@@ -86,6 +89,7 @@ class ScriptedClaude(httpx.AsyncBaseTransport):
         self.extra = extra or []
         self.replace_scores = replace_scores
         self.body = body
+        self.first_bodies = list(first_bodies or [])
         self.status_code = status_code
         self.error = error
         self.requests: list[httpx.Request] = []
@@ -98,6 +102,8 @@ class ScriptedClaude(httpx.AsyncBaseTransport):
             return httpx.Response(self.status_code, json={"error": {"message": "boom"}})
         payload = json.loads(request.content.decode())
         prompt = payload["messages"][0]["content"]
+        if self.first_bodies:
+            return claude_reply(self.first_bodies.pop(0))
         if self.body is not None:
             return claude_reply(self.body)
         scores: list[dict[str, Any]] = (

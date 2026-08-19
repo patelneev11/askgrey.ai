@@ -329,3 +329,18 @@
   font-size: var(--font-size-2xs);
   overflow-wrap: anywhere;
 }
+
+/* The vintage of the guideline reference data, stated wherever a comparison is offered or shown. */
+.snapshot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.snapshotStale {
+  border-color: var(--color-accent-warning);
+}

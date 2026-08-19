@@ -65,6 +65,17 @@ class ProtocolHistoryResponse(BaseModel):
     versions: list[ProtocolVersionSummary]
 
 
+class SavedProtocolSummary(BaseModel):
+    """Enough to list a saved protocol without shipping every version's payload."""
+
+    id: str
+    title: str
+    goal: str
+    current_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class SaveProtocolRequest(BaseModel):
     protocol: ProtocolDraft
     change_summary: str = Field(default="", max_length=500)
@@ -265,6 +276,35 @@ def _version(db: Session, *, protocol_id: str, version: int) -> ProtocolVersion:
     if row is None:  # pragma: no cover - a saved protocol always has its current version
         raise ProtocolRequestError("that version is missing")
     return row
+
+
+MAX_LISTED = 50
+
+
+def list_protocols(db: Session, *, user_id: str) -> list[SavedProtocolSummary]:
+    """
+    The caller's saved protocols, most recently edited first.
+
+    Without this a save is unreachable once the page reloads: the browser holds the only pointer
+    to the id, so the version history would sit on the server with no route back to it.
+    """
+    rows = db.scalars(
+        select(SavedProtocol)
+        .where(SavedProtocol.user_id == user_id)
+        .order_by(SavedProtocol.updated_at.desc())
+        .limit(MAX_LISTED)
+    ).all()
+    return [
+        SavedProtocolSummary(
+            id=row.id,
+            title=row.title,
+            goal=row.goal,
+            current_version=row.current_version,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
 
 
 def get_protocol(db: Session, *, protocol_id: str, user_id: str) -> SavedProtocolResponse:

@@ -44,7 +44,8 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Protocol drafts an experimental method',
     body: [
       'The outline on the left is the shape of the experiment; each step opens its full method, reagents and timings on the right.',
-      'The protocol here is a sample draft, not generated from your workspace.',
+      'The draft is generated from the goal you describe, and the master mix calculator does exact arithmetic on the volumes you enter. Nothing here is pre-filled sample text.',
+      'Saved protocols and their version history persist to your account, so a draft is still there after a reload.',
     ],
     caveat:
       'Agent-drafted content requires qualified researcher review before anyone runs it at the bench.',
@@ -85,8 +86,8 @@ export const TAB_INTROS: TabIntro[] = [
     path: '/audit',
     title: 'Audit records what the agents did',
     body: [
-      'Agent runs, document reads and exports land here with the model and inputs that produced them, filterable by kind.',
-      'The timeline shown is sample data; your own activity is not recorded here yet.',
+      'Your sign-ins, document reads, model calls and exports land here with the provenance that produced them, filterable by kind.',
+      'Only this workspace’s own events are recorded, kept for a configured window, and never the document text itself.',
     ],
   },
   {

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Button } from '@/components/Button';
 import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
+import { SavedLibrary } from '@/components/SavedLibrary';
 import { StatusPill } from '@/components/StatusPill';
 import {
   api,
@@ -130,6 +131,7 @@ export function usePreclinical() {
     measurements,
     setMeasurements,
     report,
+    setReport,
     running,
     error,
     submit,
@@ -422,21 +424,41 @@ export function PreclinicalForm({ controller }: { controller: PreclinicalControl
 }
 
 export function PreclinicalOutput({ controller }: { controller: PreclinicalController }) {
-  const { report, running } = controller;
+  const { report, running, setReport } = controller;
+
+  const library = (
+    <SavedLibrary<PreclinicalReport>
+      kind="regulatory_preclinical"
+      current={
+        report
+          ? {
+              title: `${report.study_id} — preclinical narrative`,
+              subtitle: `${report.discrepancies.length} flagged numbers · requires expert review`,
+              payload: report,
+            }
+          : null
+      }
+      onOpen={setReport}
+    />
+  );
 
   if (!report) {
     return (
-      <EmptyState title={running ? 'Drafting…' : 'No narrative drafted yet'}>
-        <p>
-          Enter the study record on the left. The drafted narrative appears here alongside every
-          number the audit could not match back to that record.
-        </p>
-      </EmptyState>
+      <div className={styles.output}>
+        {library}
+        <EmptyState title={running ? 'Drafting…' : 'No narrative drafted yet'}>
+          <p>
+            Enter the study record on the left. The drafted narrative appears here alongside every
+            number the audit could not match back to that record.
+          </p>
+        </EmptyState>
+      </div>
     );
   }
 
   return (
     <div className={styles.output}>
+      {library}
       {/* The backend only sets this for its development-only fixture drafter, whose numbers are
           deliberately wrong so the flags below can be seen. Saying so here keeps fixture output
           from reading as a draft of anything. */}

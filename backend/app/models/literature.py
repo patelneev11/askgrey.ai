@@ -44,6 +44,11 @@ class LiteratureDocument(Base):
     the tab reloads, so without this the citation viewer can only ever show a quote. Rows
     are owned by a user and are only ever served back to that user — this is a store of
     already-fetched bytes, never a fetcher of caller-supplied URLs.
+
+    `content` is ciphertext, not the PDF: `app.services.literature` encrypts it under the
+    owning user id and document id before it is written (see `app.core.crypto`), so this
+    table's bytes are useless in a dump or a provider backup. `byte_size` is the plaintext
+    length, which is what the quotas and the served Content-Length are about.
     """
 
     __tablename__ = "literature_documents"
@@ -60,3 +65,6 @@ class LiteratureDocument(Base):
     byte_size: Mapped[int] = mapped_column(Integer, default=0)
     content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # When this copy stops being served and is deleted. Stamped on write from the configured
+    # retention window, so shortening the window applies to rows stored after the change.
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

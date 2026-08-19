@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import json
 
+from pydantic import JsonValue
+
 from app.services.chat.agent import MAX_DETAIL_CHARS, _bounded, _tool_result_block
 from app.services.chat.models import ToolStep
+from app.services.chat.tools import _compact_trial
+from app.services.clinicaltrials import Intervention, TrialPhase, TrialRecord, TrialStatus
 
 
 def trial(index: int) -> dict[str, object]:
@@ -91,3 +95,35 @@ def test_the_block_sent_back_to_the_model_carries_the_bounded_detail() -> None:
     assert isinstance(content, str)
     assert "NCT10000000" in content, "the first real identifier has to reach the model"
     assert '"truncated"' in content
+
+
+def test_a_full_page_of_trials_reaches_the_model_uncut() -> None:
+    # The projection exists so that a fifty-trial page is not cut: a cut page is what made the
+    # answer count, disclose and page around records it never received.
+    trials = [
+        TrialRecord(
+            nct_id=f"NCT{10_000_000 + index}",
+            title="A randomised double-blind placebo-controlled study of something " * 4,
+            official_title="An official title that is longer still " * 8,
+            status=TrialStatus.COMPLETED,
+            phases=[TrialPhase.PHASE2, TrialPhase.PHASE3],
+            sponsor="A university department with a long formal name " * 3,
+            collaborators=[f"Collaborator {number}" for number in range(8)],
+            conditions=[f"Condition {number}" for number in range(9)],
+            interventions=[Intervention(name=f"Drug {number}", type="DRUG") for number in range(9)],
+            enrollment=240,
+            start_date="2019-01-01",
+            completion_date="2021-06-30",
+            url=f"https://clinicaltrials.gov/study/NCT{10_000_000 + index}",
+        )
+        for index in range(50)
+    ]
+    detail: JsonValue = {
+        "returned": len(trials),
+        "total_matched": 159,
+        "status_counts": {"COMPLETED": len(trials)},
+        "next_page_token": "opaque-cursor",
+        "trials": [_compact_trial(trial) for trial in trials],
+    }
+
+    assert _bounded(detail) == detail, "a fifty-trial page has to survive whole"

@@ -13,6 +13,7 @@ eligibility rules. Two properties are deliberate:
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TypeVar
@@ -29,6 +30,7 @@ from app.services.clinicaltrials import (
     ClinicalTrialsResponseError,
     ClinicalTrialsService,
     TrialPhase,
+    TrialRecord,
     TrialSearch,
     TrialStatus,
 )
@@ -361,6 +363,22 @@ class TrialInput(BaseModel):
     page_token: str = Field(default="", max_length=400)
 
 
+def _compact_trial(trial: TrialRecord) -> dict[str, JsonValue]:
+    """The fields an answer about a trial cites, without the long titles and collaborator lists."""
+    return {
+        "nct_id": trial.nct_id,
+        "title": trial.title[:160],
+        "status": trial.status.value if trial.status else "",
+        "phase": trial.phase_label,
+        "sponsor": trial.sponsor[:80],
+        "conditions": [condition[:60] for condition in trial.conditions[:3]],
+        "interventions": [item.name[:60] for item in trial.interventions[:3]],
+        "enrollment": trial.enrollment,
+        "start_date": trial.start_date,
+        "completion_date": trial.completion_date,
+    }
+
+
 async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) -> ToolOutcome:
     service = ClinicalTrialsService.from_settings()
     query = TrialSearch(
@@ -382,9 +400,23 @@ async def _search_clinical_trials(_context: ToolContext, arguments: TrialInput) 
     finally:
         await service.aclose()
     more = " — more pages available" if page.has_more else ""
+    tally: Counter[str] = Counter(
+        trial.status.value if trial.status else "UNSPECIFIED" for trial in page.trials
+    )
+    status_counts: dict[str, JsonValue] = dict(tally)
     return ToolOutcome(
         summary=f"{len(page.trials)} trial(s) returned of {page.total_count} matched{more}",
-        detail=page.model_dump(mode="json"),
+        # A page of full records overflows the turn's budget and gets cut, so the records are
+        # projected to the fields an answer cites and the per-status tally is counted here: an
+        # answer that has to count a long list itself gets the count wrong.
+        detail={
+            "query": query.model_dump(mode="json"),
+            "returned": len(page.trials),
+            "total_matched": page.total_count,
+            "status_counts": status_counts,
+            "next_page_token": page.next_page_token or "",
+            "trials": [_compact_trial(trial) for trial in page.trials],
+        },
         citations=tuple(
             Citation(
                 label=trial.title or trial.nct_id,

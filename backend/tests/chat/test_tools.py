@@ -11,6 +11,13 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.services.chat.tools import TOOLS, ToolContext, ToolInputError, ToolRegistry
+from app.services.clinicaltrials import (
+    ClinicalTrialsService,
+    TrialPage,
+    TrialRecord,
+    TrialSearch,
+    TrialStatus,
+)
 from app.services.literature import WorkspaceWrite, save_workspace
 from app.services.protocols import ProtocolDraft, ProtocolStep
 from app.services.protocols.history import create_protocol
@@ -148,3 +155,50 @@ def test_the_trial_search_offers_a_cursor_so_a_cut_result_can_be_continued() -> 
     assert isinstance(properties, dict)
     assert "page_token" in properties
     assert "next_page_token" in tool.definition().description
+
+
+@pytest.mark.asyncio
+async def test_the_trial_search_counts_the_statuses_itself(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An answer asked to group thirty trials by status miscounts its own headings, so the breakdown
+    # is computed here and the answer only quotes it.
+    trials = [
+        TrialRecord(nct_id=f"NCT0000000{index}", status=status)
+        for index, status in enumerate(
+            [TrialStatus.COMPLETED] * 3 + [TrialStatus.TERMINATED] * 2 + [TrialStatus.UNKNOWN]
+        )
+    ]
+    page = TrialPage(
+        search=TrialSearch(condition="schizophrenia"),
+        trials=trials,
+        total_count=159,
+        page_size=10,
+        next_page_token="cursor-2",
+    )
+
+    class StubService:
+        async def search(
+            self, search: TrialSearch, *, page_size: int = 10, page_token: str | None = None
+        ) -> TrialPage:
+            return page
+
+        async def aclose(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        ClinicalTrialsService, "from_settings", classmethod(lambda cls: StubService())
+    )
+    tool = ToolRegistry().get("search_clinical_trials")
+    assert tool is not None
+
+    owner_id, _ = accounts(db)
+    outcome = await tool.run(ToolContext(db=db, user_id=owner_id), {"condition": "schizophrenia"})
+    detail = outcome.detail
+
+    assert isinstance(detail, dict)
+    assert detail["status_counts"] == {"COMPLETED": 3, "TERMINATED": 2, "UNKNOWN": 1}
+    assert detail["returned"] == 6
+    assert detail["total_matched"] == 159
+    # The cursor has to survive into the payload: the model may not invent one.
+    assert detail["next_page_token"] == "cursor-2"

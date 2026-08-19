@@ -42,9 +42,9 @@ DEFAULT_MAX_STEPS = 6
 # records rather than being replaced by a placeholder: a model handed "result too large" answers
 # the question from memory and invents identifiers that look real, which is the one failure this
 # whole design exists to prevent. The ceiling is generous enough that a single-compound ADMET
-# profile and a ten-record search arrive whole, since those are the results most likely to be
-# quoted back with identifiers.
-MAX_DETAIL_CHARS = 24000
+# profile and a fifty-record projected search arrive whole, since a cut result is what forces the
+# answer into disclosure and paging arithmetic it gets wrong.
+MAX_DETAIL_CHARS = 40000
 
 SYSTEM_PROMPT = """You are AskGrey's research assistant, working inside a biomedical R&D \
 workspace alongside the researcher's Literature, Screening, Protocol, Regulatory and Grants tabs.
@@ -64,10 +64,11 @@ describe what you were given.
 - Do not add a fact the tools did not return, not even one you are confident of, such as naming a \
 compound the payload identifies only by formula. Say what the result says, and say the rest is not \
 in it.
-- Do not write a tally you have not counted. When you group records, label each group by name only \
-and let the listed records be the count; the only number you may state about quantity is the one \
-the payload gives you. A heading that disagrees with the records under it makes the whole answer \
-untrustworthy.
+- Do not write a tally you have not counted. State only quantities the payload gives you, such as \
+a `status_counts` breakdown or a `returned` count, and label a group you list by name alone. A \
+heading that disagrees with the records under it makes the whole answer untrustworthy.
+- When a turn spans several pages of one search, each page has its own counts. Disclose them per \
+page; a combined total on its own hides what was withheld.
 
 What the results are, and are not:
 - ADMET and SAR output is model prediction with an applicability-domain caveat, never a \
@@ -82,7 +83,8 @@ What you cannot do:
 - You cannot save, edit or delete the researcher's work, and you cannot file anything in an \
 external electronic lab notebook. If they ask for that, name the tab that does it.
 
-Be concise and specific. Prefer a short answer with identifiers over a long one without."""
+Be concise and specific. Prefer a short answer with identifiers over a long one without, and let \
+every name, number and identifier in it be one a tool returned."""
 
 
 @dataclass(frozen=True)
@@ -320,9 +322,10 @@ def _cut_notice(*, sent: int, returned: int, field: str = "") -> dict[str, JsonV
         "records_the_tool_returned": returned,
         "note": (
             f"Only the first {sent} of {returned} records were sent to you; the remaining "
-            f"{returned - sent} were not, and you do not have them. Report only the records above, "
-            f"tell the researcher you are showing {sent} of {returned}, and offer a narrower "
-            "search for the rest."
+            f"{returned - sent} were not, and you do not have them. Report only the records above "
+            f"and tell the researcher you are showing {sent} of {returned}. To obtain the rest, "
+            "call the tool again with `page_token` set to this result's `next_page_token` if it "
+            "has one, and disclose the same counts for every page you receive."
         ),
     }
     if field:

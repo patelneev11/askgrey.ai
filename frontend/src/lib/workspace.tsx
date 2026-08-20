@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import type { CitationTarget } from '@/components/CitationViewer';
 
-import { api, type ExportFormat, type StoredSource, type StoredWorkspace } from './api';
+import { ApiError, api, type ExportFormat, type StoredSource, type StoredWorkspace } from './api';
 import { saveFile } from './download';
 import {
   EMPTY_TABLE,
@@ -20,6 +20,15 @@ import { WorkspaceContext, type Source, type WorkspaceContextValue } from './wor
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : 'Extraction failed';
+}
+
+/**
+ * Whether a failure means the paper itself is gone, rather than that the server is unwell.
+ *
+ * A storage outage answers 503 and keeps the row, so it must never be read as a deletion.
+ */
+function isForgotten(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.status === 404;
 }
 
 function isPdf(file: File): boolean {
@@ -169,6 +178,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [updateSources],
   );
 
+  /**
+   * Drop a paper the server no longer holds, along with anything the table claims from it.
+   *
+   * Unlike `removeSource` this deletes nothing server-side: the bytes are already gone, and the
+   * chip is only still here because the workspace outlived them.
+   */
+  const forgetSource = useCallback(
+    (source: Source) => {
+      const ids = new Set(source.documentIds ?? []);
+      updateSources((current) => current.filter((candidate) => candidate.id !== source.id));
+      setTable((current) => withoutRows(current, ids));
+      setTarget((current) => (current && ids.has(current.row.document_id) ? null : current));
+    },
+    [updateSources],
+  );
+
   const runExtraction = useCallback(async () => {
     const trimmed = goalRef.current.trim();
     const queued = sourcesRef.current;
@@ -212,6 +237,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         );
         setTable((current) => mergeTables(current, result));
       } catch (cause) {
+        // A restored paper the server cannot find is gone for good — no later run can recover
+        // it — so the chip goes with it instead of failing on every Generate from now on.
+        if (isForgotten(cause) && !source.file && !source.url) {
+          forgetSource(source);
+          failures.push(`${source.label} is no longer stored — upload the PDF again`);
+          continue;
+        }
         const message = errorMessage(cause);
         failures.push(message.includes(source.label) ? message : `${source.label}: ${message}`);
       }
@@ -226,7 +258,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       duration_ms: Math.round(performance.now() - startedAt),
     });
     if (failures.length > 0) setError(failures.join(' · '));
-  }, [rememberFile, updateSources]);
+  }, [forgetSource, rememberFile, updateSources]);
 
   const exportTable = useCallback(
     async (format: ExportFormat) => {

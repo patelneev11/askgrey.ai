@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiteraturePage } from '@/pages/LiteraturePage';
 import { table } from '@/test/fixtures';
 
+import { ApiError } from './api';
 import { setAccessToken } from './session';
 
 import { WorkspaceProvider } from './workspace';
@@ -187,5 +188,51 @@ describe('WorkspaceProvider', () => {
       expect(extractFromStoredDocument).toHaveBeenCalledWith('doc-1', 'sample size', 'token-123'),
     );
     expect(screen.getByText('73 patients')).toBeInTheDocument();
+  });
+
+  it('drops a restored paper the server no longer holds instead of failing on it forever', async () => {
+    loadWorkspace.mockResolvedValue({
+      goal: '',
+      sources: [
+        { id: 'paper.pdf:1', label: 'paper.pdf', kind: 'upload', url: '', document_id: 'doc-1' },
+      ],
+      table: table(),
+    });
+    extractFromStoredDocument.mockRejectedValue(new ApiError('no such document', 404));
+    const user = userEvent.setup();
+    renderApp();
+    await screen.findByText('paper.pdf');
+
+    await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
+    await user.click(screen.getByRole('button', { name: 'Generate columns' }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/paper\.pdf is no longer stored/)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('paper.pdf')).not.toBeInTheDocument();
+    // Its findings go too: the table would otherwise cite a paper the workspace cannot show.
+    expect(screen.queryByText('73 patients')).not.toBeInTheDocument();
+  });
+
+  it('keeps a restored paper when it is storage that is down, not the paper that is gone', async () => {
+    loadWorkspace.mockResolvedValue({
+      goal: '',
+      sources: [
+        { id: 'paper.pdf:1', label: 'paper.pdf', kind: 'upload', url: '', document_id: 'doc-1' },
+      ],
+      table: null,
+    });
+    extractFromStoredDocument.mockRejectedValue(
+      new ApiError('stored documents are temporarily unavailable; retry shortly', 503),
+    );
+    const user = userEvent.setup();
+    renderApp();
+    await screen.findByText('paper.pdf');
+
+    await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
+    await user.click(screen.getByRole('button', { name: 'Generate columns' }));
+
+    await waitFor(() => expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument());
+    expect(screen.getByText('paper.pdf')).toBeInTheDocument();
   });
 });

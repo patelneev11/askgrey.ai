@@ -802,6 +802,100 @@ chmod +x /tmp/start_real.sh
 (setsid nohup /tmp/start_real.sh > /tmp/uv.log 2>&1 &)
 ```
 
+### `pkill -f 'uvicorn app.main:app'` kills your own exec shell
+
+The pattern matches the shell's *own* command string, so any `exec` call containing that literal
+dies with `exit code: -1` before printing anything — including a wrapper like
+`setsid bash -c "... pkill ..."`. The kill still happens; you just lose the output. Always verify
+from a **fresh shell** rather than assuming it failed:
+
+```bash
+pgrep -af 'uvicorn app.main:app' | grep -v pgrep || echo "no uvicorn"
+curl -s -m 3 http://127.0.0.1:8000/api/health || echo "BACKEND DOWN"
+```
+
+To restart without the self-kill, launch uvicorn inline detached instead of via `/tmp/start_real.sh`
+(that script begins with the fatal `pkill`).
+
+## Account-backed Workspace & Settings (`GET /api/account/overview`, PR #84)
+
+Both pages render **only the caller's own rows** from one authenticated endpoint. Useful oracles:
+
+- Truth oracle for Settings is the running `Settings` object, not the source defaults — read it from
+  the live process, since `.env`/env overrides change it. Fields shown: environment/release,
+  `llm_model`, model-credentials configured, daily call budget, document-encryption scheme,
+  document + audit retention, access/refresh TTLs.
+- Counts come from `literature_documents`, `saved_artifacts` (grouped by `kind`), `audit_events` and
+  non-revoked `refresh_sessions` — all filtered by `user_id`, so cross-check with the DB
+  (`backend/.venv/bin/python`, stdlib `sqlite3`; there is no `sqlite3` CLI).
+- **Merely navigating to Workspace/Settings writes audit events**, so the audit count moves on its
+  own. Re-read the DB at the moment of the screenshot instead of expecting a fixed delta.
+
+### Moving the stored-paper count needs a *byte-distinct* PDF
+
+Literature storage is content-addressed: re-uploading a byte-identical copy under a new filename
+does **not** create a second `literature_documents` row, so the count legitimately stays put. This
+looks exactly like a broken counter. Use a genuinely different PDF (e.g. a second file from
+`/home/ubuntu/attachments/…`) before reporting a count failure.
+
+### Forbidden-string sweeps must distinguish denials from claims
+
+Both pages intentionally contain `seats`, `integrations`, `data residency` and `21 CFR Part 11` as
+explicit **negations** ("Shared workspaces, seats and third-party integrations are not built…";
+"Operational log, not a 21 CFR Part 11 archive"). A naive `includes()` sweep flags these as
+fabrication. Always print ~160 chars of surrounding context and judge the sentence, not the token.
+
+### The onboarding tour copy is a separate surface from the pages
+
+`frontend/src/lib/tab-intros.ts` (per-tab notices) and the 4-step first-run tour are **not** updated
+when a page is rewritten, and they are not covered by the page's own tests. After any Workspace or
+Settings rewrite, replay the tour and read every step: stale claims like "org, seats and connected
+systems", "a sample record and read-only", "read-only previews of the org … model" or "Anything
+marked Sample data" can survive in the shipped bundle while the page itself is honest. Grep the
+built bundle to prove it ships:
+
+```bash
+grep -c 'seats and connected systems\|sample record and read-only\|read-only previews' \
+  frontend/dist/assets/index-*.js
+```
+
+### Testing `Sign out everywhere` (`POST /api/auth/logout-all`)
+
+Get two real sessions by signing the *same* account in inside a second Chrome context (incognito
+window — a second tab shares the session). Settings' `Active sign-ins` list and its
+"Revokes all N sign-ins" subtitle should both equal the live-session count in the DB. After the
+click: the initiating context drops to `/login`, and the other context fails on **reload** (the
+refresh-cookie path). Verify server-side with `revoked_at is null` going to 0, and confirm
+`auth.logout_all` is audited. Note a failed refresh does **not** appear to be audited, so the DB
+session state plus the browser landing on login is the evidence. Check the other account's
+`revoked_at` **timestamps** to prove no collateral revocation.
+
+### Capturing loading and error states honestly
+
+Two traps:
+
+- CDP `Network.emulateNetworkConditions` latency does **not** throttle loopback, so the `LOADING`
+  pill never lingers no matter how high you set it. Instead pause the request with the **Fetch**
+  domain (`Fetch.enable` with `urlPattern: "*/api/account/overview*"`, hold `requestPaused`, sleep,
+  then `Fetch.continueRequest`) — that freezes the page in its true loading state for screenshots.
+- Because FastAPI **also serves the SPA** single-origin, killing the backend and reloading gives
+  Chrome's `ERR_CONNECTION_REFUSED`, not the app's error state. To test the app's own error UI, load
+  the SPA first, *then* kill the backend, then navigate **client-side** (sidebar clicks) so only the
+  API fetch fails. Expect `This workspace could not be loaded` / `These settings could not be loaded`
+  with a reason, and assert **no counts render at all** (zeros presented as fact would be the bug).
+
+### With two browser contexts open, CDP helpers grab the wrong tab
+
+`cdp_eval.py` and similar take the *first* matching page, which is often the incognito window sitting
+on `/login` — you get a clean, meaningless result. List pages and target by id:
+
+```bash
+python3 -c "import json,urllib.request;[print(t['id'],t['url'][:70]) for t in json.load(urllib.request.urlopen('http://127.0.0.1:29229/json/list')) if t.get('type')=='page']"
+```
+
+then evaluate against that explicit id (see `/tmp/eval_tab.py` pattern: `Runtime.evaluate` over the
+tab's `webSocketDebuggerUrl`). Sanity-check by returning `location.pathname` with every sweep.
+
 ### Forcing an LLM failure: the `env` parameter will NOT override the session secret
 
 `ANTHROPIC_API_KEY` is auto-injected into every shell, and it **wins over** the `exec` tool's

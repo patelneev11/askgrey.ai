@@ -18,6 +18,7 @@ from app.models.base import Base
 from app.models.library import SavedArtifact  # noqa: F401
 from app.models.literature import LiteratureDocument, LiteratureWorkspace  # noqa: F401
 from app.models.session import RefreshSession  # noqa: F401
+from app.models.spend import LlmSpend  # noqa: F401
 from app.models.user import User  # noqa: F401
 
 config = context.config

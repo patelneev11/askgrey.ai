@@ -31,7 +31,20 @@ Kind = Literal["agent", "human", "export"]
 # Which workflow an event belongs to, for the tab's three filters. Anything an agent did on the
 # user's behalf is "agent", anything leaving the app as a file is "export", and the rest is the
 # person: signing in, opening a paper, deleting one.
-AGENT_EVENT_MARKERS = ("sent_to_llm", "llm.", "extraction.", "budget_")
+AGENT_EVENT_MARKERS = (
+    "sent_to_llm",
+    "llm.",
+    "extraction.",
+    "budget_",
+    # A chat turn and the tools it ran are the assistant working on the researcher's behalf;
+    # deleting a thread is the person, so it is deliberately not matched here.
+    "chat.turn",
+    "chat.tool_call",
+    "chat.message_sent",
+    # A refusal is the assistant declining to work, so it belongs beside the turns it replaced
+    # rather than under the person's own actions.
+    "chat.out_of_scope",
+)
 EXPORT_EVENT_MARKERS = ("export", "_exported", "download")
 
 

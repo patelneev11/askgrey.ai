@@ -65,10 +65,11 @@ review row.
 
 ### `TrialPage`
 
-`trials`, `total_count`, `page_size`, `next_page_token`, `has_more`. v2 paginates with an opaque
-cursor rather than offsets: pass `next_page_token` back into `search()` for the following page. The
-API only returns `totalCount` on the first page of a walk, so later pages fall back to the number of
-trials on that page.
+`trials`, `total_count`, `total_count_known`, `page_size`, `next_page_token`, `has_more`. v2
+paginates with an opaque cursor rather than offsets: pass `next_page_token` back into `search()` for
+the following page. The API only returns `totalCount` on the first page of a walk, so later pages
+fall back to the number of trials on that page and set `total_count_known` false — check it before
+reporting a total, or a search matching 143,516 studies is reported as having matched 50.
 
 ## Errors
 

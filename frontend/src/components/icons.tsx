@@ -5,6 +5,7 @@ import type { SVGProps } from 'react';
  * rail size and inherit colour from their container. Add new icons in this file only.
  */
 export type IconName =
+  | 'assistant'
   | 'literature'
   | 'screening'
   | 'protocol'
@@ -19,6 +20,13 @@ export type IconName =
 type IconProps = SVGProps<SVGSVGElement> & { name: IconName; size?: number };
 
 const PATHS: Record<IconName, JSX.Element> = {
+  // Speech bubble with a spark — the assistant that can reach the other tabs' tools.
+  assistant: (
+    <>
+      <path d="M4.5 6A1.5 1.5 0 0 1 6 4.5h12A1.5 1.5 0 0 1 19.5 6v8A1.5 1.5 0 0 1 18 15.5H9l-4.5 4z" />
+      <path d="M12 7.5l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5L8.5 11l2.5-1z" />
+    </>
+  ),
   // Stacked papers with a search lens — literature discovery.
   literature: (
     <>

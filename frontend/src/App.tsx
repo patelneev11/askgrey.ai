@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { OnboardingProvider } from '@/lib/onboarding';
 import { WorkspaceProvider } from '@/lib/workspace';
 import { AuditPage } from '@/pages/AuditPage';
+import { ChatPage } from '@/pages/ChatPage';
 import { GrantsPage } from '@/pages/GrantsPage';
 import { LiteraturePage } from '@/pages/LiteraturePage';
 import { LoginPage } from '@/pages/LoginPage';
@@ -48,6 +49,7 @@ export function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/literature" replace />} />
+        <Route path="/assistant" element={<ChatPage />} />
         <Route path="/literature" element={<LiteraturePage />} />
         <Route path="/screening" element={<ScreeningPage />} />
         <Route path="/protocol" element={<ProtocolPage />} />

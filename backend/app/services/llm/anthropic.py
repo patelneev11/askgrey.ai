@@ -72,7 +72,15 @@ class AnthropicMessagesClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def complete(self, *, system: str, prompt: str, prefill: str = "") -> str:
+    async def complete(
+        self, *, system: str, prompt: str, prefill: str = "", allow_truncated: bool = False
+    ) -> str:
+        """The reply's text.
+
+        `allow_truncated` is for callers whose answer is complete long before the ceiling — a
+        one-word classification, say — where a `max_tokens` stop reason means the model added
+        chatter after the word, not that the answer is missing.
+        """
         messages: list[dict[str, str]] = [{"role": "user", "content": prompt}]
         if prefill:
             messages.append({"role": "assistant", "content": prefill})
@@ -111,7 +119,7 @@ class AnthropicMessagesClient:
         )
         if not text.strip():
             raise AnthropicEmptyResponseError("Claude returned no text content")
-        if body.get("stop_reason") == "max_tokens":
+        if body.get("stop_reason") == "max_tokens" and not allow_truncated:
             raise AnthropicTruncatedResponseError(
                 f"Claude's reply was cut off at the {self.max_tokens}-token ceiling"
             )

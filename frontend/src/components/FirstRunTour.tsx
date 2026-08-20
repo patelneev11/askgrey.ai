@@ -26,12 +26,12 @@ const STEPS: Step[] = [
   {
     eyebrow: 'Start here',
     title: 'Literature turns a question into a table',
-    body: 'Add papers as PDFs or PMC links, describe what to pull out of them in plain English, and each phrase becomes a column. Click any value to jump to the exact passage it came from, then export the table to Excel with those citations intact.',
+    body: 'Add papers as PDFs or PMC links, describe what to pull out of them in plain English, and each phrase becomes a column. Click any value to jump to the exact passage it came from, then export the table to Excel with those citations intact. If you would rather just ask, the Assistant tab calls the same services and shows every call it made.',
   },
   {
     eyebrow: 'What is real today',
     title: 'Every tab runs on your own data',
-    body: 'Literature, Screening, Protocol, Regulatory and Grants all run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov, grants.gov and SBIR searches behind them. Workspace, Audit and Settings report your account: what you have stored and saved, what the agents did, and how this deployment is configured.',
+    body: 'The Assistant, Literature, Screening, Protocol, Regulatory and Grants all run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov, grants.gov and SBIR searches behind them. Workspace, Audit and Settings report your account: what you have stored and saved, what the agents did, and how this deployment is configured.',
     caveat:
       'An account is the only unit that exists: shared workspaces, seats and third-party integrations are not built, and the grant review board is a mock panel.',
   },

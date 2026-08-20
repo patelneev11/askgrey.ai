@@ -7,8 +7,14 @@ export interface NavItem {
   icon: IconName;
 }
 
-/** Core operational tabs, in workflow order: discovery through funding. */
+/**
+ * Core operational tabs, in workflow order: discovery through funding.
+ *
+ * The assistant leads because it reaches every tab's services in one place; the tabs below it are
+ * where the same work is done by hand and where results are saved.
+ */
 export const OPERATIONAL_TABS: NavItem[] = [
+  { label: 'Assistant', to: '/assistant', icon: 'assistant' },
   { label: 'Literature', to: '/literature', icon: 'literature' },
   { label: 'Screening', to: '/screening', icon: 'screening' },
   { label: 'Protocol Creation', to: '/protocol', icon: 'protocol' },

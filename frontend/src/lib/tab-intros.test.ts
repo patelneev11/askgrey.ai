@@ -21,7 +21,7 @@ describe('tab intros', () => {
   it('covers every tab once', () => {
     const ids = TAB_INTROS.map((intro) => intro.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(8);
+    expect(ids).toHaveLength(9);
   });
 
   it('makes no claim the pages themselves have retracted', () => {
@@ -37,6 +37,13 @@ describe('tab intros', () => {
   // from those tabs is the regression this guards.
   it('keeps a reliability caveat on the tabs whose output is model-generated', () => {
     const caveated = TAB_INTROS.filter((intro) => intro.caveat).map((intro) => intro.id);
-    expect(caveated).toEqual(['literature', 'screening', 'protocol', 'regulatory', 'grants']);
+    expect(caveated).toEqual([
+      'assistant',
+      'literature',
+      'screening',
+      'protocol',
+      'regulatory',
+      'grants',
+    ]);
   });
 });

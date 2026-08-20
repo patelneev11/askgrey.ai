@@ -18,6 +18,17 @@ export interface TabIntro {
  */
 export const TAB_INTROS: TabIntro[] = [
   {
+    id: 'assistant',
+    path: '/assistant',
+    title: 'The assistant runs the other tabs for you',
+    body: [
+      'Ask a research question in one place and it calls the same services the tabs do — PubMed, PubChem, ClinicalTrials.gov, descriptors and ADMET, patent and grant search, eligibility, budgets and drafting — and shows every call it made with its sources.',
+      'Press Reference to point it at work you already saved: your Literature workspace, a saved screening or grants result, a saved protocol. It can read and draft, but it cannot save, edit or delete anything, and it cannot file work in an external lab notebook.',
+    ],
+    caveat:
+      'Answers are model-generated and require expert review. Predictions are not measurements, and nothing the assistant says is legal, regulatory or clinical advice.',
+  },
+  {
     id: 'literature',
     path: '/literature',
     title: 'Literature turns a pile of papers into a cited table',

@@ -74,6 +74,8 @@ include = ["app*"]
 "app.services.grants.review_board" = ["*.json"]
 # The trained ADMET QSAR models: gradient-boosted trees exported as JSON, read at inference.
 "app.services.screening.admet" = ["qsar_models/*.json"]
+# The assistant's scope policy: which questions it will answer, editable without a code change.
+"app.services.chat" = ["*.json"]
 
 [tool.ruff]
 line-length = 100

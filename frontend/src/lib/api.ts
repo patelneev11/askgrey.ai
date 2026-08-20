@@ -1,3 +1,10 @@
+import type {
+  AssistantLimits,
+  ChatReference,
+  ChatToolSummary,
+  ConversationDetail,
+  ConversationSummary,
+} from './chat';
 import type { ExtractionTable } from './extraction';
 import type {
   BoardReport,
@@ -438,6 +445,8 @@ const SUGGESTION_TIMEOUT_MS = 60_000;
 const PATENT_SEARCH_TIMEOUT_MS = 45_000;
 /** Semantic matching is one LLM pass over a page of opportunities, not a full paper. */
 const LLM_TIMEOUT_MS = 120_000;
+/** How long to wait for a turn's first byte; the stream itself is then unbounded by design. */
+const CHAT_TIMEOUT_MS = 60_000;
 
 export class ApiError extends Error {
   constructor(
@@ -843,9 +852,10 @@ export const api = {
       token,
     ),
 
-  listArtifacts: (kind: ArtifactKind, token?: string) =>
+  /** Saved items of one kind, or every kind when none is named. */
+  listArtifacts: (kind?: ArtifactKind, token?: string) =>
     request<SavedArtifactSummary[]>(
-      `/library?kind=${encodeURIComponent(kind)}`,
+      kind ? `/library?kind=${encodeURIComponent(kind)}` : '/library',
       {},
       token,
     ),
@@ -969,6 +979,49 @@ export const api = {
 
   reviewPersonas: (token?: string) =>
     request<PersonaSummary[]>('/grants/review-board/personas', {}, token),
+
+  /** What the assistant can actually do, so the tab states it rather than implying it. */
+  chatTools: (token?: string) => request<ChatToolSummary[]>('/chat/tools', {}, token),
+
+  /** What it will answer and what this account has left to spend on it. */
+  chatLimits: (token?: string) => request<AssistantLimits>('/chat/limits', {}, token),
+
+  startConversation: (token?: string) =>
+    request<ConversationSummary>('/chat/conversations', { method: 'POST', body: '{}' }, token),
+
+  listConversations: (token?: string) =>
+    request<ConversationSummary[]>('/chat/conversations', {}, token),
+
+  loadConversation: (id: string, token?: string) =>
+    request<ConversationDetail>(`/chat/conversations/${encodeURIComponent(id)}`, {}, token),
+
+  deleteConversation: (id: string, token?: string) =>
+    send(`/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }, token),
+
+  /**
+   * Ask one question and read the answer as it is written.
+   *
+   * The response body is a server-sent event stream, so this hands back the body rather than
+   * parsed JSON. The timeout bounds the wait for the first byte only — `send` clears it once the
+   * headers arrive, which is what lets a long tool-using turn finish.
+   */
+  sendChatMessage: async (
+    conversationId: string,
+    message: string,
+    references: ChatReference[],
+    token?: string,
+  ) => {
+    const response = await send(
+      `/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
+      { method: 'POST', body: JSON.stringify({ message, references }) },
+      token,
+      CHAT_TIMEOUT_MS,
+    );
+    if (!response.body) {
+      throw new ApiError('The assistant sent no reply stream.', 502);
+    }
+    return response.body;
+  },
 
   reviewSection: (review: ReviewBoardRequest, token?: string) =>
     request<BoardReport>(

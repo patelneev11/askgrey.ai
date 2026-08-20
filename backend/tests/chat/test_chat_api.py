@@ -438,6 +438,9 @@ def test_an_off_topic_question_is_answered_from_the_config_without_calling_claud
     refusal = next(event for event in feed["events"] if event["event"] == "chat.out_of_scope")
     assert refusal["outcome"] == "denied"
     assert refusal["detail"]["rule"] == "creative_writing"
+    # A refusal is the assistant declining to work, so the Agent runs filter has to show it
+    # next to the turns it replaced rather than filing it under the researcher's own actions.
+    assert refusal["kind"] == "agent"
 
 
 def test_an_exhausted_dollar_cap_refuses_the_turn_and_names_the_reset(

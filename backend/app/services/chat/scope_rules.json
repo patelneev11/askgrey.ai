@@ -2,7 +2,7 @@
   "version": "2026-08-13",
   "purpose": "Biomedical R&D research support: literature, compounds and screening, clinical trials, protocols, regulatory drafting, and grant funding — over this workspace's own data and the public sources the tabs already query.",
   "refusal": "I only answer questions about biomedical R&D work in this workspace — literature, compounds and screening, clinical trials, protocols, regulatory drafting, and grants. Ask me one of those and I will use the same services the tabs do.",
-  "comment": "Editable scope policy for the Assistant tab. `off_topic_rules` are matched against the researcher's message before any model call, so a blatantly out-of-scope request costs nothing at Anthropic. Patterns are case-insensitive Python regular expressions and are deliberately narrow: a false refusal on real research work is worse than paying for one off-topic answer, so anything a rule does not catch goes to the classifier, and anything the classifier cannot decide is allowed.",
+  "comment": "Editable scope policy for the Assistant tab. `off_topic_rules` are matched against the researcher's message before any model call, so a blatantly out-of-scope request costs nothing at Anthropic. Patterns are case-insensitive Python regular expressions and are deliberately narrow: a false refusal on real research work is worse than paying for one off-topic answer, so anything a rule does not catch goes to the classifier, and anything the classifier cannot decide is allowed. A pattern here cannot be vetoed by research vocabulary, so it must not contain a word the work uses: `population of` was removed from general_trivia because `population of patients` is how researchers ask about trial enrolment, and questions about a country's population are left to the classifier instead.",
   "off_topic_rules": [
     {
       "id": "creative_writing",
@@ -19,7 +19,7 @@
       "patterns": [
         "\\bwho (won|is winning|will win)\\b[^.?!]{0,40}\\b(world cup|super bowl|election|series|olympics|game|match)\\b",
         "\\bwhat('s| is) the weather\\b",
-        "\\b(capital|population) of [A-Z]?[a-z]+\\b",
+        "\\bcapital of \\w+",
         "\\b(stock|share) price\\b",
         "\\b(bitcoin|crypto|ethereum)\\b",
         "\\bwho (is|was) the (president|prime minister|king|queen)\\b",
@@ -72,7 +72,7 @@
     "solubility", "permeability", "bioavailability", "logp", "screening", "assay", "ic50",
     "ec50", "binding", "target", "kinase", "receptor", "scaffold", "analog", "analogue",
     "clinical trial", "clinicaltrials", "nct", "phase i", "phase ii", "phase iii", "cohort",
-    "endpoint", "inclusion criteria", "exclusion criteria", "patient population",
+    "endpoint", "inclusion criteria", "exclusion criteria", "patient population", "study population",
     "protocol", "western blot", "pcr", "elisa", "cell culture", "buffer", "master mix",
     "reagent", "incubation", "centrifuge", "dilution", "in vitro", "in vivo", "mouse model",
     "regulatory", "ind", "nda", "fda", "ema", "gmp", "glp", "ich", "preclinical",

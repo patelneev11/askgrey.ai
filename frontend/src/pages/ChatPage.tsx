@@ -240,9 +240,14 @@ export function ChatPage() {
     [conversationId, startThread, token],
   );
 
+  const exhausted = Boolean(limits?.exhausted_cap);
+  const tooLong = Boolean(limits && draft.length > limits.max_message_chars);
+
   const ask = useCallback(async () => {
     const question = draft.trim();
-    if (!question || pending) return;
+    // Guarded here rather than only on the button: Enter sends too, and a rejected request
+    // would surface the server's own validation string in the thread.
+    if (!question || pending || exhausted || tooLong) return;
     setError(null);
     setDraft('');
     setPending(EMPTY_PENDING);
@@ -314,10 +319,7 @@ export function ChatPage() {
       setError(errorFrom(cause));
       setPending(null);
     }
-  }, [chosen, conversationId, draft, pending, token]);
-
-  const exhausted = Boolean(limits?.exhausted_cap);
-  const tooLong = Boolean(limits && draft.length > limits.max_message_chars);
+  }, [chosen, conversationId, draft, exhausted, pending, token, tooLong]);
 
   const grouped = useMemo(() => {
     const byTab = new Map<string, ChatToolSummary[]>();

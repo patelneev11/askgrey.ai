@@ -41,6 +41,9 @@ AGENT_EVENT_MARKERS = (
     "chat.turn",
     "chat.tool_call",
     "chat.message_sent",
+    # A refusal is the assistant declining to work, so it belongs beside the turns it replaced
+    # rather than under the person's own actions.
+    "chat.out_of_scope",
 )
 EXPORT_EVENT_MARKERS = ("export", "_exported", "download")
 

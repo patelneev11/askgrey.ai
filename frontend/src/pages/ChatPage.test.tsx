@@ -336,6 +336,21 @@ describe('Assistant tab', () => {
     expect(sendChatMessage).not.toHaveBeenCalled();
   });
 
+  it('refuses an over-length message sent with Enter, not only with the button', async () => {
+    // A disabled button is not the guard: Enter sends too, and the rejected request would put
+    // the server's own validation string in front of the researcher.
+    chatLimits.mockResolvedValue(limits({ max_message_chars: 20 }));
+    render(<ChatPage />);
+
+    const box = await screen.findByLabelText('Message the assistant');
+    await userEvent.type(box, 'a question far longer than twenty characters');
+    await userEvent.type(box, '{Enter}');
+
+    expect(sendChatMessage).not.toHaveBeenCalled();
+    expect(startConversation).not.toHaveBeenCalled();
+    expect(screen.getByText(/the server accepts 20/)).toBeInTheDocument();
+  });
+
   it('re-reads the budget after a turn, so the figure is what the answer cost', async () => {
     sendChatMessage.mockResolvedValue(
       stream(

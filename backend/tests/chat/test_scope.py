@@ -8,6 +8,7 @@ that is down must not close the tab.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import httpx
@@ -42,6 +43,11 @@ IN_SCOPE = [
     "Are we eligible for SBIR with 380 employees and a UK parent?",
     "Summarise the papers in my workspace",
     "What indirect cost rate should the budget use without a negotiated rate?",
+    # Browser testing found this refused as trivia: `population of` used to be a pattern, and a
+    # pattern hit cannot be vetoed by research vocabulary, however the question is phrased.
+    "What is the population of patients in NCT01234567?",
+    "What is the patient population of NCT01234567?",
+    "Describe the study population of the ziprasidone trial",
 ]
 
 
@@ -67,6 +73,22 @@ def test_real_research_questions_carry_vocabulary_the_classifier_never_has_to_pr
 ) -> None:
     """The vocabulary list is what keeps the classifier off the common path."""
     assert mentions_research_vocabulary(message)
+
+
+def test_a_pattern_never_contains_a_word_the_research_vocabulary_uses() -> None:
+    """The two lists are not symmetric: vocabulary skips the classifier, it cannot veto a rule.
+
+    So a pattern that matches a research phrase is a refusal no phrasing can escape, which is
+    how `population of patients` came to be read as a question about a country.
+    """
+    policy = get_policy()
+
+    for term in policy.in_scope_terms:
+        for rule in policy.off_topic_rules:
+            for pattern in rule.patterns:
+                assert not re.search(pattern, term, re.IGNORECASE), (
+                    f"{rule.id} refuses the in-scope term {term!r}"
+                )
 
 
 def test_the_policy_ships_with_a_version_and_a_refusal_the_tab_can_show() -> None:

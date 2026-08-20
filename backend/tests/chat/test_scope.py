@@ -86,9 +86,9 @@ def test_a_pattern_never_contains_a_word_the_research_vocabulary_uses() -> None:
     for term in policy.in_scope_terms:
         for rule in policy.off_topic_rules:
             for pattern in rule.patterns:
-                assert not re.search(pattern, term, re.IGNORECASE), (
-                    f"{rule.id} refuses the in-scope term {term!r}"
-                )
+                assert not re.search(
+                    pattern, term, re.IGNORECASE
+                ), f"{rule.id} refuses the in-scope term {term!r}"
 
 
 def test_the_policy_ships_with_a_version_and_a_refusal_the_tab_can_show() -> None:

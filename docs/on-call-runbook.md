@@ -76,6 +76,14 @@ outage cannot be mistaken for corruption and delete the rows. Check, in order: t
 and KMS throttling in CloudWatch. Uploads fail the same way and for the same reason: a document is
 not stored under a weaker key when KMS is unavailable.
 
+The same 503 with `the document object store is unavailable` is S3, not KMS, and reads the same
+way: the rows are intact and the request failed on purpose. Check the task role's
+`s3:GetObject`/`s3:PutObject`/`s3:DeleteObject` on `documents/*` (a tightened bucket policy shows
+up here as `AccessDenied`), that `DOCUMENT_S3_BUCKET` and `AWS_REGION` name a bucket that exists in
+that region, and S3 throttling. Never "fix" it by clearing `DOCUMENT_S3_BUCKET` — the app would
+then read pointers it cannot resolve, and new uploads would land in the database while old papers
+stay unreachable.
+
 A 404 on a paper that existed is the opposite case: the row failed authentication and was deleted
 (`discarding an undecryptable stored document`). That is a changed key or a tampered row, and the
 user can add the paper again.

@@ -23,6 +23,11 @@ const ENCRYPTION: Record<string, string> = {
   'derived-from-jwt-secret': 'AES-GCM under a key derived from the JWT secret (development only)',
 };
 
+const STORAGE: Record<string, string> = {
+  s3: 'Amazon S3 — ciphertext in your bucket, metadata in the database',
+  database: 'The application database (fine for a clone; every backup carries the PDFs)',
+};
+
 function whenOf(iso: string): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime())
@@ -74,8 +79,13 @@ function dataRows(overview: AccountOverview): Row[] {
   return [
     {
       label: 'Stored paper encryption',
-      help: 'Uploaded PDFs are encrypted before they reach the database.',
+      help: 'Uploaded PDFs are encrypted by the app before they are stored anywhere.',
       value: ENCRYPTION[overview.platform.document_encryption] ?? overview.platform.document_encryption,
+    },
+    {
+      label: 'Stored paper location',
+      help: 'Where the encrypted bytes are kept. Encryption is the same either way.',
+      value: STORAGE[overview.platform.document_storage] ?? overview.platform.document_storage,
     },
     {
       label: 'Stored paper retention',

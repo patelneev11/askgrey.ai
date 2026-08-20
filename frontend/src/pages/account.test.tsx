@@ -61,6 +61,7 @@ function overview(overrides: Partial<AccountOverview> = {}): AccountOverview {
       llm_model: 'claude-sonnet-4-5',
       extraction_available: false,
       document_encryption: 'kms',
+      document_storage: 's3',
       access_token_ttl_minutes: 30,
       refresh_token_ttl_days: 14,
       audit_retention_days: 365,
@@ -145,6 +146,24 @@ describe('Settings', () => {
     // The old page showed masked keys that were never read from anything.
     expect(screen.queryByText(/••••/)).not.toBeInTheDocument();
     expect(screen.queryByText(/US-East/)).not.toBeInTheDocument();
+  });
+
+  // Where the bytes are and what they are sealed under are separate facts, and a bucket is the
+  // one a reader is likeliest to assume wrongly.
+  it('says whether stored papers live in a bucket or in the database', async () => {
+    accountOverview.mockResolvedValue(
+      overview({
+        platform: { ...overview().platform, document_storage: 'database' },
+      }),
+    );
+    render(
+      <OnboardingProvider>
+        <SettingsPage />
+      </OnboardingProvider>,
+    );
+
+    expect(await screen.findByText(/application database/)).toBeInTheDocument();
+    expect(screen.queryByText(/Amazon S3/)).not.toBeInTheDocument();
   });
 
   it('lists this account s live sign-ins', async () => {

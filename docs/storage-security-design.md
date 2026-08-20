@@ -3,11 +3,17 @@
 This is the design persistence has to satisfy. The first persistence layer has now shipped, so the
 sections below say which requirements it meets and which are still prospective.
 
-## What is true today — encrypted rows in the application database
+## What is true today — encrypted bytes, in a bucket when one is configured
 
 - An uploaded PDF is stored against the uploading account (`literature_documents`) so a reload can
   still render a cited page. The stored bytes are AES-256-GCM ciphertext produced by
-  `backend/app/core/crypto.py`; the plaintext never reaches the database.
+  `backend/app/core/crypto.py`; the plaintext never reaches the database or the bucket.
+- Where that ciphertext lives is `DOCUMENT_S3_BUCKET`'s answer (`backend/app/core/blobs.py`).
+  Set, and the object goes to `s3://<bucket>/[<prefix>/]documents/<user_id>/<document_id>` while
+  the row keeps the metadata and a pointer to that key. Unset, the row holds the ciphertext, which
+  is right for a clone and wrong for a deployment: every database backup would carry the PDFs.
+- The row records which of the two it is, so adopting a bucket is a configuration change and not a
+  migration — rows written before it keep opening from the column.
 - The ciphertext is bound to `user_id:document_id` as GCM associated data, so a row moved to
   another account, relabelled with another document id, or edited in place fails authentication and
   is dropped rather than served.
@@ -21,9 +27,9 @@ sections below say which requirements it meets and which are still prospective.
 - The key comes from one of two places, recorded per row rather than inferred from the current
   configuration (see "Keys" below): a KMS-minted per-document data key, or one local key.
 
-What is **not** yet true: there is no object store, no per-workspace key, and no scheduled purge
-job — retention is enforced opportunistically on access. Files also transit Anthropic during
-extraction; see `docs/llm-data-flow.md`.
+What is **not** yet true: there is no per-workspace key and no scheduled purge job — retention is
+enforced opportunistically on access. Files also transit Anthropic during extraction; see
+`docs/llm-data-flow.md`.
 
 ## Keys
 
@@ -53,15 +59,67 @@ A key service that cannot be reached is reported as `DocumentKeyUnavailableError
 is deliberately *not* a decryption failure: unreadable rows are deleted, so a KMS outage or a
 revoked credential must not be able to masquerade as corruption and empty the library.
 
+## The bucket
+
+`BlobStoreUnavailableError` → HTTP 503 draws the same line for S3, for the same reason. An object
+the bucket says is not there (`NoSuchKey`) is an orphan and the row is dropped; a bucket that does
+not answer — a timeout, throttling, an `AccessDenied` from a policy tightened by mistake — keeps
+the row and fails the request. Deletion goes object first, row second, so an interruption leaves a
+row pointing at nothing (cleaned up on the next read) rather than an object nothing points at, and
+a delete the bucket refuses does not report success.
+
+What the bucket must be, none of which this app can assert about it:
+
+- **Block Public Access** on, at the account level as well as the bucket. The objects are
+  ciphertext, so a leak is not a disclosure of papers — it is still a disclosure of who stores how
+  many, and of the account ids in the key names.
+- **Bucket owner enforced** object ownership (ACLs disabled), and a bucket policy denying anything
+  that is not the task role, plus `aws:SecureTransport: false`.
+- **Default encryption** with the same KMS key. Redundant with the app's own sealing, and what an
+  auditor looks for; `S3Blobs` also asks for `aws:kms` per object when `DOCUMENT_KMS_KEY_ID` is set.
+- **Versioning** on, with a lifecycle rule expiring noncurrent versions after a short window.
+  Versioning without that rule quietly keeps deleted papers, which contradicts the retention
+  promise; a few days of it is what recovers from a bad deploy.
+- **A lifecycle expiry** at least as long as `DOCUMENT_RETENTION_DAYS`, as a backstop for objects
+  the app failed to delete. The app is the primary enforcement; the bucket is the safety net.
+- **CloudTrail data events** on the bucket if reads of stored papers need to be auditable outside
+  the app's own log. This is billable per event — turn it on deliberately.
+- **No cross-region replication** unless data residency has been decided; replication copies the
+  ciphertext into another jurisdiction.
+
+The task role needs exactly this, and no `s3:List*`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::<bucket>/documents/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["kms:GenerateDataKey", "kms:Decrypt"],
+      "Resource": "<document key ARN>"
+    }
+  ]
+}
+```
+
+Credentials come from the task role or instance profile — the app never takes an access key of its
+own, and there is no S3 setting it reads besides the bucket, the optional prefix and the region.
+
 ## Requirements for the persistence layer
 
 ### Tenancy and object keys
 
-- Every stored object belongs to exactly one workspace. The workspace id is part of the storage
-  key (`workspaces/{workspace_id}/documents/{document_id}`), so a cross-tenant read is a key that
-  cannot be constructed by accident.
-- `document_id` is a random UUIDv4 (or 128-bit token), never a sequence, hash of the filename, or
-  anything derived from user input. Unguessability is defence in depth, not the control.
+- Every stored object belongs to exactly one account. Shipped: the account id is part of the key
+  (`documents/{user_id}/{document_id}`), so a cross-tenant read is a key that cannot be
+  constructed by accident, and an object listing names neither the paper nor its filename.
+- Prospective: `document_id` as a random token rather than today's digest of the bytes. The digest
+  is guessable by anyone holding the same paper, which is why the read is scoped by `user_id` —
+  unguessability is defence in depth, never the control.
 - The database row is the source of truth for ownership; the key layout only makes mistakes visible.
 
 ### Authorization on every access
@@ -83,6 +141,9 @@ revoked credential must not be able to masquerade as corruption and empty the li
   arrangement PHI-adjacent data needs. Encryption alone is not sufficient for PHI: that also
   requires HIPAA-eligible AWS services with a BAA, and a zero-retention/BAA arrangement with
   Anthropic before document text is sent for extraction.
+- Shipped: server-side encryption requested per object under the same KMS key, on top of the app's
+  own sealing. Set default encryption on the bucket too, so an object written by anything else is
+  covered.
 - At rest: server-side encryption on the bucket/volume with a managed KMS key, plus TLS in transit
   everywhere. This is the baseline, and it protects against lost media and misconfigured backups —
   not against a compromised application, which holds the decrypt path either way.
@@ -96,6 +157,9 @@ revoked credential must not be able to masquerade as corruption and empty the li
 - Default retention: uploads and their derived extraction results are deleted 30 days after last
   access, configurable per workspace. A document nobody has opened in a month is liability, not an
   asset.
+- Shipped for papers: deletion, workspace clearing, retention expiry and quota eviction all delete
+  the object as well as the row, and a bucket that refuses the delete fails the request rather than
+  reporting a deletion that did not happen.
 - Deletion is a real delete of the object and every derived row (extraction cells, citations,
   export artefacts), not a `deleted_at` flag that leaves the bytes readable. Soft-delete is
   acceptable only as a short grace window (≤7 days) that a hard-delete job then honours.

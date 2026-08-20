@@ -43,7 +43,16 @@ MAX_KEY_CHARS = 1024
 
 # S3 error codes that mean the object is not there. Anything else — throttling, a missing
 # credential, a network fault, a permission the task lost — says nothing about the object.
-_MISSING_CODES = frozenset({"NoSuchKey", "NoSuchBucket", "404", "NotFound"})
+# `NoSuchBucket` is deliberately absent: a bucket that does not exist is a misconfigured name,
+# and treating it as a missing object would delete every row in the library one read at a time.
+_MISSING_CODES = frozenset({"NoSuchKey", "404", "NotFound"})
+
+# The bucket is on the critical path of a page render, so waiting on it is worse than failing:
+# a socket that opens and never answers has to become the 503 the caller can explain, well
+# inside any client's own timeout, rather than a request that outlives the browser's patience.
+CONNECT_TIMEOUT_SECONDS = 3
+READ_TIMEOUT_SECONDS = 5
+MAX_ATTEMPTS = 2
 
 
 class BlobStoreUnavailableError(Exception):
@@ -168,8 +177,14 @@ def _translate(exc: Exception) -> Exception:
 def _build_client(region: str) -> Any:
     """Imported here, not at module scope, so a deployment without a bucket builds no client."""
     import boto3
+    from botocore.config import Config
 
-    return boto3.client("s3", **({"region_name": region} if region else {}))
+    config = Config(
+        connect_timeout=CONNECT_TIMEOUT_SECONDS,
+        read_timeout=READ_TIMEOUT_SECONDS,
+        retries={"max_attempts": MAX_ATTEMPTS, "mode": "standard"},
+    )
+    return boto3.client("s3", config=config, **({"region_name": region} if region else {}))
 
 
 @lru_cache(maxsize=4)

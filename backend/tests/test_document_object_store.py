@@ -389,7 +389,7 @@ def test_a_bucket_that_does_not_answer_is_not_reported_as_a_missing_paper(
     assert recovered is not None and recovered.content == PDF
 
 
-@pytest.mark.parametrize("code", ["AccessDenied", "SlowDown", "InternalError"])
+@pytest.mark.parametrize("code", ["AccessDenied", "SlowDown", "InternalError", "NoSuchBucket"])
 def test_a_refused_or_throttled_read_is_an_outage_and_not_a_missing_object(code: str) -> None:
     class Refusing:
         def get_object(self, **_: Any) -> dict[str, Any]:
@@ -398,7 +398,9 @@ def test_a_refused_or_throttled_read_is_an_outage_and_not_a_missing_object(code:
     store = S3Blobs(BUCKET, client=Refusing())
 
     # AccessDenied is the one that matters: a policy tightened by mistake must not read as
-    # "the paper is gone" and delete the library on the next read.
+    # "the paper is gone" and delete the library on the next read. NoSuchBucket is the same
+    # mistake spelled differently — a mistyped bucket name is an operator error, and reading
+    # it as an absent object would empty the library one read at a time.
     with pytest.raises(BlobStoreUnavailableError):
         store.get("documents/u1/d1")
 
@@ -499,3 +501,18 @@ def test_the_client_is_not_built_until_the_bucket_is_used(
     with pytest.raises(BlobMissingError):
         store.get("documents/u1/d1")
     assert built == ["us-east-1"]
+
+
+def test_the_client_gives_up_on_a_silent_bucket_sooner_than_any_caller_does() -> None:
+    """A socket that opens and never answers has to fail fast enough to be reportable.
+
+    Left at botocore's defaults (60s connect, 60s read, five attempts) a hung endpoint keeps
+    the request alive for minutes, so the browser times out first and the user is told the app
+    is slow instead of that storage is down.
+    """
+    config = blobs._build_client("us-east-1").meta.config
+
+    assert config.connect_timeout == blobs.CONNECT_TIMEOUT_SECONDS
+    assert config.read_timeout == blobs.READ_TIMEOUT_SECONDS
+    worst_case = blobs.MAX_ATTEMPTS * (blobs.CONNECT_TIMEOUT_SECONDS + blobs.READ_TIMEOUT_SECONDS)
+    assert worst_case < 30

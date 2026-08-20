@@ -66,7 +66,11 @@ the bucket says is not there (`NoSuchKey`) is an orphan and the row is dropped; 
 not answer — a timeout, throttling, an `AccessDenied` from a policy tightened by mistake — keeps
 the row and fails the request. Deletion goes object first, row second, so an interruption leaves a
 row pointing at nothing (cleaned up on the next read) rather than an object nothing points at, and
-a delete the bucket refuses does not report success.
+a delete the bucket refuses does not report success. A bucket that does not exist (`NoSuchBucket`)
+is an outage and not an orphan, because the likeliest cause is a mistyped name and the orphan
+branch deletes rows. The client's timeouts are a few seconds rather than botocore's default
+minute: a socket that opens and never answers has to become a reportable 503 well inside the
+browser's own patience, or the user is told the app is slow instead of that storage is down.
 
 What the bucket must be, none of which this app can assert about it:
 

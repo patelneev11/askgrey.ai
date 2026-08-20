@@ -156,6 +156,52 @@ def test_the_log_line_is_written_even_with_no_session(caplog: pytest.LogCaptureF
     assert "auth.login" in caplog.text
 
 
+def test_a_document_name_never_reaches_the_log_or_the_feed(
+    client: TestClient, db: Session, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The name of an uploaded paper is the finding itself, so only a fingerprint is kept."""
+    headers = auth_header(client, CREDENTIALS)
+    user_id = db.execute(select(AuditEvent.user_id)).scalars().first()
+    assert user_id is not None
+
+    with caplog.at_level("INFO", logger="askgrey.audit"):
+        audit_log.record(
+            "document.sent_to_llm",
+            actor=user_id,
+            detail={"source": "trial_ziprasidone_qt.pdf", "source_kind": "upload", "bytes": 4096},
+            db=db,
+            user_id=user_id,
+        )
+
+    assert "ziprasidone" not in caplog.text
+    detail = events(client, headers, "?kind=agent")[0]["detail"]
+    assert isinstance(detail, dict)
+    assert "source" not in detail
+    assert detail["source_kind"] == "upload"
+    assert detail["bytes"] == 4096
+    assert detail["source_fingerprint"] == audit_log.fingerprint("trial_ziprasidone_qt.pdf")
+
+
+def test_the_same_document_fingerprints_the_same_way_across_events() -> None:
+    """Correlation is the point of keeping anything at all: two events must line up."""
+    assert audit_log.fingerprint("trial.pdf") == audit_log.fingerprint("trial.pdf")
+    assert audit_log.fingerprint("trial.pdf") != audit_log.fingerprint("trial-2.pdf")
+    assert "trial" not in audit_log.fingerprint("trial.pdf")
+
+
+def test_a_provenance_field_that_names_nothing_is_kept_as_it_is(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("INFO", logger="askgrey.audit"):
+        audit_log.record(
+            "document.sent_to_llm",
+            actor="u1",
+            detail={"source_host": "pubmed.ncbi.nlm.nih.gov", "vendor": "anthropic"},
+        )
+
+    assert "pubmed.ncbi.nlm.nih.gov" in caplog.text
+
+
 def test_events_past_the_retention_window_are_deleted(
     client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

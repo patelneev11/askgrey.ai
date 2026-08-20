@@ -14,12 +14,14 @@ from typing import Any
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.api import chat as chat_api
 from app.api import deps
 from app.api.chat import get_chat_agent
 from app.core.config import Settings, get_settings
 from app.main import app
+from app.services.chat import spend
 from app.services.chat.agent import ChatAgent
 from app.services.chat.tools import ToolRegistry
 from app.services.llm.tool_use import AnthropicToolClient
@@ -414,6 +416,83 @@ def test_the_tab_is_unavailable_rather_than_silent_without_an_api_key(
 
     assert response.status_code == 503
     assert "ANTHROPIC_API_KEY" in response.text
+
+
+def test_an_off_topic_question_is_answered_from_the_config_without_calling_claude(
+    client: TestClient, script: list[bytes]
+) -> None:
+    headers = auth(client, OWNER)
+    conversation_id = new_conversation(client, headers)
+
+    events = send(client, headers, conversation_id, "Write me a poem about the lab")
+
+    assert [event["type"] for event in events] == ["text", "done"]
+    assert "biomedical R&D" in events[0]["text"]
+    # Nothing was spent: the scripted turn is still queued, and no tool ran.
+    assert script == []
+    thread = client.get(f"/api/chat/conversations/{conversation_id}", headers=headers).json()
+    # The refusal is the thread's answer, so reopening it does not look like a lost message.
+    assert [message["role"] for message in thread["messages"]] == ["user", "assistant"]
+    assert "biomedical R&D" in thread["messages"][1]["text"]
+    feed = client.get("/api/audit/events", headers=headers).json()
+    refusal = next(event for event in feed["events"] if event["event"] == "chat.out_of_scope")
+    assert refusal["outcome"] == "denied"
+    assert refusal["detail"]["rule"] == "creative_writing"
+
+
+def test_an_exhausted_dollar_cap_refuses_the_turn_and_names_the_reset(
+    client: TestClient, script: list[bytes], db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = auth(client, OWNER)
+    conversation_id = new_conversation(client, headers)
+    user_id = client.get("/api/auth/me", headers=headers).json()["id"]
+    monkeypatch.setattr(
+        spend,
+        "get_settings",
+        lambda: get_settings().model_copy(update={"chat_daily_cost_cap_usd": 0.01}),
+    )
+    spend.record_usage(
+        db, user_id=user_id, model="claude-sonnet-4-5", input_tokens=100_000, output_tokens=10_000
+    )
+
+    events = send(client, headers, conversation_id, "Any new PubMed papers on olanzapine?")
+
+    assert [event["type"] for event in events] == ["text", "done"]
+    assert "daily assistant budget" in events[0]["text"]
+    assert "resets at 00:00 UTC" in events[0]["text"]
+    assert script == []
+
+
+def test_the_tab_can_show_the_scope_rule_and_what_is_left_to_spend(client: TestClient) -> None:
+    headers = auth(client, OWNER)
+
+    limits = client.get("/api/chat/limits", headers=headers).json()
+
+    assert limits["scope_version"]
+    assert "Biomedical R&D" in limits["scope_purpose"]
+    assert limits["daily_spent_usd"] == 0.0
+    assert limits["daily_cap_usd"] > 0
+    assert limits["monthly_cap_usd"] > 0
+    assert limits["exhausted_cap"] == ""
+    assert limits["max_tool_steps"] > 0
+    assert limits["max_message_chars"] > 0
+
+
+def test_a_turn_writes_its_dollar_cost_to_the_account_ledger(
+    client: TestClient, script: list[bytes], db: Session
+) -> None:
+    headers = auth(client, OWNER)
+    conversation_id = new_conversation(client, headers)
+    script.extend([tool_turn("list_saved_work", {}), text_turn("Nothing saved.")])
+
+    send(client, headers, conversation_id, "What compounds have I saved?")
+
+    limits = client.get("/api/chat/limits", headers=headers).json()
+    # Two model calls at the scripted token counts: small, but not zero, and per account.
+    assert limits["daily_spent_usd"] > 0
+    assert limits["monthly_spent_usd"] == limits["daily_spent_usd"]
+    other = auth(client, OTHER)
+    assert client.get("/api/chat/limits", headers=other).json()["daily_spent_usd"] == 0.0
 
 
 def test_chat_requires_authentication(client: TestClient) -> None:

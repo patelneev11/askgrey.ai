@@ -25,6 +25,7 @@ TABLES = {
     "literature_documents",
     "saved_artifacts",
     "audit_events",
+    "llm_spend",
 }
 
 

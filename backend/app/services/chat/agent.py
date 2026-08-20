@@ -27,6 +27,7 @@ from app.services.chat.models import (
     ToolStartEvent,
     ToolStep,
 )
+from app.services.chat.spend import TurnBudget
 from app.services.chat.store import append_message
 from app.services.chat.tools import ToolContext, ToolInputError, ToolRegistry
 from app.services.llm.anthropic import AnthropicError
@@ -84,6 +85,10 @@ measurement. Carry the caveat into your answer whenever you report one.
 What you cannot do:
 - You cannot save, edit or delete the researcher's work, and you cannot file anything in an \
 external electronic lab notebook. If they ask for that, name the tab that does it.
+- You answer biomedical R&D questions only: literature, compounds and screening, clinical trials, \
+protocols, regulatory drafting, and grant funding. Anything else — creative writing, general \
+knowledge, programming help, personal medical advice — you decline in one sentence and name what \
+you do instead. Do not run a tool for it.
 
 Be concise and specific. Prefer a short answer with identifiers over a long one without, and let \
 every name, number and identifier in it be one a tool returned."""
@@ -105,7 +110,14 @@ class ChatAgent:
         history: Sequence[dict[str, object]],
         reference_context: str = "",
         client_ip: str | None = None,
+        budget: TurnBudget | None = None,
     ) -> AsyncIterator[ChatEvent]:
+        """Stream one answer.
+
+        `budget` meters what the turn spends into the account's ledger and is consulted between
+        tool rounds: a turn that crosses a cap stops there and says so, rather than running its
+        remaining steps and reporting the overrun afterwards.
+        """
         system = SYSTEM_PROMPT
         if reference_context:
             system = f"{SYSTEM_PROMPT}\n\n{reference_context}"
@@ -121,6 +133,7 @@ class ChatAgent:
                     system=system,
                     messages=messages,
                     tools=self.registry.definitions(),
+                    on_usage=budget.record if budget else None,
                 ):
                     if isinstance(chunk, TextChunk):
                         answer.append(chunk.text)
@@ -143,6 +156,15 @@ class ChatAgent:
                             results.append(_tool_result_block(event.step))
                         yield event
                 messages.append({"role": "user", "content": results})
+                spent_out = budget.blocked() if budget else ""
+                if spent_out:
+                    yield NoticeEvent(
+                        message=(
+                            f"{spent_out} This answer stops here, after "
+                            f"{len(steps)} tool steps."
+                        )
+                    )
+                    break
                 if step_number == self.max_steps - 1:
                     yield NoticeEvent(
                         message=(

@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { StatusPill } from '@/components/StatusPill';
 import { api, ApiError } from '@/lib/api';
 import type {
+  AssistantLimits,
   ChatEvent,
   ChatMessage,
   ChatReference,
@@ -13,7 +14,7 @@ import type {
   ChatToolSummary,
   ConversationSummary,
 } from '@/lib/chat';
-import { readEventStream } from '@/lib/chat';
+import { readEventStream, spendLabel } from '@/lib/chat';
 import type { SavedArtifactSummary } from '@/lib/library';
 import type { SavedProtocolSummary } from '@/lib/protocols';
 import { getAccessToken } from '@/lib/session';
@@ -160,6 +161,7 @@ export function ChatPage() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [limits, setLimits] = useState<AssistantLimits | null>(null);
   const transcript = useRef<HTMLDivElement>(null);
 
   const token = getAccessToken();
@@ -171,11 +173,13 @@ export function ChatPage() {
       api.chatTools(token),
       api.listArtifacts(undefined, token).catch((): SavedArtifactSummary[] => []),
       api.listProtocols(token).catch((): SavedProtocolSummary[] => []),
+      api.chatLimits(token).catch((): AssistantLimits | null => null),
     ])
-      .then(([threads, capabilities, artifacts, protocols]) => {
+      .then(([threads, capabilities, artifacts, protocols, budget]) => {
         if (!live) return;
         setConversations(threads);
         setTools(capabilities);
+        setLimits(budget);
         setMentions([
           WORKSPACE_MENTION,
           ...artifacts.map((artifact) => ({
@@ -303,11 +307,17 @@ export function ChatPage() {
       }
       setChosen([]);
       api.listConversations(token).then(setConversations).catch(() => undefined);
+      // Re-read after the turn, so the strip shows what this answer cost rather than the figure
+      // it started with.
+      api.chatLimits(token).then(setLimits).catch(() => undefined);
     } catch (cause: unknown) {
       setError(errorFrom(cause));
       setPending(null);
     }
   }, [chosen, conversationId, draft, pending, token]);
+
+  const exhausted = Boolean(limits?.exhausted_cap);
+  const tooLong = Boolean(limits && draft.length > limits.max_message_chars);
 
   const grouped = useMemo(() => {
     const byTab = new Map<string, ChatToolSummary[]>();
@@ -354,6 +364,27 @@ export function ChatPage() {
         {!loading && conversations.length === 0 && (
           <p className={styles.threadsEmpty}>Nothing asked yet. Threads you start appear here.</p>
         )}
+        {limits && (
+          <div className={styles.limits}>
+            <h3>Scope and budget</h3>
+            <p className={styles.limitsScope}>{limits.scope_purpose}</p>
+            <dl className={styles.limitsFigures}>
+              <div>
+                <dt>Today</dt>
+                <dd>{spendLabel(limits.daily_spent_usd, limits.daily_cap_usd)}</dd>
+              </div>
+              <div>
+                <dt>This month</dt>
+                <dd>{spendLabel(limits.monthly_spent_usd, limits.monthly_cap_usd)}</dd>
+              </div>
+              <div>
+                <dt>Tool steps per answer</dt>
+                <dd>up to {limits.max_tool_steps}</dd>
+              </div>
+            </dl>
+            <p className={styles.limitsPolicy}>Scope policy {limits.scope_version}</p>
+          </div>
+        )}
         <div className={styles.capabilities}>
           <h3>What it can reach</h3>
           {grouped.map(([tab, group]) => (
@@ -377,6 +408,19 @@ export function ChatPage() {
           </div>
           {pending && <StatusPill tone="running" pulse>Working</StatusPill>}
         </header>
+        {exhausted && (
+          <p className={styles.exhausted} role="status">
+            {limits?.exhausted_cap === 'monthly'
+              ? `This account has used its monthly assistant budget (${spendLabel(
+                  limits.monthly_spent_usd,
+                  limits.monthly_cap_usd,
+                )}). It resets on the first of next month; the other tabs still work.`
+              : `This account has used its daily assistant budget (${spendLabel(
+                  limits?.daily_spent_usd ?? 0,
+                  limits?.daily_cap_usd ?? 0,
+                )}). It resets at 00:00 UTC; the other tabs still work.`}
+          </p>
+        )}
         <CaveatBand label="Model output.">
           Answers, drafts and predictions here require expert review. ADMET and SAR values are
           predictions, not measurements; nothing said here is legal, regulatory or clinical advice.
@@ -391,6 +435,11 @@ export function ChatPage() {
                 Reference something you saved with the <strong>Reference</strong> button and it is
                 read from your account — your Literature workspace, a saved screening or grants
                 result, or a saved protocol. Nothing from another account is reachable.
+              </p>
+              <p>
+                It answers biomedical R&amp;D questions only — literature, compounds and screening,
+                trials, protocols, regulatory drafting and grants. Anything else it declines before
+                a model runs, which is what keeps the account&rsquo;s budget for research work.
               </p>
               <p>
                 Good first questions: &ldquo;What did my last hERG prediction say, and how reliable
@@ -498,9 +547,14 @@ export function ChatPage() {
           <textarea
             className={styles.input}
             aria-label="Message the assistant"
-            placeholder="Ask about a compound, a paper, a protocol, a filing or a grant…"
+            placeholder={
+              exhausted
+                ? 'The assistant budget for this account is used up.'
+                : 'Ask about a compound, a paper, a protocol, a filing or a grant…'
+            }
             value={draft}
             rows={3}
+            disabled={exhausted}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
@@ -510,6 +564,13 @@ export function ChatPage() {
               if (event.key === '@') setPickerOpen(true);
             }}
           />
+          {tooLong && limits && (
+            <p className={styles.tooLong} role="alert">
+              That is {draft.length.toLocaleString()} characters; the server accepts{' '}
+              {limits.max_message_chars.toLocaleString()}. Trim it, or reference the saved work
+              instead of pasting it.
+            </p>
+          )}
           <div className={styles.actions}>
             <Button
               variant="secondary"
@@ -518,7 +579,10 @@ export function ChatPage() {
             >
               Reference
             </Button>
-            <Button type="submit" disabled={!draft.trim() || pending !== null}>
+            <Button
+              type="submit"
+              disabled={!draft.trim() || pending !== null || exhausted || tooLong}
+            >
               {pending ? 'Working…' : 'Ask'}
             </Button>
           </div>

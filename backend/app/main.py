@@ -46,6 +46,7 @@ from app.models.protocol import (  # noqa: F401  (registers the tables)
     SavedProtocol,
 )
 from app.models.session import RefreshSession  # noqa: F401  (registers the table)
+from app.models.spend import LlmSpend  # noqa: F401  (registers the table)
 from app.models.user import User  # noqa: F401  (registers the table on Base.metadata)
 
 settings = get_settings()

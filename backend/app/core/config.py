@@ -137,6 +137,20 @@ class Settings(BaseSettings):
     chat_max_tokens: int = 4096
     chat_timeout_seconds: float = 120.0
     chat_max_tool_steps: int = 6
+    # An open chat box over a metered model is an open invoice, so the assistant carries its own
+    # caps in dollars on top of the shared call budget. Metered per account and persisted
+    # (app.services.chat.spend), so a restart or a second replica cannot hand the budget back.
+    # 0 disables a cap. A turn can exceed a cap by at most one model call, because the check
+    # happens between tool steps rather than mid-sentence.
+    chat_daily_cost_cap_usd: float = 2.0
+    chat_monthly_cost_cap_usd: float = 25.0
+    # The scope gate refuses questions that are not biomedical R&D work, so the budget above is
+    # spent on research rather than trivia. Its rules live in
+    # app/services/chat/scope_rules.json and are applied in-process for free; this setting
+    # controls only the cheap-model classifier for messages the rules do not settle.
+    chat_scope_gate_enabled: bool = True
+    chat_scope_model: str = "claude-haiku-4-5"
+    chat_scope_timeout_seconds: float = 10.0
 
     # Observability. The DSN is empty in development, which turns error reporting into a
     # no-op rather than requiring a Sentry project to run the app.

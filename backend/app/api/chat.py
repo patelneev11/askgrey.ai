@@ -4,20 +4,28 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.api.deps import ClientIp, DbSession, LlmUser, ThrottledUser
 from app.core import audit
 from app.core.config import get_settings
 from app.services.chat.agent import ChatAgent
 from app.services.chat.models import (
+    MAX_MESSAGE_CHARS,
+    AssistantLimits,
     ConversationDetail,
     ConversationSummary,
     CreateConversationRequest,
+    DoneEvent,
     ErrorEvent,
     SendMessageRequest,
+    TextEvent,
     ToolSummary,
     encode_event,
 )
+from app.services.chat.scope import build_gate, get_policy
+from app.services.chat.spend import TurnBudget
+from app.services.chat.spend import status as spend_status
 from app.services.chat.store import (
     ChatRequestError,
     append_message,
@@ -72,6 +80,29 @@ def get_chat_agent() -> ChatAgent:
 Agent = Annotated[ChatAgent, Depends(get_chat_agent)]
 
 
+@router.get("/limits", response_model=AssistantLimits)
+def read_limits(db: DbSession, user: ThrottledUser) -> AssistantLimits:
+    """What the assistant will answer and what this account has left to spend on it.
+
+    Shown in the tab rather than kept server-side: a researcher who can see the remaining budget
+    and the scope rule can work with them, whereas an unexplained refusal reads as a broken tab.
+    """
+    policy = get_policy()
+    spend = spend_status(db, user_id=str(user.id))
+    return AssistantLimits(
+        scope_version=policy.version,
+        scope_purpose=policy.purpose,
+        scope_refusal=policy.refusal,
+        daily_spent_usd=round(spend.daily_spent_usd, 4),
+        daily_cap_usd=spend.daily_cap_usd,
+        monthly_spent_usd=round(spend.monthly_spent_usd, 4),
+        monthly_cap_usd=spend.monthly_cap_usd,
+        exhausted_cap=spend.exhausted_cap,
+        max_tool_steps=get_settings().chat_max_tool_steps,
+        max_message_chars=MAX_MESSAGE_CHARS,
+    )
+
+
 @router.get("/tools", response_model=list[ToolSummary])
 def list_chat_tools(_user: ThrottledUser) -> list[ToolSummary]:
     """What the assistant can actually do, so the tab can say so instead of implying anything."""
@@ -124,6 +155,38 @@ def remove_conversation(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def _declined(
+    db: Session,
+    *,
+    conversation_id: str,
+    user_id: str,
+    text: str,
+) -> StreamingResponse:
+    """A turn that was refused before the model ran, delivered like any other answer.
+
+    Streamed as prose and stored as the assistant's turn rather than returned as a 4xx: the
+    researcher asked a question and is owed an answer in the thread, and a refusal that vanishes
+    on reload looks like the tab lost their message.
+    """
+    message = append_message(
+        db,
+        conversation_id=conversation_id,
+        user_id=user_id,
+        role="assistant",
+        text=text,
+    )
+
+    async def stream() -> AsyncIterator[str]:
+        yield encode_event(TextEvent(text=text))
+        yield encode_event(DoneEvent(conversation_id=conversation_id, message_id=message.id))
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.post("/conversations/{conversation_id}/messages")
 async def send_message(
     conversation_id: ConversationId,
@@ -155,6 +218,41 @@ async def send_message(
         )
     except ChatRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+    # Both guards run after the question is stored and before anything is spent on it, cheapest
+    # first: the ledger is a database read, and the scope gate is free unless it has to ask the
+    # cheap model.
+    budget = TurnBudget(db, user_id)
+    over_cap = budget.blocked()
+    if over_cap:
+        audit.record(
+            "chat.budget_exhausted",
+            outcome="denied",
+            actor=user_id,
+            client_ip=ip,
+            detail={"conversation_id": conversation_id},
+            db=db,
+            user_id=user_id,
+        )
+        return _declined(db, conversation_id=conversation_id, user_id=user_id, text=over_cap)
+
+    verdict = await build_gate().check(request.message)
+    if not verdict.allowed:
+        audit.record(
+            "chat.out_of_scope",
+            outcome="denied",
+            actor=user_id,
+            client_ip=ip,
+            detail={
+                "conversation_id": conversation_id,
+                "rule": verdict.rule,
+                "checked_by": verdict.checked_by,
+            },
+            db=db,
+            user_id=user_id,
+        )
+        return _declined(db, conversation_id=conversation_id, user_id=user_id, text=verdict.message)
+
     history = history_for_model(db, conversation_id=conversation_id, user_id=user_id)
     # Carried separately from the references because it is not the researcher's attachment: it is
     # what the previous turn's tools handed back and the replayed prose cannot hold.
@@ -188,6 +286,7 @@ async def send_message(
                 history=history,
                 reference_context=reference_context,
                 client_ip=ip,
+                budget=budget,
             ):
                 yield encode_event(event)
         except Exception:

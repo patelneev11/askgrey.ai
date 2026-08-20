@@ -11,7 +11,7 @@ both report their tokens to the same meter, so chat spend shows up in the existi
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 import httpx
@@ -226,7 +226,14 @@ class AnthropicToolClient:
         system: str,
         messages: Sequence[JsonDict],
         tools: Sequence[ToolDefinition] = (),
+        on_usage: Callable[[str, int, int], None] | None = None,
     ) -> AsyncIterator[TurnEvent]:
+        """One model call, streamed.
+
+        `on_usage` receives (model, input tokens, output tokens) when the call ends, including
+        when it fails: tokens already produced were billed, and a per-account cap that ignored a
+        failed call would be a way to spend past it.
+        """
         payload: JsonDict = {
             "model": self.model,
             "max_tokens": self.max_tokens,
@@ -272,6 +279,8 @@ class AnthropicToolClient:
                 output_tokens=accumulator.output_tokens,
                 purpose=self.purpose,
             )
+            if on_usage is not None:
+                on_usage(self.model, accumulator.input_tokens, accumulator.output_tokens)
         yield accumulator.finish()
 
 

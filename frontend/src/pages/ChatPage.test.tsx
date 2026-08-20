@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api';
-import type { ChatToolStep } from '@/lib/chat';
+import type { AssistantLimits, ChatToolStep } from '@/lib/chat';
 import { setAccessToken } from '@/lib/session';
 
 import { ChatPage } from './ChatPage';
@@ -13,6 +13,7 @@ const loadConversation = vi.fn();
 const startConversation = vi.fn();
 const deleteConversation = vi.fn();
 const chatTools = vi.fn();
+const chatLimits = vi.fn();
 const listArtifacts = vi.fn();
 const listProtocols = vi.fn();
 const sendChatMessage = vi.fn();
@@ -27,6 +28,7 @@ vi.mock('@/lib/api', async () => {
       startConversation: (...args: unknown[]) => startConversation(...args),
       deleteConversation: (...args: unknown[]) => deleteConversation(...args),
       chatTools: (...args: unknown[]) => chatTools(...args),
+      chatLimits: (...args: unknown[]) => chatLimits(...args),
       listArtifacts: (...args: unknown[]) => listArtifacts(...args),
       listProtocols: (...args: unknown[]) => listProtocols(...args),
       sendChatMessage: (...args: unknown[]) => sendChatMessage(...args),
@@ -72,6 +74,22 @@ function step(overrides: Partial<ChatToolStep> = {}): ChatToolStep {
   };
 }
 
+function limits(overrides: Partial<AssistantLimits> = {}): AssistantLimits {
+  return {
+    scope_version: '2026-08-13',
+    scope_purpose: 'Biomedical R&D research support: literature, trials, protocols and grants.',
+    scope_refusal: 'I only answer questions about biomedical R&D work in this workspace.',
+    daily_spent_usd: 0.42,
+    daily_cap_usd: 2,
+    monthly_spent_usd: 3.5,
+    monthly_cap_usd: 25,
+    exhausted_cap: '',
+    max_tool_steps: 6,
+    max_message_chars: 4000,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   setAccessToken('token-123');
   listConversations.mockResolvedValue([]);
@@ -85,6 +103,7 @@ beforeEach(() => {
   ]);
   listArtifacts.mockResolvedValue([]);
   listProtocols.mockResolvedValue([]);
+  chatLimits.mockResolvedValue(limits());
   startConversation.mockResolvedValue({
     id: 'conv-1',
     title: '',
@@ -271,5 +290,65 @@ describe('Assistant tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ask' }));
 
     expect(await screen.findByText(/cut short by the length limit/)).toBeInTheDocument();
+  });
+
+  it('states the scope and what is left to spend, from the server', async () => {
+    render(<ChatPage />);
+
+    expect(await screen.findByText(/Biomedical R&D research support/)).toBeInTheDocument();
+    expect(screen.getByText('$0.42 of $2.00')).toBeInTheDocument();
+    expect(screen.getByText('$3.50 of $25.00')).toBeInTheDocument();
+    expect(screen.getByText('up to 6')).toBeInTheDocument();
+    expect(screen.getByText(/Scope policy 2026-08-13/)).toBeInTheDocument();
+  });
+
+  it('says so rather than hiding it when a cap is not enforced', async () => {
+    chatLimits.mockResolvedValue(limits({ daily_cap_usd: 0, monthly_cap_usd: 0 }));
+    render(<ChatPage />);
+
+    expect(await screen.findByText('$0.42 (no cap)')).toBeInTheDocument();
+  });
+
+  it('closes the composer when the account has spent its budget', async () => {
+    chatLimits.mockResolvedValue(
+      limits({ exhausted_cap: 'daily', daily_spent_usd: 2, daily_cap_usd: 2 }),
+    );
+    render(<ChatPage />);
+
+    expect(await screen.findByText(/used its daily assistant budget/)).toBeInTheDocument();
+    expect(screen.getByText(/resets at 00:00 UTC/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Message the assistant')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ask' })).toBeDisabled();
+    expect(sendChatMessage).not.toHaveBeenCalled();
+  });
+
+  it('refuses to send a message longer than the server accepts', async () => {
+    chatLimits.mockResolvedValue(limits({ max_message_chars: 20 }));
+    render(<ChatPage />);
+
+    await userEvent.type(
+      await screen.findByLabelText('Message the assistant'),
+      'a question far longer than twenty characters',
+    );
+
+    expect(screen.getByText(/the server accepts 20/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask' })).toBeDisabled();
+    expect(sendChatMessage).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the budget after a turn, so the figure is what the answer cost', async () => {
+    sendChatMessage.mockResolvedValue(
+      stream(
+        event({ type: 'text', text: 'Three trials.' }),
+        event({ type: 'done', conversation_id: 'conv-1', message_id: 'msg-1' }),
+      ),
+    );
+    chatLimits.mockResolvedValueOnce(limits()).mockResolvedValue(limits({ daily_spent_usd: 0.61 }));
+    render(<ChatPage />);
+
+    await userEvent.type(await screen.findByLabelText('Message the assistant'), 'Any QT risk?');
+    await userEvent.click(screen.getByRole('button', { name: 'Ask' }));
+
+    expect(await screen.findByText('$0.61 of $2.00')).toBeInTheDocument();
   });
 });

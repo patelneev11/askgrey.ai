@@ -1,4 +1,5 @@
 import type {
+  AssistantLimits,
   ChatReference,
   ChatToolSummary,
   ConversationDetail,
@@ -981,6 +982,9 @@ export const api = {
 
   /** What the assistant can actually do, so the tab states it rather than implying it. */
   chatTools: (token?: string) => request<ChatToolSummary[]>('/chat/tools', {}, token),
+
+  /** What it will answer and what this account has left to spend on it. */
+  chatLimits: (token?: string) => request<AssistantLimits>('/chat/limits', {}, token),
 
   startConversation: (token?: string) =>
     request<ConversationSummary>('/chat/conversations', { method: 'POST', body: '{}' }, token),

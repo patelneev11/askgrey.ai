@@ -60,6 +60,32 @@ export interface ChatToolSummary {
   tab: string;
 }
 
+/**
+ * The rules the tab has to show, as `GET /api/chat/limits` reports them.
+ *
+ * Shown rather than kept server-side: a researcher who can see the remaining budget and the scope
+ * rule can work with them, whereas an unexplained refusal reads as a broken tab. A cap of 0 is
+ * not enforced.
+ */
+export interface AssistantLimits {
+  scope_version: string;
+  scope_purpose: string;
+  scope_refusal: string;
+  daily_spent_usd: number;
+  daily_cap_usd: number;
+  monthly_spent_usd: number;
+  monthly_cap_usd: number;
+  exhausted_cap: '' | 'daily' | 'monthly';
+  max_tool_steps: number;
+  max_message_chars: number;
+}
+
+/** `$0.42 of $2.00` for a cap that is enforced, or the spend alone for one that is not. */
+export function spendLabel(spent: number, cap: number): string {
+  const used = `$${spent.toFixed(2)}`;
+  return cap > 0 ? `${used} of $${cap.toFixed(2)}` : `${used} (no cap)`;
+}
+
 export type ChatEvent =
   | { type: 'text'; text: string }
   | { type: 'tool_start'; id: string; tool: string; title: string; arguments: Record<string, unknown> }

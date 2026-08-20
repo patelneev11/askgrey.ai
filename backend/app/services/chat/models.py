@@ -105,6 +105,25 @@ class ToolSummary(BaseModel):
     tab: str
 
 
+class AssistantLimits(BaseModel):
+    """The rules the tab has to show: what the assistant answers, and what is left to spend.
+
+    Caps are USD per account. A cap of 0 means it is not enforced, which the tab renders as "no
+    cap" rather than as an exhausted budget.
+    """
+
+    scope_version: str
+    scope_purpose: str
+    scope_refusal: str
+    daily_spent_usd: float
+    daily_cap_usd: float
+    monthly_spent_usd: float
+    monthly_cap_usd: float
+    exhausted_cap: Literal["", "daily", "monthly"]
+    max_tool_steps: int
+    max_message_chars: int
+
+
 class TextEvent(BaseModel):
     type: Literal["text"] = "text"
     text: str

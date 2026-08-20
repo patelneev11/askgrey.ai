@@ -1,0 +1,91 @@
+{
+  "version": "2026-08-13",
+  "purpose": "Biomedical R&D research support: literature, compounds and screening, clinical trials, protocols, regulatory drafting, and grant funding — over this workspace's own data and the public sources the tabs already query.",
+  "refusal": "I only answer questions about biomedical R&D work in this workspace — literature, compounds and screening, clinical trials, protocols, regulatory drafting, and grants. Ask me one of those and I will use the same services the tabs do.",
+  "comment": "Editable scope policy for the Assistant tab. `off_topic_rules` are matched against the researcher's message before any model call, so a blatantly out-of-scope request costs nothing at Anthropic. Patterns are case-insensitive Python regular expressions and are deliberately narrow: a false refusal on real research work is worse than paying for one off-topic answer, so anything a rule does not catch goes to the classifier, and anything the classifier cannot decide is allowed.",
+  "off_topic_rules": [
+    {
+      "id": "creative_writing",
+      "explanation": "creative writing, which this assistant does not do",
+      "patterns": [
+        "\\b(write|compose|generate|create)\\b[^.?!]{0,40}\\b(poem|poetry|song|lyrics|rap|haiku|sonnet|short story|novel|screenplay|script|joke|limerick)\\b",
+        "\\btell me a (joke|story)\\b",
+        "\\bwrite\\b[^.?!]{0,30}\\b(cover letter|resume|cv)\\b"
+      ]
+    },
+    {
+      "id": "general_trivia",
+      "explanation": "general knowledge unrelated to biomedical research",
+      "patterns": [
+        "\\bwho (won|is winning|will win)\\b[^.?!]{0,40}\\b(world cup|super bowl|election|series|olympics|game|match)\\b",
+        "\\bwhat('s| is) the weather\\b",
+        "\\b(capital|population) of [A-Z]?[a-z]+\\b",
+        "\\b(stock|share) price\\b",
+        "\\b(bitcoin|crypto|ethereum)\\b",
+        "\\bwho (is|was) the (president|prime minister|king|queen)\\b",
+        "\\b(movie|film|tv show|restaurant|recipe|vacation|holiday) (recommendation|suggestion|idea)s?\\b",
+        "\\bhow do i cook\\b"
+      ]
+    },
+    {
+      "id": "unrelated_software_help",
+      "explanation": "general programming help, which is not what this workspace's tools do",
+      "patterns": [
+        "\\b(write|debug|fix|refactor)\\b[^.?!]{0,40}\\b(my|this|a)\\b[^.?!]{0,20}\\b(react|javascript|typescript|node|django|flask|css|html|sql query|regex|bash script|kubernetes|dockerfile)\\b",
+        "\\bleetcode\\b",
+        "\\bhow do i (center|style)\\b[^.?!]{0,30}\\b(div|css|button)\\b"
+      ]
+    },
+    {
+      "id": "personal_medical_advice",
+      "explanation": "personal medical advice, which this assistant is not allowed to give",
+      "patterns": [
+        "\\b(should|can) i (take|stop taking|use)\\b[^.?!]{0,30}\\b(my|this) (medication|medicine|pills?|prescription)\\b",
+        "\\b(do|have) i have\\b[^.?!]{0,30}\\b(cancer|covid|diabetes|depression)\\b",
+        "\\b(diagnose|treat) (me|my)\\b",
+        "\\bmy (symptoms|rash|headache|chest pain)\\b"
+      ]
+    },
+    {
+      "id": "prompt_extraction",
+      "explanation": "a request about this assistant's own instructions rather than research work",
+      "patterns": [
+        "\\b(ignore|disregard|forget)\\b[^.?!]{0,30}\\b(previous|prior|above|earlier|all)\\b[^.?!]{0,20}\\binstructions?\\b",
+        "\\b(repeat|print|show|reveal|output)\\b[^.?!]{0,40}\\b(system prompt|your (instructions|prompt|rules))\\b",
+        "\\byou are now\\b[^.?!]{0,30}\\b(dan|unrestricted|jailbroken)\\b"
+      ]
+    },
+    {
+      "id": "bulk_generation",
+      "explanation": "open-ended bulk generation, which would spend the account's budget without answering a research question",
+      "patterns": [
+        "\\b(list|generate|write)\\b[^.?!]{0,20}\\b([1-9][0-9]{2,}|thousands?|as many as (you can|possible))\\b",
+        "\\bkeep (going|generating)\\b[^.?!]{0,30}\\b(forever|until i stop)\\b",
+        "\\brepeat (this|that|the following)\\b[^.?!]{0,30}\\b([0-9]{3,}|forever)\\b"
+      ]
+    }
+  ],
+  "in_scope_terms": [
+    "pubmed", "pmid", "doi", "paper", "papers", "publication", "literature", "abstract",
+    "systematic review", "meta-analysis", "citation", "workspace",
+    "compound", "molecule", "smiles", "inchi", "pubchem", "admet", "sar", "toxicity",
+    "solubility", "permeability", "bioavailability", "logp", "screening", "assay", "ic50",
+    "ec50", "binding", "target", "kinase", "receptor", "scaffold", "analog", "analogue",
+    "clinical trial", "clinicaltrials", "nct", "phase i", "phase ii", "phase iii", "cohort",
+    "endpoint", "inclusion criteria", "exclusion criteria", "patient population",
+    "protocol", "western blot", "pcr", "elisa", "cell culture", "buffer", "master mix",
+    "reagent", "incubation", "centrifuge", "dilution", "in vitro", "in vivo", "mouse model",
+    "regulatory", "ind", "nda", "fda", "ema", "gmp", "glp", "ich", "preclinical",
+    "toxicology", "guideline", "21 cfr",
+    "grant", "grants.gov", "sbir", "sttr", "nih", "nsf", "funding", "budget", "indirect cost",
+    "eligibility", "foa", "solicitation", "award", "principal investigator",
+    "patent", "prior art", "uspto",
+    "pharmacokinetic", "pharmacodynamic", "dose", "dosing", "mechanism of action", "biomarker",
+    "gene", "protein", "antibody", "peptide", "mrna", "crispr", "sequencing"
+  ],
+  "classifier": {
+    "system": "You are a request router for a biomedical R&D research assistant. The assistant supports work on scientific literature, chemical compounds and in-silico screening, clinical trials, laboratory protocols, regulatory submissions, and research grant funding — including questions about the researcher's own saved work in those areas. Answer with exactly one word: RESEARCH if the message is that kind of work, or a follow-up, clarification, or greeting inside such a conversation; OFFTOPIC if it plainly is not. Answer UNSURE if you cannot tell. Output the single word only.",
+    "in_scope_word": "RESEARCH",
+    "off_topic_word": "OFFTOPIC"
+  }
+}

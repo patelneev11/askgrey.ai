@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from collections.abc import Callable, Iterator
 
 import httpx
@@ -313,3 +315,51 @@ def test_extraction_is_rate_limited_by_source_address_not_just_by_account(
         deps.llm_ip_limiter.limit = deps._settings.llm_ip_rate_limit_per_minute
 
     assert response.status_code == 429
+
+
+def test_an_upload_is_audited_without_naming_the_paper(
+    client: TestClient, install: Callable[..., FetchTransport], caplog: pytest.LogCaptureFixture
+) -> None:
+    """`trial_ziprasidone.pdf` names the subject of the research; the trail keeps the kind."""
+    install(POINT)
+    headers = auth_header(client)
+
+    with caplog.at_level(logging.INFO, logger="askgrey.audit"):
+        assert upload(client, "trial_ziprasidone", headers=headers).status_code == 200
+
+    event = next(
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if "document.sent_to_llm" in record.getMessage()
+    )
+    assert "ziprasidone" not in caplog.text
+    assert event["source_kind"] == "upload"
+    assert event["source_fingerprint"]
+    assert "source" not in event
+
+
+def test_a_linked_paper_is_audited_with_its_host_and_not_its_path(
+    client: TestClient, install: Callable[..., FetchTransport], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Where it came from is provenance a reviewer needs; which article it was is not."""
+    install(POINT, fetch=httpx.Response(200, content=fixture_bytes("trial_ziprasidone")))
+
+    with caplog.at_level(logging.INFO, logger="askgrey.audit"):
+        response = client.post(
+            "/api/pdf-extraction/url",
+            json={
+                "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1234567/ziprasidone-qt.pdf",
+                "goal": GOAL,
+            },
+            headers=auth_header(client),
+        )
+
+    assert response.status_code == 200
+    event = next(
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if "document.sent_to_llm" in record.getMessage()
+    )
+    assert event["source_host"] == "pmc.ncbi.nlm.nih.gov"
+    assert event["source_kind"] == "url"
+    assert "PMC1234567" not in caplog.text

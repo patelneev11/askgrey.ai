@@ -88,6 +88,15 @@ A 404 on a paper that existed is the opposite case: the row failed authenticatio
 (`discarding an undecryptable stored document`). That is a changed key or a tampered row, and the
 user can add the paper again.
 
+One consequence of the least-privilege policy is worth knowing before you chase a phantom outage:
+without `s3:ListBucket`, S3 answers **403, not 404, for a key that does not exist** (it will not
+confirm absence to an identity that cannot list). So a row whose object really is gone — deleted out
+of band, or expired by a lifecycle rule — reads as an object-store outage forever rather than as a
+missing paper, and the app keeps the row on purpose. Verified against the live bucket. Tell the user
+to remove that paper and upload it again (deletion works: `DeleteObject` succeeds whether or not the
+object is there); do not grant `s3:ListBucket` to make the error tidier, because enumerable keys mean
+a leaked credential can map which accounts hold how many papers.
+
 ## 4. Spend spike
 
 1. `/api/status/llm-cost` → `by_model` and today's total; the WARNING line

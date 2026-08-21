@@ -89,6 +89,8 @@ class PlatformFacts(BaseModel):
     extraction_available: bool
     # "kms", "local-key" or "derived-from-jwt-secret" — the last is development only.
     document_encryption: str
+    # "s3" or "database": where the encrypted bytes are, which is a different question.
+    document_storage: str
     access_token_ttl_minutes: int
     refresh_token_ttl_days: int
     audit_retention_days: int
@@ -238,6 +240,7 @@ def overview(db: Session, user: User) -> AccountOverview:
             llm_model=settings.llm_model,
             extraction_available=bool(settings.anthropic_api_key),
             document_encryption=settings.document_encryption_scheme,
+            document_storage=settings.document_storage,
             access_token_ttl_minutes=settings.access_token_ttl_minutes,
             refresh_token_ttl_days=settings.refresh_token_ttl_days,
             audit_retention_days=settings.audit_retention_days,

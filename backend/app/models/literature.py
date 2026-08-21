@@ -45,10 +45,13 @@ class LiteratureDocument(Base):
     are owned by a user and are only ever served back to that user — this is a store of
     already-fetched bytes, never a fetcher of caller-supplied URLs.
 
-    `content` is ciphertext, not the PDF: `app.services.literature` encrypts it under the
-    owning user id and document id before it is written (see `app.core.crypto`), so this
-    table's bytes are useless in a dump or a provider backup. `byte_size` is the plaintext
-    length, which is what the quotas and the served Content-Length are about.
+    `content` is never the PDF. It is either the ciphertext — encrypted by
+    `app.services.literature` under the owning user id and document id (see `app.core.crypto`),
+    so this table's bytes are useless in a dump or a provider backup — or, when an object store
+    is configured, a short pointer to where that ciphertext lives (see `app.core.blobs`). The
+    row says which, so a deployment that adopts a bucket keeps reading the rows written before
+    it. `byte_size` is the plaintext length, which is what the quotas and the served
+    Content-Length are about.
     """
 
     __tablename__ = "literature_documents"

@@ -17,13 +17,16 @@ def _now() -> datetime:
 
 class SavedArtifact(Base):
     """
-    One agent output a researcher chose to keep, owned by exactly one account.
+    One agent output a researcher chose to keep, saved by exactly one account.
 
     Nothing lands here unless the researcher asks for it: the tabs render their results from the
     response they already have, and a row appears only on an explicit save. `kind` names which
     output it is, and the payload is the response body of that endpoint, validated against the
     same model on the way in and out so a reopened artifact still carries the caveats that were
     shown when it was produced.
+
+    `workspace_id` is null for work kept privately, which is what every row saved before shared
+    workspaces existed is; set, the row is visible to that workspace's members.
     """
 
     __tablename__ = "saved_artifacts"
@@ -31,6 +34,9 @@ class SavedArtifact(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True, nullable=True
     )
     kind: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
     title: Mapped[str] = mapped_column(String(300), nullable=False)

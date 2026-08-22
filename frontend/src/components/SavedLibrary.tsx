@@ -121,7 +121,9 @@ export function SavedLibrary<T>({ kind, current, onOpen }: SavedLibraryProps<T>)
               >
                 <span className={styles.itemTitle}>{item.title}</span>
                 {item.subtitle && <span className={styles.itemMeta}>{item.subtitle}</span>}
-                <span className={styles.itemMeta}>Saved {savedAt(item.created_at)}</span>
+                <span className={styles.itemMeta}>
+                  {item.workspace_id ? 'Shared · saved' : 'Saved'} {savedAt(item.created_at)}
+                </span>
               </button>
               <Button
                 size="sm"

@@ -99,6 +99,7 @@ from app.services.screening.patents import (
     PatentsService,
 )
 from app.services.screening.sar import SarService
+from app.services.workspaces import Access
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -114,6 +115,9 @@ class ToolContext:
 
     db: Session
     user_id: str
+    # The workspace the researcher is working in, so the assistant reads the same saved work the
+    # tabs show them. None means private work only; it is never taken from the model.
+    workspace: Access | None = None
     page_tokens: set[str] = field(default_factory=set)
 
 
@@ -223,7 +227,9 @@ class SavedWorkInput(BaseModel):
 
 
 async def _list_saved_work(context: ToolContext, arguments: SavedWorkInput) -> ToolOutcome:
-    artifacts = list_artifacts(context.db, user_id=context.user_id, kind=arguments.kind)
+    artifacts = list_artifacts(
+        context.db, user_id=context.user_id, kind=arguments.kind, workspace=context.workspace
+    )
     return ToolOutcome(
         summary=f"{len(artifacts)} saved item(s)",
         detail=[artifact.model_dump(mode="json") for artifact in artifacts],
@@ -241,7 +247,10 @@ class ArtifactInput(BaseModel):
 async def _open_saved_work(context: ToolContext, arguments: ArtifactInput) -> ToolOutcome:
     try:
         artifact = get_artifact(
-            context.db, artifact_id=arguments.artifact_id, user_id=context.user_id
+            context.db,
+            artifact_id=arguments.artifact_id,
+            user_id=context.user_id,
+            workspace=context.workspace,
         )
     except LibraryRequestError as exc:
         return ToolOutcome(summary=str(exc), ok=False)
@@ -265,7 +274,7 @@ async def _open_saved_work(context: ToolContext, arguments: ArtifactInput) -> To
 
 
 async def _list_saved_protocols(context: ToolContext, _arguments: NoArguments) -> ToolOutcome:
-    protocols = list_protocols(context.db, user_id=context.user_id)
+    protocols = list_protocols(context.db, user_id=context.user_id, workspace=context.workspace)
     return ToolOutcome(
         summary=f"{len(protocols)} saved protocol(s)",
         detail=[protocol.model_dump(mode="json") for protocol in protocols],
@@ -286,7 +295,12 @@ class ProtocolInput(BaseModel):
 
 async def _open_saved_protocol(context: ToolContext, arguments: ProtocolInput) -> ToolOutcome:
     try:
-        saved = get_protocol(context.db, protocol_id=arguments.protocol_id, user_id=context.user_id)
+        saved = get_protocol(
+            context.db,
+            protocol_id=arguments.protocol_id,
+            user_id=context.user_id,
+            workspace=context.workspace,
+        )
     except ProtocolRequestError as exc:
         return ToolOutcome(summary=str(exc), ok=False)
     return ToolOutcome(

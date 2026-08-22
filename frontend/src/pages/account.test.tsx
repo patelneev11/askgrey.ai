@@ -43,6 +43,10 @@ function overview(overrides: Partial<AccountOverview> = {}): AccountOverview {
       total: 3,
       last_saved_at: '2026-08-12T09:30:00+00:00',
     },
+    workspaces: {
+      workspaces: [],
+      active_workspace_id: null,
+    },
     audit_events: 36,
     sessions: [
       {

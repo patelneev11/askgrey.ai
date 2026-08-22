@@ -39,6 +39,8 @@ function summary(overrides: Partial<SavedArtifactSummary> = {}): SavedArtifactSu
     kind: 'grants_eligibility',
     title: 'SBIR eligibility — Grey Labs',
     subtitle: REPORT.summary,
+    saved_by_user_id: 'user-1',
+    workspace_id: null,
     created_at: '2026-08-16T00:00:00Z',
     updated_at: '2026-08-16T00:00:00Z',
     ...overrides,

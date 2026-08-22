@@ -147,6 +147,9 @@ export interface SavedProtocol {
   id: string;
   version: number;
   protocol: ProtocolDraft;
+  /** Who saved it, and the workspace it is shared in — null when it is private to this account. */
+  saved_by_user_id: string;
+  workspace_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -157,6 +160,8 @@ export interface SavedProtocolSummary {
   title: string;
   goal: string;
   current_version: number;
+  saved_by_user_id: string;
+  workspace_id: string | null;
   created_at: string;
   updated_at: string;
 }

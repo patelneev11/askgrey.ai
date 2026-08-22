@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import DbSession, LlmUser, ThrottledUser
+from app.api.deps import ActiveWorkspace, DbSession, LlmUser, ThrottledUser
 from app.services.protocols import (
     ChecklistItem,
     DrafterError,
@@ -10,6 +10,7 @@ from app.services.protocols import (
     DraftRequest,
     ProtocolDraft,
     ProtocolHistoryResponse,
+    ProtocolPermissionError,
     ProtocolRequestError,
     ProtocolReview,
     ProtocolReviewRequest,
@@ -115,32 +116,50 @@ def reagent_checklist(
 
 @router.post("", response_model=SavedProtocolResponse, status_code=status.HTTP_201_CREATED)
 def save_protocol(
-    request: SaveProtocolRequest, db: DbSession, user: ThrottledUser
+    request: SaveProtocolRequest,
+    db: DbSession,
+    user: ThrottledUser,
+    workspace: ActiveWorkspace,
 ) -> SavedProtocolResponse:
-    """Save a protocol as version 1, owned by the calling account."""
-    return create_protocol(
-        db, user_id=str(user.id), protocol=request.protocol, change_summary=request.change_summary
-    )
+    """Save a protocol as version 1, shared with the active workspace if there is one."""
+    try:
+        return create_protocol(
+            db,
+            user_id=str(user.id),
+            protocol=request.protocol,
+            change_summary=request.change_summary,
+            workspace=workspace,
+        )
+    except ProtocolPermissionError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
 
 
 # Registered before the `/{protocol_id}` route so the empty path cannot be read as an id.
 @router.get("", response_model=list[SavedProtocolSummary])
-def list_saved_protocols(db: DbSession, user: ThrottledUser) -> list[SavedProtocolSummary]:
-    """The caller's saved protocols, newest edit first, so a save survives a page reload."""
-    return list_protocols(db, user_id=str(user.id))
+def list_saved_protocols(
+    db: DbSession, user: ThrottledUser, workspace: ActiveWorkspace
+) -> list[SavedProtocolSummary]:
+    """The caller's protocols plus the active workspace's, newest edit first."""
+    return list_protocols(db, user_id=str(user.id), workspace=workspace)
 
 
 @router.get("/{protocol_id}", response_model=SavedProtocolResponse)
-def read_protocol(protocol_id: str, db: DbSession, user: ThrottledUser) -> SavedProtocolResponse:
+def read_protocol(
+    protocol_id: str, db: DbSession, user: ThrottledUser, workspace: ActiveWorkspace
+) -> SavedProtocolResponse:
     try:
-        return get_protocol(db, protocol_id=protocol_id, user_id=str(user.id))
+        return get_protocol(db, protocol_id=protocol_id, user_id=str(user.id), workspace=workspace)
     except ProtocolRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
 
 @router.put("/{protocol_id}", response_model=SavedProtocolResponse)
 def edit_protocol(
-    protocol_id: str, request: SaveProtocolRequest, db: DbSession, user: ThrottledUser
+    protocol_id: str,
+    request: SaveProtocolRequest,
+    db: DbSession,
+    user: ThrottledUser,
+    workspace: ActiveWorkspace,
 ) -> SavedProtocolResponse:
     """Store an edited protocol as the next version, with a changelog against the previous one."""
     try:
@@ -150,26 +169,41 @@ def edit_protocol(
             user_id=str(user.id),
             protocol=request.protocol,
             change_summary=request.change_summary,
+            workspace=workspace,
         )
+    except ProtocolPermissionError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     except ProtocolRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
 
 @router.get("/{protocol_id}/history", response_model=ProtocolHistoryResponse)
-def read_history(protocol_id: str, db: DbSession, user: ThrottledUser) -> ProtocolHistoryResponse:
+def read_history(
+    protocol_id: str, db: DbSession, user: ThrottledUser, workspace: ActiveWorkspace
+) -> ProtocolHistoryResponse:
     """Every version of the protocol, newest first, each with what changed."""
     try:
-        return get_history(db, protocol_id=protocol_id, user_id=str(user.id))
+        return get_history(db, protocol_id=protocol_id, user_id=str(user.id), workspace=workspace)
     except ProtocolRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
 
 @router.get("/{protocol_id}/versions/{version}", response_model=SavedProtocolResponse)
 def read_version(
-    protocol_id: str, version: int, db: DbSession, user: ThrottledUser
+    protocol_id: str,
+    version: int,
+    db: DbSession,
+    user: ThrottledUser,
+    workspace: ActiveWorkspace,
 ) -> SavedProtocolResponse:
     try:
-        return get_version(db, protocol_id=protocol_id, user_id=str(user.id), version=version)
+        return get_version(
+            db,
+            protocol_id=protocol_id,
+            user_id=str(user.id),
+            version=version,
+            workspace=workspace,
+        )
     except ProtocolRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 

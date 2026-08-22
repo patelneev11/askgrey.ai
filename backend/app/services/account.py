@@ -5,8 +5,9 @@ The Workspace and Settings tabs used to state a plan, a seat count and a complia
 nothing produced; the point of this module is that those pages can only say what is true of the
 running deployment.
 
-Nothing here is editable. Seats, roles and third-party integrations are genuinely not built, so
-they are absent rather than shown as controls that do nothing.
+Nothing here is editable except through the endpoints that own it: the workspace section is the
+membership the workspace service reports, and third-party integrations are genuinely not built,
+so they are absent rather than shown as controls that do nothing.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from app.models.literature import LiteratureDocument
 from app.models.session import RefreshSession
 from app.models.user import User
 from app.services import literature as literature_service
+from app.services import workspaces as workspace_service
 
 
 def _now() -> datetime:
@@ -101,6 +103,9 @@ class AccountOverview(BaseModel):
     account: AccountIdentity
     storage: StorageUsage
     saved_work: SavedWork
+    # The workspaces this account belongs to and the one it is working in, so the Workspace tab
+    # states the memberships that scope everything else on the page.
+    workspaces: workspace_service.WorkspaceMembership
     audit_events: int
     sessions: list[ActiveSession]
     upstreams: list[UpstreamStatus]
@@ -231,6 +236,7 @@ def overview(db: Session, user: User) -> AccountOverview:
         ),
         storage=_storage(db, user_id, settings),
         saved_work=_saved_work(db, user_id),
+        workspaces=workspace_service.list_memberships(db, user),
         audit_events=int(events),
         sessions=active_sessions(db, user_id),
         upstreams=_upstreams(settings),

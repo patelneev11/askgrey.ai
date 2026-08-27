@@ -41,9 +41,15 @@ class LiteratureDocument(Base):
     """The bytes of a paper the user added, kept so its cited pages can be re-rendered.
 
     A paper reached by link is fetched server-side, and an uploaded one is gone as soon as
-    the tab reloads, so without this the citation viewer can only ever show a quote. Rows
-    are owned by a user and are only ever served back to that user — this is a store of
-    already-fetched bytes, never a fetcher of caller-supplied URLs.
+    the tab reloads, so without this the citation viewer can only ever show a quote. Rows are
+    owned by the account that added them, and are served back to that account and — when the
+    paper was added while working in a shared workspace — to that workspace's members. This is
+    a store of already-fetched bytes, never a fetcher of caller-supplied URLs.
+
+    `workspace_id` is null for a paper kept privately, which is what every row added before
+    shared workspaces existed is. Deleting the workspace sets it back to null rather than
+    cascading: the bytes are the uploader's copy of a paper, and closing a collaboration is not
+    a reason to destroy their own library.
 
     `content` is never the PDF. It is either the ciphertext — encrypted by
     `app.services.literature` under the owning user id and document id (see `app.core.crypto`),
@@ -63,6 +69,9 @@ class LiteratureDocument(Base):
     )
     # The extraction document id, which is a digest of the bytes themselves.
     document_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    workspace_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     filename: Mapped[str] = mapped_column(String(500), default="")
     source_url: Mapped[str] = mapped_column(String(2000), default="")
     byte_size: Mapped[int] = mapped_column(Integer, default=0)

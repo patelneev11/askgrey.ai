@@ -11,10 +11,12 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.models.workspace import WorkspaceInvite
+from app.services import literature, workspaces
 from app.services.workspaces import _now
 from tests.protocols.test_checklist import fixture_protocol
 from tests.test_library_api import budget
@@ -579,3 +581,142 @@ def test_membership_changes_are_recorded_in_the_audit_trail(client: TestClient) 
     assert COLLEAGUE["email"] not in body
     accepted = client.get("/api/audit/events", headers=colleague).json()["events"]
     assert "workspace.invite_accepted" in [event["event"] for event in accepted]
+
+
+# Papers added while working in a workspace: readable by its members, and by nobody else. The
+# bytes stay sealed under the account that uploaded them, so these tests are the whole proof that
+# a member's read decrypts and an outsider's does not.
+PAPER_ID = "d" * 64
+
+
+def add_paper(
+    client: TestClient, db: Session, email: str, content: bytes = b"%PDF-1.4 shared paper"
+) -> str:
+    """Store a paper the way an extraction run would: for this account, in whatever workspace it
+    is currently working in."""
+    account = db.scalars(select(User).where(User.email == email)).one()
+    literature.store_document(
+        db,
+        str(account.id),
+        document_id=PAPER_ID,
+        content=content,
+        filename="trial.pdf",
+        workspace=workspaces.active_access(db, account),
+    )
+    return str(account.id)
+
+
+def read_paper(client: TestClient, headers: dict[str, str]) -> Any:
+    return client.get(f"/api/literature/documents/{PAPER_ID}/pdf", headers=headers)
+
+
+def test_a_paper_added_inside_a_workspace_is_readable_by_its_members(
+    client: TestClient, db: Session
+) -> None:
+    owner = register(client, OWNER)
+    created = make_workspace(client, owner)
+    colleague = join(client, owner, created["id"], COLLEAGUE)
+    owner_id = add_paper(client, db, OWNER["email"], b"%PDF-1.4 the shared trial")
+
+    response = read_paper(client, colleague)
+
+    assert response.status_code == 200
+    assert response.content == b"%PDF-1.4 the shared trial"
+    listed = client.get("/api/literature/workspace", headers=colleague).json()
+    assert listed["stored_document_ids"] == [PAPER_ID]
+    # Reading a colleague's paper is filed as such, so a shared read can be found afterwards.
+    events = client.get("/api/audit/events", headers=colleague).json()["events"]
+    read = next(event for event in events if event["event"] == "literature.document_read")
+    assert read["detail"]["added_by"] == owner_id
+    assert read["detail"]["workspace_id"] == created["id"]
+
+
+def test_a_paper_added_before_the_workspace_stays_private_to_whoever_added_it(
+    client: TestClient, db: Session
+) -> None:
+    owner = register(client, OWNER)
+    add_paper(client, db, OWNER["email"])
+    created = make_workspace(client, owner)
+    colleague = join(client, owner, created["id"], COLLEAGUE)
+
+    assert read_paper(client, colleague).status_code == 404
+    assert (
+        client.get("/api/literature/workspace", headers=colleague).json()["stored_document_ids"]
+        == []
+    )
+    assert read_paper(client, owner).status_code == 200
+
+
+def test_a_shared_paper_is_invisible_to_an_account_in_no_workspace(
+    client: TestClient, db: Session
+) -> None:
+    owner = register(client, OWNER)
+    make_workspace(client, owner)
+    add_paper(client, db, OWNER["email"])
+    outsider = register(client, OUTSIDER)
+
+    guessed = read_paper(client, outsider)
+
+    # Indistinguishable from a paper nobody stored: the 404 does not confirm the id exists.
+    assert guessed.status_code == 404
+    unknown = client.get(f"/api/literature/documents/{'e' * 64}/pdf", headers=outsider)
+    assert guessed.json() == unknown.json()
+
+
+def test_a_viewers_paper_is_not_contributed_to_the_workspace(
+    client: TestClient, db: Session
+) -> None:
+    """A viewer may not save work into the workspace, so their upload is not shared either."""
+    owner = register(client, OWNER)
+    created = make_workspace(client, owner)
+    join(client, owner, created["id"], COLLEAGUE, role="viewer")
+    add_paper(client, db, COLLEAGUE["email"])
+
+    assert read_paper(client, owner).status_code == 404
+
+
+def test_a_member_cannot_delete_a_colleagues_shared_paper(client: TestClient, db: Session) -> None:
+    owner = register(client, OWNER)
+    created = make_workspace(client, owner)
+    colleague = join(client, owner, created["id"], COLLEAGUE)
+    add_paper(client, db, OWNER["email"])
+
+    refused = client.delete(f"/api/literature/documents/{PAPER_ID}", headers=colleague)
+
+    # 403 rather than 404: the member can see the paper, so claiming it does not exist would
+    # only make a working viewer look broken.
+    assert refused.status_code == 403
+    assert read_paper(client, colleague).status_code == 200
+    assert client.delete(f"/api/literature/documents/{PAPER_ID}", headers=owner).status_code == 204
+    assert read_paper(client, colleague).status_code == 404
+
+
+def test_leaving_a_workspace_hides_its_shared_papers_again(client: TestClient, db: Session) -> None:
+    owner = register(client, OWNER)
+    created = make_workspace(client, owner)
+    colleague = join(client, owner, created["id"], COLLEAGUE)
+    add_paper(client, db, OWNER["email"])
+    members = client.get(f"/api/workspaces/{created['id']}", headers=owner).json()["members"]
+    colleague_id = next(entry["user_id"] for entry in members if not entry["is_owner"])
+
+    assert read_paper(client, colleague).status_code == 200
+    client.delete(f"/api/workspaces/{created['id']}/members/{colleague_id}", headers=colleague)
+
+    assert read_paper(client, colleague).status_code == 404
+    assert read_paper(client, owner).status_code == 200
+
+
+def test_deleting_a_workspace_gives_its_papers_back_instead_of_destroying_them(
+    client: TestClient, db: Session
+) -> None:
+    owner = register(client, OWNER)
+    created = make_workspace(client, owner)
+    colleague = join(client, owner, created["id"], COLLEAGUE)
+    add_paper(client, db, OWNER["email"])
+
+    assert client.delete(f"/api/workspaces/{created['id']}", headers=owner).status_code == 204
+
+    # The row is one account's copy of a PDF, on their retention clock and inside their quota:
+    # closing the collaboration makes it private again rather than deleting their upload.
+    assert read_paper(client, owner).status_code == 200
+    assert read_paper(client, colleague).status_code == 404

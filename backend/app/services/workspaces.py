@@ -28,6 +28,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.library import SavedArtifact
+from app.models.literature import LiteratureDocument
 from app.models.protocol import ProtocolVersion, SavedProtocol
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceInvite, WorkspaceMember, WorkspaceRole
@@ -331,7 +332,8 @@ def delete_workspace(db: Session, *, workspace_id: str, user_id: str) -> None:
 
     Shared rows cascade: work saved into a workspace was saved to be shared, so leaving it
     readable to whoever saved it would be a quieter outcome than the owner asked for. Private
-    work is untouched, because it never carried a workspace id.
+    work is untouched, because it never carried a workspace id. Stored papers are the exception
+    and become private again rather than being deleted — see below.
     """
     access(db, workspace_id=workspace_id, user_id=user_id, floor=WorkspaceRole.OWNER)
     workspace = _workspace(db, workspace_id)
@@ -350,6 +352,14 @@ def delete_workspace(db: Session, *, workspace_id: str, user_id: str) -> None:
         db.execute(delete(ProtocolVersion).where(ProtocolVersion.protocol_id.in_(shared_protocols)))
     db.execute(delete(SavedProtocol).where(SavedProtocol.workspace_id == workspace_id))
     db.execute(delete(SavedArtifact).where(SavedArtifact.workspace_id == workspace_id))
+    # Papers are given back rather than deleted: a row there is one account's copy of a PDF,
+    # inside their storage quota and on their retention clock, so closing the workspace makes it
+    # private again instead of destroying an upload of theirs.
+    db.execute(
+        update(LiteratureDocument)
+        .where(LiteratureDocument.workspace_id == workspace_id)
+        .values(workspace_id=None)
+    )
     db.execute(delete(WorkspaceInvite).where(WorkspaceInvite.workspace_id == workspace_id))
     db.execute(delete(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id))
     db.delete(workspace)

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.deps import ClientIp, DbSession, LlmUser
+from app.api.deps import ActiveWorkspace, ClientIp, DbSession, LlmUser
 from app.api.literature import DocumentId
 from app.core import audit
 from app.core.config import get_settings
@@ -22,6 +22,7 @@ from app.services.pdf_extraction import (
     PdfParseError,
     UnsupportedPdfError,
 )
+from app.services.workspaces import Access
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 UPLOAD_CHUNK_BYTES = 512 * 1024
@@ -135,11 +136,14 @@ def _keep(
     *,
     filename: str = "",
     source_url: str = "",
+    workspace: Access | None = None,
 ) -> None:
     """Keep the paper's bytes for this user so the citation viewer can render its pages.
 
     Without this a linked paper can only ever be quoted — the browser cannot re-fetch it
-    cross-origin — and an uploaded one is lost the moment the tab reloads.
+    cross-origin — and an uploaded one is lost the moment the tab reloads. A paper added while
+    working in a shared workspace is readable by its members, so a colleague opening the shared
+    table sees the cited page rather than a broken viewer.
     """
     for row in table.rows:
         literature_service.store_document(
@@ -149,6 +153,7 @@ def _keep(
             content=data,
             filename=filename or row.filename,
             source_url=source_url or row.source_url,
+            workspace=workspace,
         )
 
 
@@ -158,6 +163,7 @@ async def extract_from_upload(
     ip: ClientIp,
     service: Service,
     db: DbSession,
+    workspace: ActiveWorkspace,
     request: Request,
     file: Annotated[UploadFile, File(description="The research PDF")],
     goal: Annotated[str, Form(max_length=2000, description="e.g. 'sample size, dosing'")],
@@ -174,7 +180,14 @@ async def extract_from_upload(
             table = await service.extract_from_bytes(
                 data, goal=goal, filename=file.filename or "upload.pdf"
             )
-        _keep(db, str(user.id), table, data, filename=file.filename or "upload.pdf")
+        _keep(
+            db,
+            str(user.id),
+            table,
+            data,
+            filename=file.filename or "upload.pdf",
+            workspace=workspace,
+        )
         return table
     except (
         ExtractionRequestError,
@@ -194,16 +207,18 @@ async def extract_from_stored_document(
     ip: ClientIp,
     service: Service,
     db: DbSession,
+    workspace: ActiveWorkspace,
     document_id: DocumentId,
     request: StoredExtractionRequest,
 ) -> ExtractionTable:
     """Re-run extraction over a paper the user added earlier.
 
     After a reload the browser no longer holds the uploaded bytes, so a saved workspace can
-    only add a column to an uploaded paper if the server can re-read it. The bytes are read
-    from this user's own stored copy — never fetched from anywhere.
+    only add a column to an uploaded paper if the server can re-read it. The bytes are read from
+    a stored copy the caller may open — their own, or one shared into the workspace they are
+    working in — and never fetched from anywhere.
     """
-    document = literature_service.get_document(db, str(user.id), document_id)
+    document = literature_service.get_document(db, str(user.id), document_id, workspace)
     if document is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such document")
     data = document.content
@@ -242,6 +257,7 @@ async def extract_from_url(
     ip: ClientIp,
     service: Service,
     db: DbSession,
+    workspace: ActiveWorkspace,
     request: UrlExtractionRequest,
 ) -> ExtractionTable:
     _record_outbound(db, str(user.id), ip, request.url, 0, kind="url", host=_host(request.url))
@@ -253,7 +269,7 @@ async def extract_from_url(
             fields=request.fields or None,
             source_url=resolved_url,
         )
-        _keep(db, str(user.id), table, data, source_url=resolved_url)
+        _keep(db, str(user.id), table, data, source_url=resolved_url, workspace=workspace)
         return table
     except (
         ExtractionRequestError,

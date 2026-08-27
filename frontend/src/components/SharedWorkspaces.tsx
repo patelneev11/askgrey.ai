@@ -51,6 +51,9 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
   const [issuedToken, setIssuedToken] = useState<string | null>(null);
   const [redeemToken, setRedeemToken] = useState('');
+  // Bumped by every mutation: the account's overview reloads, but the seats and members of the
+  // workspace it is already in do not change identity, so nothing else would re-read them.
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     if (!activeId) {
@@ -69,7 +72,7 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
     return () => {
       live = false;
     };
-  }, [activeId]);
+  }, [activeId, revision]);
 
   /** Every mutation ends the same way: re-read the account, because the scope may have moved. */
   const run = useCallback(
@@ -78,6 +81,7 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
       setError(null);
       try {
         await action();
+        setRevision((seen) => seen + 1);
         onChanged();
       } catch (cause: unknown) {
         setError(messageOf(cause, fallback));

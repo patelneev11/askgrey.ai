@@ -186,6 +186,21 @@ describe('shared workspaces', () => {
     expect(screen.getByRole('button', { name: 'Leave' })).toBeInTheDocument();
   });
 
+  it('re-reads the workspace after a removal, so a done action does not look ignored', async () => {
+    removeWorkspaceMember.mockResolvedValue(undefined);
+    const shrunk = detail();
+    shrunk.members = shrunk.members.slice(0, 1);
+    shrunk.seats_used = 2;
+    workspace.mockResolvedValueOnce(detail()).mockResolvedValue(shrunk);
+    mount(MEMBERSHIP);
+    await screen.findByText('colleague@lab.org');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(screen.queryByText('colleague@lab.org')).not.toBeInTheDocument());
+    expect(screen.getByText(/2 of 5 seats used/i)).toBeInTheDocument();
+  });
+
   it('reports a rejected change rather than pretending it landed', async () => {
     createWorkspace.mockRejectedValue(new Error('you already own too many workspaces'));
     const onChanged = mount(MEMBERSHIP);

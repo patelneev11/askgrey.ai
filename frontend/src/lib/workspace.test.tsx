@@ -149,6 +149,25 @@ describe('WorkspaceProvider', () => {
     expect(screen.getByRole('button', { name: `Remove ${PAPER_URL}` })).toBeInTheDocument();
   });
 
+  it('keeps a paper the storage outage refused to delete, instead of forgetting it silently', async () => {
+    deleteDocument.mockRejectedValue(
+      new ApiError('the document object store is unavailable; retry shortly', 503),
+    );
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.type(screen.getByLabelText('PDF or PMC link'), PAPER_URL);
+    await user.click(screen.getByRole('button', { name: 'Add link' }));
+    await user.type(screen.getByLabelText('Extraction goal'), 'sample size');
+    await user.click(screen.getByRole('button', { name: 'Generate columns' }));
+    await waitFor(() => expect(screen.getByText('73 patients')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: `Remove ${PAPER_URL}` }));
+
+    expect(await screen.findByText(/is still stored/i)).toBeInTheDocument();
+    expect(screen.getByText('73 patients')).toBeInTheDocument();
+  });
+
   it('restores the saved workspace so a reload does not lose the review', async () => {
     loadWorkspace.mockResolvedValue({
       goal: 'sample size',

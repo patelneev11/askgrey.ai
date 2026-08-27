@@ -170,16 +170,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       for (const documentId of ids) {
         api.deleteDocument(documentId, getAccessToken()).catch((cause: unknown) => {
           logger.warn('workspace.document_delete_failed', { document_id: documentId });
-          // A colleague's paper shared into the workspace is refused, and taking the chip and its
-          // findings away anyway costs the reader a paper they cannot add back: they have no
-          // document id to type in. Put the bench back and say who may remove it.
-          if (cause instanceof ApiError && cause.status === 403) {
-            updateSources(() => before);
-            setTable(beforeTable);
-            setError(
-              `${removed.label} was added by someone else in this workspace, so only they can remove it.`,
-            );
-          }
+          // A removal the server did not carry out must not look like one that it did: a paper
+          // the bench forgets is still stored, still counted against retention, and has no
+          // document id the user could type back in. A 404 is the exception — those bytes really
+          // are gone, so letting the chip go is the honest outcome.
+          if (cause instanceof ApiError && cause.status === 404) return;
+          updateSources(() => before);
+          setTable(beforeTable);
+          setError(
+            cause instanceof ApiError && cause.status === 403
+              ? `${removed.label} was added by someone else in this workspace, so only they can remove it.`
+              : `${removed.label} is still stored: removing it failed, so it is still here. Try again shortly.`,
+          );
         });
       }
       setTable((current) => withoutRows(current, ids));

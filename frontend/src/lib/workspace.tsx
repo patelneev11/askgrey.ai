@@ -156,6 +156,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const removeSource = useCallback(
     (id: string) => {
       const removed = sourcesRef.current.find((source) => source.id === id);
+      const before = sourcesRef.current;
+      const beforeTable = tableRef.current;
       updateSources((current) => current.filter((source) => source.id !== id));
       if (!removed) return;
       const ids = new Set(removed.documentIds ?? []);
@@ -166,8 +168,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // Removing a paper has to delete the stored bytes too, not just the row: leaving them until
       // the retention window expires is not what the user asked for.
       for (const documentId of ids) {
-        api.deleteDocument(documentId, getAccessToken()).catch(() => {
+        api.deleteDocument(documentId, getAccessToken()).catch((cause: unknown) => {
           logger.warn('workspace.document_delete_failed', { document_id: documentId });
+          // A colleague's paper shared into the workspace is refused, and taking the chip and its
+          // findings away anyway costs the reader a paper they cannot add back: they have no
+          // document id to type in. Put the bench back and say who may remove it.
+          if (cause instanceof ApiError && cause.status === 403) {
+            updateSources(() => before);
+            setTable(beforeTable);
+            setError(
+              `${removed.label} was added by someone else in this workspace, so only they can remove it.`,
+            );
+          }
         });
       }
       setTable((current) => withoutRows(current, ids));

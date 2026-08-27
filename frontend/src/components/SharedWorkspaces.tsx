@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { StatusPill } from '@/components/StatusPill';
-import { api } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
 import {
   ASSIGNABLE_ROLES,
@@ -36,10 +36,11 @@ function messageOf(cause: unknown, fallback: string): string {
 /**
  * The workspaces this account belongs to, and the seats in the one it is working in.
  *
- * A workspace shares findings — saved artifacts, protocols, drafts, budgets — and never stored
- * papers, whose ciphertext stays bound to the account that uploaded them. Switching is a server
- * decision recorded on the account, not a client preference, so every tab and the assistant see
- * the same scope on their next request.
+ * A workspace shares the findings saved into it — artifacts, protocols, drafts, budgets — and the
+ * papers added while it is active, whose ciphertext stays bound to the account that uploaded them
+ * and readable only through a membership check. Switching is a server decision recorded on the
+ * account, not a client preference, so every tab and the assistant see the same scope on their
+ * next request.
  */
 export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspacesProps) {
   const activeId = membership.active_workspace_id;
@@ -67,7 +68,15 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
         if (live) setDetail(loaded);
       })
       .catch((cause: unknown) => {
-        if (live) setError(messageOf(cause, 'Could not load this workspace.'));
+        if (!live) return;
+        // A workspace that is gone is not a failure to report: this re-read races the account
+        // reload after a deletion or a departure, and the panel is about to say the account is
+        // working privately on its own.
+        if (cause instanceof ApiError && cause.status === 404) {
+          setDetail(null);
+          return;
+        }
+        setError(messageOf(cause, 'Could not load this workspace.'));
       });
     return () => {
       live = false;
@@ -156,7 +165,7 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
       <p className={styles.muted}>
         {activeId === null
           ? 'Working privately: saved work is visible to this account only.'
-          : 'Work saved from any tab while this workspace is active is visible to its members. Stored papers stay private to whoever uploaded them.'}
+          : 'Work saved from any tab while this workspace is active is visible to its members, papers added to the Literature bench included. Only whoever added a paper can remove it, and papers added privately stay private.'}
       </p>
 
       {membership.workspaces.length === 0 && (

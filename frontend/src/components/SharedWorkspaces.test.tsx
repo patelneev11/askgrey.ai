@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '@/lib/api';
 import { setAccessToken } from '@/lib/session';
 import type { WorkspaceDetail, WorkspaceMembership, WorkspaceRole } from '@/lib/workspaces';
 
@@ -199,6 +200,20 @@ describe('shared workspaces', () => {
 
     await waitFor(() => expect(screen.queryByText('colleague@lab.org')).not.toBeInTheDocument());
     expect(screen.getByText(/2 of 5 seats used/i)).toBeInTheDocument();
+  });
+
+  it('settles into private work after a deletion instead of reporting the workspace gone', async () => {
+    deleteWorkspace.mockResolvedValue(undefined);
+    workspace
+      .mockResolvedValueOnce(detail())
+      .mockRejectedValue(new ApiError('no workspace with that id', 404));
+    mount(MEMBERSHIP);
+    await screen.findByText('colleague@lab.org');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete workspace' }));
+
+    await waitFor(() => expect(screen.queryByText('colleague@lab.org')).not.toBeInTheDocument());
+    expect(screen.queryByText(/no workspace with that id/i)).not.toBeInTheDocument();
   });
 
   it('reports a rejected change rather than pretending it landed', async () => {

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Response, status
 
-from app.api.deps import ClientIp, DbSession, ThrottledUser
+from app.api.deps import ActiveWorkspace, ClientIp, DbSession, ThrottledUser
 from app.core import audit
 from app.schemas.literature import WorkspaceRead, WorkspaceWrite
 from app.services import literature as literature_service
@@ -14,14 +14,16 @@ DocumentId = Annotated[str, Path(min_length=8, max_length=64, pattern=r"^[A-Za-z
 
 
 @router.get("/workspace", response_model=WorkspaceRead)
-def read_workspace(user: ThrottledUser, db: DbSession) -> WorkspaceRead:
-    return literature_service.get_workspace(db, str(user.id))
+def read_workspace(user: ThrottledUser, db: DbSession, workspace: ActiveWorkspace) -> WorkspaceRead:
+    return literature_service.get_workspace(db, str(user.id), workspace)
 
 
 @router.put("/workspace", response_model=WorkspaceRead)
-def write_workspace(user: ThrottledUser, db: DbSession, payload: WorkspaceWrite) -> WorkspaceRead:
+def write_workspace(
+    user: ThrottledUser, db: DbSession, workspace: ActiveWorkspace, payload: WorkspaceWrite
+) -> WorkspaceRead:
     try:
-        return literature_service.save_workspace(db, str(user.id), payload)
+        return literature_service.save_workspace(db, str(user.id), payload, workspace)
     except literature_service.WorkspaceTooLargeError as exc:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(exc)) from exc
 
@@ -46,14 +48,29 @@ def delete_document(
     user: ThrottledUser,
     db: DbSession,
     ip: ClientIp,
+    workspace: ActiveWorkspace,
     document_id: DocumentId,
 ) -> Response:
     """Delete one stored paper.
 
-    Scoped like the read: a document stored by somebody else is a 404, indistinguishable from
-    one that was never stored, so a delete cannot be used to probe another account's library.
+    Scoped like the read: a document stored by somebody outside the caller's workspaces is a 404,
+    indistinguishable from one that was never stored, so a delete cannot be used to probe another
+    account's library. A colleague's paper shared into the workspace is visible, so refusing it is
+    a 403 rather than a lie about whether it exists.
     """
-    deleted = literature_service.delete_document(db, str(user.id), document_id)
+    try:
+        deleted = literature_service.delete_document(db, str(user.id), document_id, workspace)
+    except literature_service.DocumentPermissionError as exc:
+        audit.record(
+            "literature.document_deleted",
+            outcome="denied",
+            actor=str(user.id),
+            client_ip=ip,
+            detail={"document_id": document_id},
+            db=db,
+            user_id=str(user.id),
+        )
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     audit.record(
         "literature.document_deleted",
         outcome="success" if deleted else "failure",
@@ -77,23 +94,31 @@ def read_document(
     user: ThrottledUser,
     db: DbSession,
     ip: ClientIp,
+    workspace: ActiveWorkspace,
     document_id: DocumentId,
 ) -> Response:
-    """Serve back a paper this user already added, so its cited page can be rendered.
+    """Serve back a paper the caller may read, so its cited page can be rendered.
 
-    This is not a proxy: it only ever returns bytes already stored against the calling
-    user's own account, and it takes a document id rather than a URL, so it cannot be
-    pointed at an arbitrary target. A document belonging to someone else is a 404 —
-    indistinguishable from one that was never stored.
+    This is not a proxy: it only ever returns bytes already stored against the calling account or
+    shared into the workspace that account is working in, and it takes a document id rather than a
+    URL, so it cannot be pointed at an arbitrary target. A document nobody has shared with the
+    caller is a 404 — indistinguishable from one that was never stored.
     """
-    document = literature_service.get_document(db, str(user.id), document_id)
+    document = literature_service.get_document(db, str(user.id), document_id, workspace)
     if document is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such document")
     audit.record(
         "literature.document_read",
         actor=str(user.id),
         client_ip=ip,
-        detail={"document_id": document_id, "bytes": document.byte_size},
+        detail={
+            "document_id": document_id,
+            "bytes": document.byte_size,
+            # Reading a colleague's paper is the event worth being able to find later; the
+            # workspace it was shared through is what makes the read legitimate.
+            "added_by": document.owner_user_id,
+            "workspace_id": document.workspace_id or "",
+        },
         db=db,
         user_id=str(user.id),
     )

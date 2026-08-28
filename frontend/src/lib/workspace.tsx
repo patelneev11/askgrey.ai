@@ -156,6 +156,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const removeSource = useCallback(
     (id: string) => {
       const removed = sourcesRef.current.find((source) => source.id === id);
+      const before = sourcesRef.current;
+      const beforeTable = tableRef.current;
       updateSources((current) => current.filter((source) => source.id !== id));
       if (!removed) return;
       const ids = new Set(removed.documentIds ?? []);
@@ -166,8 +168,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // Removing a paper has to delete the stored bytes too, not just the row: leaving them until
       // the retention window expires is not what the user asked for.
       for (const documentId of ids) {
-        api.deleteDocument(documentId, getAccessToken()).catch(() => {
+        api.deleteDocument(documentId, getAccessToken()).catch((cause: unknown) => {
           logger.warn('workspace.document_delete_failed', { document_id: documentId });
+          // A removal the server did not carry out must not look like one that it did: a paper
+          // the bench forgets is still stored, still counted against retention, and has no
+          // document id the user could type back in. A 404 is the exception — those bytes really
+          // are gone, so letting the chip go is the honest outcome.
+          if (cause instanceof ApiError && cause.status === 404) return;
+          updateSources(() => before);
+          setTable(beforeTable);
+          setError(
+            cause instanceof ApiError && cause.status === 403
+              ? `${removed.label} was added by someone else in this workspace, so only they can remove it.`
+              : `${removed.label} is still stored: removing it failed, so it is still here. Try again shortly.`,
+          );
         });
       }
       setTable((current) => withoutRows(current, ids));

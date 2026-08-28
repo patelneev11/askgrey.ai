@@ -232,7 +232,7 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
       {fromLink && (
         <p className={styles.token}>
           The invitation from your email is ready — press <strong>Join</strong> to accept it. It
-          works once, and only for {email}.
+          works once, and only for the address it was sent to.
         </p>
       )}
 

@@ -146,7 +146,10 @@ export function ProtocolPage() {
                     >
                       {entry.title || 'Untitled protocol'}
                     </Button>
-                    <span className={styles.stepDuration}>v{entry.current_version}</span>
+                    <span className={styles.stepDuration}>
+                      v{entry.current_version}
+                      {entry.workspace_id ? ' · shared' : ''}
+                    </span>
                   </li>
                 ))}
               </ul>

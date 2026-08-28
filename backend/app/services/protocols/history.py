@@ -4,6 +4,11 @@ Protocol persistence, edit changelog and version history.
 Every save writes a new immutable version plus a deterministic list of changes against the
 previous one, so a researcher can see exactly what an edit did — including which of their edits
 replaced agent-drafted text.
+
+A protocol saved while the researcher is working in a shared workspace belongs to that workspace:
+its members read it, members upwards add versions to it, and each version already records its own
+author, so shared editing shows who changed what. Saved otherwise it is private, as every protocol
+saved before workspaces existed remains.
 """
 
 from __future__ import annotations
@@ -13,12 +18,13 @@ from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.protocol import ProtocolVersion, SavedProtocol
+from app.services.workspaces import Access
 
-from .errors import ProtocolRequestError
+from .errors import ProtocolPermissionError, ProtocolRequestError
 from .models import DraftOrigin, ProtocolDraft
 
 MAX_CHANGES = 200
@@ -55,6 +61,10 @@ class SavedProtocolResponse(BaseModel):
     id: str
     version: int
     protocol: ProtocolDraft
+    # Whose protocol it is and whether it is shared, so an editor can say so before a colleague
+    # revises a protocol they did not write.
+    saved_by_user_id: str
+    workspace_id: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -72,6 +82,10 @@ class SavedProtocolSummary(BaseModel):
     title: str
     goal: str
     current_version: int
+    # Whose protocol it is and whether it is shared: in a workspace the list mixes colleagues'
+    # protocols with your own, and editing one is a different act from editing your draft.
+    saved_by_user_id: str
+    workspace_id: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -229,11 +243,22 @@ def _load_protocol(version: ProtocolVersion) -> ProtocolDraft:
 
 
 def create_protocol(
-    db: Session, *, user_id: str, protocol: ProtocolDraft, change_summary: str = ""
+    db: Session,
+    *,
+    user_id: str,
+    protocol: ProtocolDraft,
+    change_summary: str = "",
+    workspace: Access | None = None,
 ) -> SavedProtocolResponse:
     """Save a protocol as version 1, with the draft exactly as it came out of the drafter."""
+    if workspace is not None and not workspace.may_write:
+        raise ProtocolPermissionError("viewers of this workspace cannot save protocols into it")
     record = SavedProtocol(
-        user_id=user_id, title=protocol.title, goal=protocol.goal, current_version=1
+        user_id=user_id,
+        workspace_id=workspace.workspace_id if workspace is not None else None,
+        title=protocol.title,
+        goal=protocol.goal,
+        current_version=1,
     )
     db.add(record)
     db.flush()
@@ -253,17 +278,41 @@ def create_protocol(
         id=record.id,
         version=1,
         protocol=protocol,
+        saved_by_user_id=record.user_id,
+        workspace_id=record.workspace_id,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
 
 
-def _owned(db: Session, *, protocol_id: str, user_id: str) -> SavedProtocol:
+def _readable(
+    db: Session, *, protocol_id: str, user_id: str, workspace: Access | None
+) -> SavedProtocol:
     record = db.get(SavedProtocol, protocol_id)
-    # A protocol belonging to someone else is reported as missing rather than forbidden, so the
+    # A protocol the caller cannot see is reported as missing rather than forbidden, so the
     # endpoint does not confirm that an id exists.
-    if record is None or record.user_id != user_id:
+    if record is None:
         raise ProtocolRequestError("no protocol with that id")
+    own = record.user_id == user_id and record.workspace_id is None
+    shared = workspace is not None and record.workspace_id == workspace.workspace_id
+    if not own and not shared:
+        raise ProtocolRequestError("no protocol with that id")
+    return record
+
+
+def _editable(
+    db: Session, *, protocol_id: str, user_id: str, workspace: Access | None
+) -> SavedProtocol:
+    """
+    A protocol this caller may add a version to.
+
+    Shared protocols are editable by any member, not only whoever saved them — a shared protocol
+    that only its author can revise is a document with an owner, not a shared one. Viewers are
+    refused, and every version records its own author, so a shared edit is attributable.
+    """
+    record = _readable(db, protocol_id=protocol_id, user_id=user_id, workspace=workspace)
+    if record.workspace_id is not None and (workspace is None or not workspace.may_write):
+        raise ProtocolPermissionError("viewers of this workspace cannot edit its protocols")
     return record
 
 
@@ -281,16 +330,24 @@ def _version(db: Session, *, protocol_id: str, version: int) -> ProtocolVersion:
 MAX_LISTED = 50
 
 
-def list_protocols(db: Session, *, user_id: str) -> list[SavedProtocolSummary]:
+def list_protocols(
+    db: Session, *, user_id: str, workspace: Access | None = None
+) -> list[SavedProtocolSummary]:
     """
-    The caller's saved protocols, most recently edited first.
+    The protocols this caller can see, most recently edited first.
 
     Without this a save is unreachable once the page reloads: the browser holds the only pointer
     to the id, so the version history would sit on the server with no route back to it.
     """
+    private = and_(SavedProtocol.user_id == user_id, SavedProtocol.workspace_id.is_(None))
+    visible = (
+        private
+        if workspace is None
+        else or_(private, SavedProtocol.workspace_id == workspace.workspace_id)
+    )
     rows = db.scalars(
         select(SavedProtocol)
-        .where(SavedProtocol.user_id == user_id)
+        .where(visible)
         .order_by(SavedProtocol.updated_at.desc())
         .limit(MAX_LISTED)
     ).all()
@@ -300,6 +357,8 @@ def list_protocols(db: Session, *, user_id: str) -> list[SavedProtocolSummary]:
             title=row.title,
             goal=row.goal,
             current_version=row.current_version,
+            saved_by_user_id=row.user_id,
+            workspace_id=row.workspace_id,
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
@@ -307,13 +366,17 @@ def list_protocols(db: Session, *, user_id: str) -> list[SavedProtocolSummary]:
     ]
 
 
-def get_protocol(db: Session, *, protocol_id: str, user_id: str) -> SavedProtocolResponse:
-    record = _owned(db, protocol_id=protocol_id, user_id=user_id)
+def get_protocol(
+    db: Session, *, protocol_id: str, user_id: str, workspace: Access | None = None
+) -> SavedProtocolResponse:
+    record = _readable(db, protocol_id=protocol_id, user_id=user_id, workspace=workspace)
     current = _version(db, protocol_id=record.id, version=record.current_version)
     return SavedProtocolResponse(
         id=record.id,
         version=record.current_version,
         protocol=_load_protocol(current),
+        saved_by_user_id=record.user_id,
+        workspace_id=record.workspace_id,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -326,6 +389,7 @@ def update_protocol(
     user_id: str,
     protocol: ProtocolDraft,
     change_summary: str = "",
+    workspace: Access | None = None,
 ) -> SavedProtocolResponse:
     """
     Write the edited protocol as the next version, with its changelog.
@@ -333,11 +397,11 @@ def update_protocol(
     A protocol a researcher has edited is marked `researcher_edited`, which is the only origin
     change this system makes — and it still is not a review sign-off, so the disclaimer stays.
     """
-    record = _owned(db, protocol_id=protocol_id, user_id=user_id)
+    record = _editable(db, protocol_id=protocol_id, user_id=user_id, workspace=workspace)
     previous = _load_protocol(_version(db, protocol_id=record.id, version=record.current_version))
     changes = diff_protocols(previous, protocol)
     if not changes:
-        return get_protocol(db, protocol_id=protocol_id, user_id=user_id)
+        return get_protocol(db, protocol_id=protocol_id, user_id=user_id, workspace=workspace)
 
     edited = protocol.model_copy(update={"origin": DraftOrigin.RESEARCHER_EDITED})
     next_version = record.current_version + 1
@@ -360,13 +424,17 @@ def update_protocol(
         id=record.id,
         version=next_version,
         protocol=edited,
+        saved_by_user_id=record.user_id,
+        workspace_id=record.workspace_id,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
 
 
-def get_history(db: Session, *, protocol_id: str, user_id: str) -> ProtocolHistoryResponse:
-    record = _owned(db, protocol_id=protocol_id, user_id=user_id)
+def get_history(
+    db: Session, *, protocol_id: str, user_id: str, workspace: Access | None = None
+) -> ProtocolHistoryResponse:
+    record = _readable(db, protocol_id=protocol_id, user_id=user_id, workspace=workspace)
     rows = db.scalars(
         select(ProtocolVersion)
         .where(ProtocolVersion.protocol_id == record.id)
@@ -389,14 +457,21 @@ def get_history(db: Session, *, protocol_id: str, user_id: str) -> ProtocolHisto
 
 
 def get_version(
-    db: Session, *, protocol_id: str, user_id: str, version: int
+    db: Session,
+    *,
+    protocol_id: str,
+    user_id: str,
+    version: int,
+    workspace: Access | None = None,
 ) -> SavedProtocolResponse:
-    record = _owned(db, protocol_id=protocol_id, user_id=user_id)
+    record = _readable(db, protocol_id=protocol_id, user_id=user_id, workspace=workspace)
     row = _version(db, protocol_id=record.id, version=version)
     return SavedProtocolResponse(
         id=record.id,
         version=row.version,
         protocol=_load_protocol(row),
+        saved_by_user_id=record.user_id,
+        workspace_id=record.workspace_id,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

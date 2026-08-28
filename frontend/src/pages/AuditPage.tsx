@@ -32,6 +32,18 @@ const ACTIONS: Record<string, string> = {
   'literature.document_read': 'Opened a stored paper',
   'literature.document_deleted': 'Deleted a stored paper',
   'literature.workspace_deleted': 'Cleared the Literature workspace',
+  'workspace.created': 'Created a shared workspace',
+  'workspace.updated': 'Changed a shared workspace',
+  'workspace.deleted': 'Deleted a shared workspace',
+  'workspace.invited': 'Invited someone to a workspace',
+  'workspace.invite_refused': 'Tried to invite someone with no seat free',
+  'workspace.invite_accepted': 'Joined a workspace',
+  'workspace.invite_rejected': 'Tried to use an invitation that was not usable',
+  'workspace.invite_revoked': 'Revoked an invitation',
+  'workspace.role_changed': "Changed a member's role",
+  'workspace.member_removed': 'Removed a member from a workspace',
+  'workspace.left': 'Left a workspace',
+  'workspace.ownership_transferred': 'Handed a workspace to someone else',
 };
 
 /** Who or what the entry is about. The backend classifies this on write. */
@@ -59,7 +71,10 @@ function dateOf(occurredAt: string): string {
 
 /** The recorded provenance, as `key value` pairs. Never document text — the API sends none. */
 function detailOf(event: AuditEvent): string {
-  const parts = Object.entries(event.detail).map(([key, value]) => `${key} ${String(value)}`);
+  // An empty value would print a bare label with nothing after it, which reads as missing data.
+  const parts = Object.entries(event.detail)
+    .filter(([, value]) => String(value) !== '')
+    .map(([key, value]) => `${key} ${String(value)}`);
   if (event.client_ip) parts.push(`from ${event.client_ip}`);
   return parts.join(' · ');
 }

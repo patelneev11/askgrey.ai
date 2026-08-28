@@ -45,6 +45,14 @@ import type {
   PatentLandscape,
   SuggestionSet,
 } from './screening';
+import type {
+  CreatedWorkspaceInvite,
+  WorkspaceDetail,
+  WorkspaceMemberSummary,
+  WorkspaceMembership,
+  WorkspaceRole,
+  WorkspaceSummary,
+} from './workspaces';
 
 export type ExportFormat = 'xlsx' | 'csv';
 
@@ -95,6 +103,8 @@ export interface AccountOverview {
     total: number;
     last_saved_at: string | null;
   };
+  /** The workspaces this account belongs to, and the one its saved work is scoped to. */
+  workspaces: WorkspaceMembership;
   audit_events: number;
   sessions: { id: string; issued_at: string; expires_at: string }[];
   upstreams: { name: string; detail: string; configured: boolean }[];
@@ -725,6 +735,90 @@ export const api = {
   /** This account's own identity, storage, saved work, sessions and deployment configuration. */
   accountOverview: (token?: string) =>
     request<AccountOverview>('/account/overview', {}, token),
+
+  /** The workspaces this account is a member of, and which one it is working in. */
+  workspaces: (token?: string) => request<WorkspaceMembership>('/workspaces', {}, token),
+
+  createWorkspace: (name: string, seatLimit: number, token?: string) =>
+    request<WorkspaceSummary>(
+      '/workspaces',
+      { method: 'POST', body: JSON.stringify({ name, seat_limit: seatLimit }) },
+      token,
+    ),
+
+  /** Switch into a workspace, or pass null to work privately again. */
+  setActiveWorkspace: (workspaceId: string | null, token?: string) =>
+    request<WorkspaceMembership>(
+      '/workspaces/active',
+      { method: 'PUT', body: JSON.stringify({ workspace_id: workspaceId }) },
+      token,
+    ),
+
+  workspace: (id: string, token?: string) =>
+    request<WorkspaceDetail>(`/workspaces/${encodeURIComponent(id)}`, {}, token),
+
+  updateWorkspace: (
+    id: string,
+    changes: { name?: string; seat_limit?: number },
+    token?: string,
+  ) =>
+    request<WorkspaceSummary>(
+      `/workspaces/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(changes) },
+      token,
+    ),
+
+  deleteWorkspace: (id: string, token?: string) =>
+    send(`/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' }, token),
+
+  /**
+   * Offer a seat, returning the invitation token once.
+   *
+   * There is no mail server, so the token is shown to the inviter to hand over out of band; no
+   * later read returns it, because only its hash is stored.
+   */
+  inviteToWorkspace: (id: string, email: string, role: WorkspaceRole, token?: string) =>
+    request<CreatedWorkspaceInvite>(
+      `/workspaces/${encodeURIComponent(id)}/invites`,
+      { method: 'POST', body: JSON.stringify({ email, role }) },
+      token,
+    ),
+
+  revokeWorkspaceInvite: (id: string, inviteId: string, token?: string) =>
+    send(
+      `/workspaces/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`,
+      { method: 'DELETE' },
+      token,
+    ),
+
+  acceptWorkspaceInvite: (inviteToken: string, token?: string) =>
+    request<WorkspaceSummary>(
+      '/workspaces/invites/accept',
+      { method: 'POST', body: JSON.stringify({ token: inviteToken }) },
+      token,
+    ),
+
+  setWorkspaceRole: (id: string, memberUserId: string, role: WorkspaceRole, token?: string) =>
+    request<WorkspaceMemberSummary>(
+      `/workspaces/${encodeURIComponent(id)}/members/${encodeURIComponent(memberUserId)}`,
+      { method: 'PUT', body: JSON.stringify({ role }) },
+      token,
+    ),
+
+  /** Remove a member, or pass your own id to leave. Work shared into the workspace stays. */
+  removeWorkspaceMember: (id: string, memberUserId: string, token?: string) =>
+    send(
+      `/workspaces/${encodeURIComponent(id)}/members/${encodeURIComponent(memberUserId)}`,
+      { method: 'DELETE' },
+      token,
+    ),
+
+  transferWorkspace: (id: string, memberUserId: string, token?: string) =>
+    request<WorkspaceDetail>(
+      `/workspaces/${encodeURIComponent(id)}/owner/${encodeURIComponent(memberUserId)}`,
+      { method: 'POST' },
+      token,
+    ),
 
   /** This account's own security events, newest first. There is no parameter for whose. */
   auditEvents: (kind?: AuditKind, token?: string) =>

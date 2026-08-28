@@ -23,6 +23,7 @@ from app.api.regulatory import router as regulatory_router
 from app.api.regulatory_guidelines import router as regulatory_guidelines_router
 from app.api.screening import router as screening_router
 from app.api.system import router as system_router
+from app.api.workspaces import router as workspaces_router
 from app.core.blobs import BlobStoreUnavailableError
 from app.core.config import get_settings
 from app.core.crypto import DocumentKeyUnavailableError
@@ -49,6 +50,11 @@ from app.models.protocol import (  # noqa: F401  (registers the tables)
 from app.models.session import RefreshSession  # noqa: F401  (registers the table)
 from app.models.spend import LlmSpend  # noqa: F401  (registers the table)
 from app.models.user import User  # noqa: F401  (registers the table on Base.metadata)
+from app.models.workspace import (  # noqa: F401  (registers the tables)
+    Workspace,
+    WorkspaceInvite,
+    WorkspaceMember,
+)
 
 settings = get_settings()
 
@@ -113,6 +119,7 @@ app.include_router(audit_router, prefix="/api")
 app.include_router(account_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(workspaces_router, prefix="/api")
 
 
 @app.exception_handler(BlobStoreUnavailableError)

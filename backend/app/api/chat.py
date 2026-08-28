@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import ClientIp, DbSession, LlmUser, ThrottledUser
+from app.api.deps import ActiveWorkspace, ClientIp, DbSession, LlmUser, ThrottledUser
 from app.core import audit
 from app.core.config import get_settings
 from app.services.chat.agent import ChatAgent
@@ -195,6 +195,7 @@ async def send_message(
     user: LlmUser,
     ip: ClientIp,
     agent: Agent,
+    workspace: ActiveWorkspace,
 ) -> StreamingResponse:
     """
     Answer one message, streaming the reply and the tool steps behind it.
@@ -205,7 +206,9 @@ async def send_message(
     """
     user_id = str(user.id)
     try:
-        reference_context = resolve_references(db, user_id=user_id, references=request.references)
+        reference_context = resolve_references(
+            db, user_id=user_id, references=request.references, workspace=workspace
+        )
     except ChatRequestError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
@@ -275,6 +278,7 @@ async def send_message(
     context = ToolContext(
         db=db,
         user_id=user_id,
+        workspace=workspace,
         page_tokens=set(known_page_tokens(db, conversation_id=conversation_id, user_id=user_id)),
     )
 

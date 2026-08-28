@@ -27,6 +27,9 @@ export interface SavedArtifactSummary {
   kind: ArtifactKind;
   title: string;
   subtitle: string;
+  /** Who saved it, and the workspace it is shared in — null when it is private to this account. */
+  saved_by_user_id: string;
+  workspace_id: string | null;
   created_at: string;
   updated_at: string;
 }

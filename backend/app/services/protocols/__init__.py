@@ -27,6 +27,7 @@ from .errors import (
     DrafterError,
     DrafterUnavailableError,
     ProtocolError,
+    ProtocolPermissionError,
     ProtocolRequestError,
 )
 from .history import (
@@ -89,6 +90,7 @@ __all__ = [
     "ProtocolDraft",
     "ProtocolDrafter",
     "ProtocolError",
+    "ProtocolPermissionError",
     "ProtocolHistoryResponse",
     "ProtocolMaterial",
     "ProtocolRequestError",

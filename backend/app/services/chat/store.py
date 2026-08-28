@@ -31,6 +31,7 @@ from app.services.library import LibraryRequestError, get_artifact
 from app.services.literature import get_workspace
 from app.services.protocols import ProtocolRequestError
 from app.services.protocols.history import get_protocol
+from app.services.workspaces import Access
 
 # How much of a thread is replayed to the model. Long enough to hold a working session, short
 # enough that an old thread does not turn every reply into an expensive one.
@@ -187,15 +188,24 @@ def known_page_tokens(db: Session, *, conversation_id: str, user_id: str) -> fro
     return frozenset(tokens)
 
 
-def resolve_references(db: Session, *, user_id: str, references: list[ChatReference]) -> str:
+def resolve_references(
+    db: Session,
+    *,
+    user_id: str,
+    references: list[ChatReference],
+    workspace: Access | None = None,
+) -> str:
     """Render the caller's @-referenced work as a context block.
 
-    Resolved server-side under the caller's own id: a reference is the researcher naming their
-    own artifact, never a way to hand the model an id it was not entitled to read.
+    Resolved server-side under the caller's own id and the workspace they are working in: a
+    reference is the researcher naming work they can already open, never a way to hand the model
+    an id it was not entitled to read.
     """
     blocks: list[str] = []
     for reference in references:
-        blocks.append(_reference_block(db, user_id=user_id, reference=reference))
+        blocks.append(
+            _reference_block(db, user_id=user_id, reference=reference, workspace=workspace)
+        )
     if not blocks:
         return ""
     joined = "\n\n".join(blocks)[:MAX_REFERENCE_CHARS]
@@ -205,20 +215,25 @@ def resolve_references(db: Session, *, user_id: str, references: list[ChatRefere
     )
 
 
-def _reference_block(db: Session, *, user_id: str, reference: ChatReference) -> str:
+def _reference_block(
+    db: Session, *, user_id: str, reference: ChatReference, workspace: Access | None
+) -> str:
     if reference.kind is ReferenceKind.LITERATURE_WORKSPACE:
-        workspace = get_workspace(db, user_id)
-        return f"Literature workspace:\n{_json(workspace.model_dump(mode='json'))}"
+        # The literature bench stays personal, so this one is read under the account alone.
+        literature = get_workspace(db, user_id)
+        return f"Literature workspace:\n{_json(literature.model_dump(mode='json'))}"
     if reference.kind is ReferenceKind.SAVED_WORK:
         try:
-            artifact = get_artifact(db, artifact_id=reference.id, user_id=user_id)
+            artifact = get_artifact(
+                db, artifact_id=reference.id, user_id=user_id, workspace=workspace
+            )
         except LibraryRequestError as exc:
             raise ChatRequestError(str(exc)) from exc
         return (
             f"Saved {artifact.kind} — {artifact.title}:\n{_json(artifact.model_dump(mode='json'))}"
         )
     try:
-        protocol = get_protocol(db, protocol_id=reference.id, user_id=user_id)
+        protocol = get_protocol(db, protocol_id=reference.id, user_id=user_id, workspace=workspace)
     except ProtocolRequestError as exc:
         raise ChatRequestError(str(exc)) from exc
     return (

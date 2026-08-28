@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { EmptyState } from '@/components/EmptyState';
 import { Meter } from '@/components/Meter';
 import { PageCanvas } from '@/components/PageCanvas';
+import { SharedWorkspaces } from '@/components/SharedWorkspaces';
 import { StatusPill } from '@/components/StatusPill';
 import { api, type AccountOverview } from '@/lib/api';
 import type { ArtifactKind } from '@/lib/library';
@@ -60,10 +61,10 @@ function daysLeftOf(storage: AccountOverview['storage']): string {
 }
 
 /**
- * This account, counted from its own rows.
+ * This account, counted from its own rows, and the workspaces it shares work through.
  *
- * Seats, members and third-party integrations are deliberately absent: an account is the unit
- * this app actually has, and a members table with one row in it invented the other three.
+ * Third-party integrations are still absent: none are built, and a connected-systems list that
+ * connects to nothing is the claim this page exists to avoid making.
  */
 export function WorkspacePage() {
   const [overview, setOverview] = useState<AccountOverview | null>(null);
@@ -93,6 +94,12 @@ export function WorkspacePage() {
   }, []);
 
   useEffect(() => load(), [load]);
+
+  // A membership change moves which saved work every tab can see, so the page is re-read rather
+  // than patched from the response of whichever button was pressed.
+  const reload = useCallback(() => {
+    load();
+  }, [load]);
 
   const work = overview
     ? (Object.entries(overview.saved_work.counts) as [ArtifactKind, number][]).sort(
@@ -151,6 +158,12 @@ export function WorkspacePage() {
               />
             </div>
           </section>
+
+          <SharedWorkspaces
+            membership={overview.workspaces}
+            email={overview.account.email}
+            onChanged={reload}
+          />
 
           <section>
             <h2 className={styles.sectionTitle}>Saved work</h2>
@@ -226,8 +239,8 @@ export function WorkspacePage() {
             </ul>
             <p className={styles.muted}>
               These are the public sources the agents read from — not a document vault or an ELN.
-              Shared workspaces, seats and third-party integrations are not built: this account is
-              the only member, and its work is visible to nobody else.
+              Third-party integrations are not built: an ELN export is a payload this app can
+              build, not a system it is connected to.
             </p>
           </section>
         </>

@@ -11,6 +11,7 @@ from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
 from app.services import users as user_service
+from app.services import workspaces as workspace_service
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -135,3 +136,17 @@ def throttle_llm(request: Request, user: CurrentUser) -> User:
 ThrottledUser = Annotated[User, Depends(throttle_api)]
 LlmUser = Annotated[User, Depends(throttle_llm)]
 ClientIp = Annotated[str, Depends(client_ip)]
+
+
+def active_workspace(db: DbSession, user: CurrentUser) -> workspace_service.Access | None:
+    """
+    The workspace this request is working in, with the role the caller holds in it.
+
+    Resolved from the account rather than from a header or a path parameter, so a request cannot
+    name a workspace, and None means work is private. Endpoints that store or read saved work
+    take this and pass it to the service unchanged.
+    """
+    return workspace_service.active_access(db, user)
+
+
+ActiveWorkspace = Annotated[workspace_service.Access | None, Depends(active_workspace)]

@@ -17,11 +17,14 @@ def _now() -> datetime:
 
 class SavedProtocol(Base):
     """
-    A protocol a researcher has saved, owned by exactly one account.
+    A protocol a researcher has saved.
 
     The row holds only the pointer to the latest version; the content of every version, including
     the current one, lives in `protocol_versions`, so an edit never overwrites what was there
     before.
+
+    `workspace_id` is null for a protocol kept privately; set, every member of that workspace can
+    read it and members upwards can add versions, each version recording its own author.
     """
 
     __tablename__ = "saved_protocols"
@@ -29,6 +32,9 @@ class SavedProtocol(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True, nullable=True
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     goal: Mapped[str] = mapped_column(Text, nullable=False)

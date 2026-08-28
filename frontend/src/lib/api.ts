@@ -104,6 +104,7 @@ export interface AccountOverview {
     llm_model: string;
     extraction_available: boolean;
     document_encryption: string;
+    document_storage: string;
     access_token_ttl_minutes: number;
     refresh_token_ttl_days: number;
     audit_retention_days: number;

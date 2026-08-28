@@ -10,6 +10,12 @@ Three properties this module owns, rather than the caller:
   outside this module ever holds ciphertext and nothing inside the database holds a PDF;
 * a stored paper expires, and an expired one is deleted on sight rather than served;
 * deleting is real deletion of the row, and clearing the workspace takes the papers with it.
+
+The ciphertext itself may live in the row or in an S3 bucket (`app.core.blobs`), which is why
+every deletion here goes through `_forget`: a row deleted on its own would leave the bytes it
+owned in the bucket, and "deleted" has to mean the paper is gone, not dereferenced. Object
+first, row second, so an interruption leaves a row pointing at nothing (which the next read
+cleans up) rather than an object nothing points at.
 """
 
 from __future__ import annotations
@@ -19,9 +25,16 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.blobs import (
+    BlobMissingError,
+    BlobStoreUnavailableError,
+    pointed_key,
+    pointer_to,
+    store_for,
+)
 from app.core.config import get_settings
 from app.core.crypto import DecryptionError, decrypt_document, encrypt_document
 from app.models.literature import LiteratureDocument, LiteratureWorkspace
@@ -110,6 +123,26 @@ def save_workspace(db: Session, user_id: str, payload: WorkspaceWrite) -> Worksp
     )
 
 
+def _forget(db: Session, rows: list[LiteratureDocument]) -> int:
+    """Delete these rows and whatever bytes they own, wherever those bytes live.
+
+    A store that cannot be reached raises, leaving the row in place: the alternative is a
+    deletion that reports success while the object survives in the bucket.
+    """
+    store = store_for(get_settings())
+    for row in rows:
+        if store is not None:
+            try:
+                key = pointed_key(row.content)
+            except BlobMissingError:
+                key = None
+            if key is not None:
+                store.delete(key)
+        db.delete(row)
+    db.commit()
+    return len(rows)
+
+
 def clear_workspace(db: Session, user_id: str) -> int:
     """Forget this user's workspace *and* the papers it referenced.
 
@@ -121,23 +154,23 @@ def clear_workspace(db: Session, user_id: str) -> int:
     ).scalar_one_or_none()
     if row is not None:
         db.delete(row)
-    deleted = db.execute(
-        delete(LiteratureDocument).where(LiteratureDocument.user_id == user_id)
-    ).rowcount
-    db.commit()
-    return int(deleted or 0)
+    papers = list(
+        db.execute(
+            select(LiteratureDocument).where(LiteratureDocument.user_id == user_id)
+        ).scalars()
+    )
+    return _forget(db, papers)
 
 
 def delete_document(db: Session, user_id: str, document_id: str) -> bool:
     """Delete one of this user's stored papers. False when there was nothing to delete."""
-    deleted = db.execute(
-        delete(LiteratureDocument).where(
+    row = db.execute(
+        select(LiteratureDocument).where(
             LiteratureDocument.user_id == user_id,
             LiteratureDocument.document_id == document_id,
         )
-    ).rowcount
-    db.commit()
-    return bool(deleted)
+    ).scalar_one_or_none()
+    return bool(_forget(db, [row] if row is not None else []))
 
 
 def purge_expired_documents(db: Session) -> int:
@@ -146,11 +179,12 @@ def purge_expired_documents(db: Session) -> int:
     Called on each store and each read rather than from a scheduler: there is no scheduler in
     this deployment, and a retention window nothing enforces is a promise, not a control.
     """
-    deleted = db.execute(
-        delete(LiteratureDocument).where(LiteratureDocument.expires_at <= _now())
-    ).rowcount
-    db.commit()
-    return int(deleted or 0)
+    expired = list(
+        db.execute(
+            select(LiteratureDocument).where(LiteratureDocument.expires_at <= _now())
+        ).scalars()
+    )
+    return _forget(db, expired)
 
 
 def stored_document_ids(db: Session, user_id: str) -> list[str]:
@@ -163,6 +197,21 @@ def stored_document_ids(db: Session, user_id: str) -> list[str]:
     return list(rows)
 
 
+def _sealed_bytes(row: LiteratureDocument) -> bytes:
+    """The row's ciphertext, fetched from the object store when the row is only a pointer."""
+    key = pointed_key(row.content)
+    if key is None:
+        return row.content
+    store = store_for(get_settings())
+    if store is None:
+        # The bytes went to a bucket this deployment no longer knows about. A configuration
+        # regression, not a bad row: `BlobMissingError` would delete it.
+        raise BlobStoreUnavailableError(
+            "this document's bytes are in an object store but DOCUMENT_S3_BUCKET is not set"
+        )
+    return store.get(key)
+
+
 def get_document(db: Session, user_id: str, document_id: str) -> StoredDocument | None:
     """This user's copy of a paper, decrypted, or None if there is nothing to serve.
 
@@ -170,9 +219,10 @@ def get_document(db: Session, user_id: str, document_id: str) -> StoredDocument 
     its retention date, or no longer decryptable under the current key. The last two delete the
     row on the way out, so an expired paper stops existing the first time it is asked for.
 
-    A key service that cannot be reached is not one of those four: `DocumentKeyUnavailableError`
-    propagates (becoming a 503) precisely so a KMS outage or a revoked credential cannot be
-    mistaken for a corrupt row and delete the library it could not read.
+    A key service or object store that cannot be reached is not one of those four:
+    `DocumentKeyUnavailableError` and `BlobStoreUnavailableError` propagate (becoming a 503)
+    precisely so a KMS or S3 outage, or a revoked credential, cannot be mistaken for a corrupt
+    row and delete the library it could not read.
     """
     row = db.execute(
         select(LiteratureDocument).where(
@@ -183,11 +233,20 @@ def get_document(db: Session, user_id: str, document_id: str) -> StoredDocument 
     if row is None:
         return None
     if _as_utc(row.expires_at) <= _now():
-        db.delete(row)
-        db.commit()
+        _forget(db, [row])
         return None
     try:
-        content = decrypt_document(row.content, user_id=user_id, document_id=document_id)
+        sealed = _sealed_bytes(row)
+        content = decrypt_document(sealed, user_id=user_id, document_id=document_id)
+    except BlobMissingError:
+        # The row points into the bucket and the object is not there: an orphan from an
+        # interrupted delete or a lifecycle rule, never an outage (that raises instead).
+        logger.warning(
+            "discarding a stored document whose bytes are no longer in the object store",
+            extra={"document_id": document_id},
+        )
+        _forget(db, [row])
+        return None
     except DecryptionError:
         # The key changed (or the row was tampered with). The bytes are a copy of a paper the
         # user can add again, so drop the unreadable row instead of failing every later read.
@@ -195,8 +254,7 @@ def get_document(db: Session, user_id: str, document_id: str) -> StoredDocument 
             "discarding an undecryptable stored document",
             extra={"document_id": document_id},
         )
-        db.delete(row)
-        db.commit()
+        _forget(db, [row])
         return None
     return StoredDocument(
         document_id=row.document_id,
@@ -224,8 +282,19 @@ def store_document(
     now, not one whose clock started the first time they touched it.
     """
     purge_expired_documents(db)
-    expires_at = _now() + timedelta(days=get_settings().document_retention_days)
+    settings = get_settings()
+    expires_at = _now() + timedelta(days=settings.document_retention_days)
     sealed = encrypt_document(content, user_id=user_id, document_id=document_id)
+
+    store = store_for(settings)
+    if store is None:
+        held = sealed
+    else:
+        # The object is written before the row, so a row never promises bytes that are not
+        # there; a write that fails leaves an unreferenced object the next store overwrites.
+        key = store.key_for(user_id, document_id)
+        store.put(key, sealed)
+        held = pointer_to(key)
 
     row = db.execute(
         select(LiteratureDocument).where(
@@ -241,7 +310,7 @@ def store_document(
     row.filename = (filename or row.filename)[:500]
     row.source_url = (source_url or row.source_url)[:2000]
     row.byte_size = len(content)
-    row.content = sealed
+    row.content = held
     row.expires_at = expires_at
     db.commit()
     _evict_over_quota(db, user_id)
@@ -257,11 +326,12 @@ def _evict_over_quota(db: Session, user_id: str) -> None:
         ).scalars()
     )
     total = 0
+    over: list[LiteratureDocument] = []
     for index, row in enumerate(rows):
         total += row.byte_size
         if index >= MAX_DOCUMENTS_PER_USER or total > MAX_STORED_BYTES_PER_USER:
-            db.delete(row)
-    db.commit()
+            over.append(row)
+    _forget(db, over)
 
 
 def stored_bytes(db: Session, user_id: str) -> int:

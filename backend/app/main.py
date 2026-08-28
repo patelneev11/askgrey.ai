@@ -23,6 +23,7 @@ from app.api.regulatory import router as regulatory_router
 from app.api.regulatory_guidelines import router as regulatory_guidelines_router
 from app.api.screening import router as screening_router
 from app.api.system import router as system_router
+from app.core.blobs import BlobStoreUnavailableError
 from app.core.config import get_settings
 from app.core.crypto import DocumentKeyUnavailableError
 from app.core.errors import init_error_tracking
@@ -73,7 +74,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # fact in the log rather than a guess about the environment. Names a scheme, never a key.
     logger.info(
         "document storage key configured",
-        extra={"scheme": settings.document_encryption_scheme},
+        extra={
+            "scheme": settings.document_encryption_scheme,
+            "storage": settings.document_storage,
+        },
     )
     yield
 
@@ -109,6 +113,20 @@ app.include_router(audit_router, prefix="/api")
 app.include_router(account_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+
+
+@app.exception_handler(BlobStoreUnavailableError)
+def _object_store_unavailable(_: Request, exc: BlobStoreUnavailableError) -> JSONResponse:
+    """S3 not answering is the same class of fault as KMS not answering, and reads the same.
+
+    Deliberately not a 404: the paper exists, and telling the client otherwise would invite it
+    to re-upload, or to conclude the store lost it.
+    """
+    logger.error("the document object store is unavailable", extra={"reason": str(exc)})
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "stored documents are temporarily unavailable; retry shortly"},
+    )
 
 
 @app.exception_handler(DocumentKeyUnavailableError)

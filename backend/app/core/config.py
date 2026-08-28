@@ -172,9 +172,15 @@ class Settings(BaseSettings):
     # data key minted by KMS, stored only in wrapped form, with the master key never entering
     # this process and every read recorded in CloudTrail. Empty means the local key above.
     document_kms_key_id: str = ""
-    # Region for the KMS client. Empty defers to the ambient AWS configuration (AWS_REGION,
+    # Region for the AWS clients. Empty defers to the ambient AWS configuration (AWS_REGION,
     # the instance profile, ~/.aws/config), which is what an ECS task normally has.
     aws_region: str = ""
+    # Bucket for stored paper ciphertext. Empty keeps the bytes in the database, which is what
+    # a clone and the tests run on; set it and the row keeps only metadata and a key pointer
+    # (see app.core.blobs). Encryption is unchanged either way — the bucket receives ciphertext.
+    document_s3_bucket: str = ""
+    # Optional key prefix inside that bucket, for a bucket shared with something else.
+    document_s3_prefix: str = ""
     # How long a stored paper is kept. Enforced on every read and write rather than by a cron:
     # an expired row is never served, and is deleted the moment it is next encountered.
     document_retention_days: int = 90
@@ -314,6 +320,11 @@ class Settings(BaseSettings):
         if self.document_kms_key_id.strip():
             return "kms"
         return "local-key" if self.document_encryption_key.strip() else "derived-from-jwt-secret"
+
+    @property
+    def document_storage(self) -> str:
+        """Where the next stored document's ciphertext will be written, for logs and Settings."""
+        return "s3" if self.document_s3_bucket.strip() else "database"
 
     @property
     def serves_frontend(self) -> bool:

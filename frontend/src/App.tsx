@@ -26,7 +26,11 @@ function RequireAuth({ children }: { children: ReactElement }) {
     return null;
   }
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    // The query string comes back too: an emailed invitation carries its token there, and a
+    // recipient who has to register first would otherwise arrive at a bare page.
+    return (
+      <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+    );
   }
   return children;
 }

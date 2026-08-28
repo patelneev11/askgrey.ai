@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
@@ -9,6 +10,7 @@ import {
   ASSIGNABLE_ROLES,
   mayAdminister,
   ROLE_LABELS,
+  type CreatedWorkspaceInvite,
   type WorkspaceDetail,
   type WorkspaceMembership,
   type WorkspaceRole,
@@ -33,6 +35,9 @@ function messageOf(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback;
 }
 
+/** The query parameter an emailed invitation link carries; matches the backend's ACCEPT_PARAM. */
+const INVITE_PARAM = 'invite';
+
 /**
  * The workspaces this account belongs to, and the seats in the one it is working in.
  *
@@ -50,8 +55,10 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
   const [name, setName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('member');
-  const [issuedToken, setIssuedToken] = useState<string | null>(null);
+  const [issued, setIssued] = useState<CreatedWorkspaceInvite | null>(null);
   const [redeemToken, setRedeemToken] = useState('');
+  const [fromLink, setFromLink] = useState(false);
+  const [params, setParams] = useSearchParams();
   // Bumped by every mutation: the account's overview reloads, but the seats and members of the
   // workspace it is already in do not change identity, so nothing else would re-read them.
   const [revision, setRevision] = useState(0);
@@ -107,10 +114,25 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
       setName('');
     }, 'Could not create that workspace.');
 
+  // An emailed invitation arrives as a link, so the token is in the query string. It is put in
+  // the field for one click rather than redeemed on sight — a link that spends its own token when
+  // a mail client prefetches it would burn the seat before the recipient ever saw the page — and
+  // stripped from the URL immediately, so it does not sit in history, a bookmark or a screenshot.
+  useEffect(() => {
+    const offered = params.get(INVITE_PARAM);
+    if (!offered) return;
+    setRedeemToken(offered);
+    setFromLink(true);
+    const remaining = new URLSearchParams(params);
+    remaining.delete(INVITE_PARAM);
+    setParams(remaining, { replace: true });
+  }, [params, setParams]);
+
   const accept = () =>
     run(async () => {
       await api.acceptWorkspaceInvite(redeemToken.trim(), getAccessToken());
       setRedeemToken('');
+      setFromLink(false);
     }, 'Could not accept that invitation.');
 
   const invite = () =>
@@ -122,7 +144,7 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
         inviteRole,
         getAccessToken(),
       );
-      setIssuedToken(created.token);
+      setIssued(created);
       setInviteEmail('');
     }, 'Could not invite that address.');
 
@@ -195,7 +217,10 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
           <span>Invitation you were given</span>
           <input
             value={redeemToken}
-            onChange={(event) => setRedeemToken(event.target.value)}
+            onChange={(event) => {
+              setRedeemToken(event.target.value);
+              setFromLink(false);
+            }}
             placeholder="Paste the invitation token"
           />
         </label>
@@ -203,6 +228,13 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
           Join
         </Button>
       </div>
+
+      {fromLink && (
+        <p className={styles.token}>
+          The invitation from your email is ready — press <strong>Join</strong> to accept it. It
+          works once, and only for {email}.
+        </p>
+      )}
 
       {detail && (
         <>
@@ -338,10 +370,21 @@ export function SharedWorkspaces({ membership, email, onChanged }: SharedWorkspa
                 </Button>
               </div>
 
-              {issuedToken && (
+              {issued && (
                 <p className={styles.token}>
-                  Send this invitation to them yourself — it is shown once and cannot be read
-                  again: <code>{issuedToken}</code>
+                  {issued.delivered ? (
+                    <>
+                      Invitation emailed to {issued.invite.email}, valid until{' '}
+                      {dayOf(issued.invite.expires_at)}. If it does not arrive, revoke it below and
+                      invite them again — this token is shown once and cannot be read back:{' '}
+                      <code>{issued.token}</code>
+                    </>
+                  ) : (
+                    <>
+                      Send this invitation to them yourself — no mail was sent, and it is shown once
+                      and cannot be read again: <code>{issued.token}</code>
+                    </>
+                  )}
                 </p>
               )}
 

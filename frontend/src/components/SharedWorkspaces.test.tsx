@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api';
@@ -116,12 +117,23 @@ beforeEach(() => {
   inviteToWorkspace.mockResolvedValue({
     invite: detail().invites[0],
     token: 'invite-token-abc',
+    workspace_name: 'Discovery chemistry',
+    delivered: false,
   });
 });
 
-function mount(membership: WorkspaceMembership, onChanged = vi.fn()) {
+/** Shows the query string the router is on, so a test can watch a token leave the URL. */
+function QueryProbe() {
+  return <span data-testid="query">{useLocation().search}</span>;
+}
+
+/** The panel reads an emailed invitation out of the query string, so it needs a router. */
+function mount(membership: WorkspaceMembership, onChanged = vi.fn(), url = '/workspace') {
   render(
-    <SharedWorkspaces membership={membership} email="chemist@askgrey.ai" onChanged={onChanged} />,
+    <MemoryRouter initialEntries={[url]}>
+      <SharedWorkspaces membership={membership} email="chemist@askgrey.ai" onChanged={onChanged} />
+      <QueryProbe />
+    </MemoryRouter>,
   );
   return onChanged;
 }
@@ -162,6 +174,41 @@ describe('shared workspaces', () => {
     expect(inviteToWorkspace).toHaveBeenCalledWith('ws-1', 'new@lab.org', 'member', 'token-123');
     expect(await screen.findByText('invite-token-abc')).toBeInTheDocument();
     expect(screen.getByText(/shown once and cannot be read again/i)).toBeInTheDocument();
+  });
+
+  it('says an invitation was emailed, and still shows the token as the only fallback', async () => {
+    inviteToWorkspace.mockResolvedValue({
+      invite: detail().invites[0],
+      token: 'invite-token-abc',
+      workspace_name: 'Discovery chemistry',
+      delivered: true,
+    });
+    mount(MEMBERSHIP);
+    await screen.findByText(/seats used/i);
+
+    await userEvent.type(screen.getByLabelText(/invite by email/i), 'new@lab.org');
+    await userEvent.click(screen.getByRole('button', { name: 'Invite' }));
+
+    expect(await screen.findByText(/emailed to pending@lab.org/i)).toBeInTheDocument();
+    // Mail can be silently dropped, so the one copy of the token stays on screen either way.
+    expect(screen.getByText('invite-token-abc')).toBeInTheDocument();
+  });
+
+  it('fills in a token arriving from an emailed link, and takes it out of the URL', async () => {
+    acceptWorkspaceInvite.mockResolvedValue(MEMBERSHIP.workspaces[0]);
+    mount(MEMBERSHIP, vi.fn(), '/workspace?invite=mailed-token-xyz');
+
+    const field = await screen.findByPlaceholderText(/paste the invitation token/i);
+    expect(field).toHaveValue('mailed-token-xyz');
+    // A link that spent its own token on a mail-client prefetch would burn the seat unseen.
+    expect(acceptWorkspaceInvite).not.toHaveBeenCalled();
+    // Out of the URL, so it is not left in history, a bookmark or a screenshot.
+    await waitFor(() => expect(screen.getByTestId('query')).toHaveTextContent(''));
+    expect(screen.getByTestId('query').textContent).not.toContain('mailed-token-xyz');
+    expect(screen.getByText(/invitation from your email is ready/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Join' }));
+    expect(acceptWorkspaceInvite).toHaveBeenCalledWith('mailed-token-xyz', 'token-123');
   });
 
   it('offers ownership transfer and deletion to the owner alone', async () => {

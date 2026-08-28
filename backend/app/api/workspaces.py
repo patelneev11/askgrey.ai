@@ -1,9 +1,15 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import ClientIp, DbSession, ThrottledUser
 from app.core import audit
+from app.core.config import get_settings
+from app.core.mail import MailSendError, mailer_for
+from app.models.user import User
+from app.services.invite_mail import Invitation, compose
 from app.services.workspaces import (
     CreatedInvite,
     CreateWorkspaceRequest,
@@ -31,6 +37,46 @@ from app.services.workspaces import (
 )
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+
+logger = logging.getLogger("askgrey.workspaces")
+
+
+def _deliver(created: CreatedInvite, *, workspace_id: str, inviter: User) -> bool:
+    """
+    Mail the invitation if a mailer is configured, reporting whether it went.
+
+    Never raises: the seat has already been offered and the token is already in the response, so
+    a mail service that is throttling or has suppressed the address must not undo an invitation
+    or fail the request. The log gets the provider's reason, the caller gets a boolean, and the
+    inviter is told to pass the link on themselves.
+    """
+    settings = get_settings()
+    mailer = mailer_for(settings)
+    if mailer is None:
+        return False
+    message = compose(
+        Invitation(
+            to=created.invite.email,
+            workspace_name=created.workspace_name,
+            invited_by=inviter.full_name.strip() or inviter.email,
+            role=created.invite.role.value,
+            token=created.token,
+            expires_at=created.invite.expires_at,
+        ),
+        app_name=settings.app_name,
+        base_url=settings.public_app_url,
+    )
+    try:
+        mailer.send(message)
+    except MailSendError as exc:
+        # No address and no token in the log: an invitation that failed to send is an operational
+        # fact, and the trail already records that a seat was offered in this workspace.
+        logger.warning(
+            "workspace invitation was not delivered",
+            extra={"workspace_id": workspace_id, "reason": str(exc)},
+        )
+        return False
+    return True
 
 
 class ActiveWorkspaceRequest(BaseModel):
@@ -190,8 +236,9 @@ def invite(
     """
     Offer a seat, returning the token once.
 
-    There is no mail server, so the response carries the token for the inviter to pass on. It is
-    not stored in the clear and no later read returns it.
+    The response carries the token whether or not it was also mailed: it is not stored in the
+    clear and no later read returns it, so the inviter's copy is the only fallback if the mail
+    does not arrive. `delivered` says which happened.
     """
     try:
         created = invite_member(
@@ -209,12 +256,19 @@ def invite(
         raise _seat_error(exc) from exc
     except WorkspaceRequestError as exc:
         raise _request_error(exc) from exc
+    created.delivered = _deliver(created, workspace_id=workspace_id, inviter=user)
     _log(
         "workspace.invited",
         db=db,
         user_id=str(user.id),
         ip=ip,
-        detail={"workspace_id": workspace_id, "role": created.invite.role.value},
+        detail={
+            "workspace_id": workspace_id,
+            "role": created.invite.role.value,
+            # Whether a seat offer left the building is an access-relevant fact; who it went to
+            # is not recorded, here or anywhere else in the trail.
+            "emailed": created.delivered,
+        },
     )
     return created
 

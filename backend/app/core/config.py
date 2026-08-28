@@ -181,6 +181,19 @@ class Settings(BaseSettings):
     document_s3_bucket: str = ""
     # Optional key prefix inside that bucket, for a bucket shared with something else.
     document_s3_prefix: str = ""
+
+    # Outbound mail, used only to deliver workspace invitations (see app.core.mail). Empty sends
+    # nothing: the invitation is still created and its token still returned for the inviter to
+    # pass on, which is what a clone and the tests do. Set it to an address SES has verified in
+    # `AWS_REGION` and the same link also arrives by mail.
+    invite_email_sender: str = ""
+    invite_email_reply_to: str = ""
+    # SES configuration set, if you have one, for bounce and complaint tracking.
+    ses_configuration_set: str = ""
+    # Where the app is reachable, used to build the link inside an invitation. Wrong here means
+    # a link to a host the recipient cannot open, so it is separate from CORS_ORIGINS (which may
+    # list several) and from the API's own address.
+    public_app_url: str = "http://localhost:5173"
     # How long a stored paper is kept. Enforced on every read and write rather than by a cron:
     # an expired row is never served, and is deleted the moment it is next encountered.
     document_retention_days: int = 90

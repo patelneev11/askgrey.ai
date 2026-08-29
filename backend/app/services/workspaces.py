@@ -134,6 +134,13 @@ class CreatedInvite(BaseModel):
 
     invite: InviteSummary
     token: str
+    # The workspace this seat is in, so the invitation can say what it is an invitation to
+    # without a second read.
+    workspace_name: str = ""
+    # Whether the token also went out by mail. False whenever no mailer is configured, and when
+    # a configured one refused the message: the invitation stands either way, and the inviter is
+    # told to pass the token on themselves.
+    delivered: bool = False
 
 
 class CreateWorkspaceRequest(BaseModel):
@@ -489,7 +496,7 @@ def invite_member(
     db.add(invite)
     db.commit()
     db.refresh(invite)
-    return CreatedInvite(invite=_invite_summary(invite), token=token)
+    return CreatedInvite(invite=_invite_summary(invite), token=token, workspace_name=workspace.name)
 
 
 def revoke_invite(db: Session, *, workspace_id: str, user_id: str, invite_id: str) -> None:

@@ -53,6 +53,13 @@ export interface WorkspaceMembership {
 export interface CreatedWorkspaceInvite {
   invite: WorkspaceInviteSummary;
   token: string;
+  workspace_name: string;
+  /**
+   * Whether the token also went out by mail. False when this deployment sends no mail, and when
+   * the mail service refused the message: the invitation stands either way, and the token in this
+   * response is then the only copy.
+   */
+  delivered: boolean;
 }
 
 const RANKS: Record<WorkspaceRole, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };

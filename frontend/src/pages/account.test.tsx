@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AccountOverview } from '@/lib/api';
@@ -90,7 +91,11 @@ describe('Workspace', () => {
   // The page used to name four colleagues, a plan and three connected systems, none of which
   // existed. Everything it shows now has to come from the account it is signed in as.
   it('shows the signed-in account and its counted work rather than invented members', async () => {
-    render(<WorkspacePage />);
+    render(
+      <MemoryRouter>
+        <WorkspacePage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('chemist@askgrey.ai')).toBeInTheDocument();
     expect(screen.getByText('Screening — compound profiles')).toBeInTheDocument();
@@ -102,7 +107,11 @@ describe('Workspace', () => {
   });
 
   it('says a data source is unavailable when the deployment has no key for it', async () => {
-    render(<WorkspacePage />);
+    render(
+      <MemoryRouter>
+        <WorkspacePage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('Not configured')).toBeInTheDocument();
     expect(screen.getByText('Available')).toBeInTheDocument();
@@ -120,7 +129,11 @@ describe('Workspace', () => {
         },
       }),
     );
-    render(<WorkspacePage />);
+    render(
+      <MemoryRouter>
+        <WorkspacePage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('Nothing saved yet')).toBeInTheDocument();
     expect(screen.getByText('Nothing stored')).toBeInTheDocument();
@@ -128,7 +141,11 @@ describe('Workspace', () => {
 
   it('explains itself when the overview cannot be loaded', async () => {
     accountOverview.mockRejectedValue(new Error('Session expired.'));
-    render(<WorkspacePage />);
+    render(
+      <MemoryRouter>
+        <WorkspacePage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('This workspace could not be loaded')).toBeInTheDocument();
     expect(screen.getByText('Session expired.')).toBeInTheDocument();

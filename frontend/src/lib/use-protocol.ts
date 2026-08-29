@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from './api';
+import { saveFile } from './download';
 import { logger } from './observability';
 import {
   reorderSteps,
@@ -87,6 +88,7 @@ export function useProtocolWorkspace() {
 
   const [exportPayload, setExportPayload] = useState<ElnExportPayload | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [bundling, setBundling] = useState(false);
   const [saved, setSaved] = useState<SavedProtocolSummary[]>([]);
   const [opening, setOpening] = useState(false);
   const draftRef = useRef<ProtocolDraft | null>(null);
@@ -254,6 +256,21 @@ export function useProtocolWorkspace() {
     }
   }, []);
 
+  const downloadBundle = useCallback(async () => {
+    const current = draftRef.current;
+    if (!current) return;
+    setBundling(true);
+    setError(null);
+    try {
+      const file = await api.exportElnBundle(current, getAccessToken());
+      saveFile(file.blob, file.filename);
+    } catch (cause) {
+      setError(message(cause, 'Building the notebook bundle failed.'));
+    } finally {
+      setBundling(false);
+    }
+  }, []);
+
   const editMix = useCallback((id: string, field: 'name' | 'volume' | 'unit', value: string) => {
     setMix((rows) => rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   }, []);
@@ -331,6 +348,7 @@ export function useProtocolWorkspace() {
     mixError,
     exportPayload,
     exporting,
+    bundling,
     saved,
     opening,
     setGoal,
@@ -342,6 +360,7 @@ export function useProtocolWorkspace() {
     save,
     reviewControls,
     exportEln,
+    downloadBundle,
     editMix,
     addMixRow,
     openSaved,

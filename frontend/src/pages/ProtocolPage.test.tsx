@@ -20,6 +20,7 @@ const saveProtocol = vi.fn();
 const updateProtocol = vi.fn();
 const protocolHistory = vi.fn();
 const exportEln = vi.fn();
+const exportElnBundle = vi.fn();
 const listProtocols = vi.fn();
 const loadProtocol = vi.fn();
 
@@ -36,6 +37,7 @@ vi.mock('@/lib/api', async () => {
       updateProtocol: (...args: unknown[]) => updateProtocol(...args),
       protocolHistory: (...args: unknown[]) => protocolHistory(...args),
       exportEln: (...args: unknown[]) => exportEln(...args),
+      exportElnBundle: (...args: unknown[]) => exportElnBundle(...args),
       listProtocols: (...args: unknown[]) => listProtocols(...args),
       loadProtocol: (...args: unknown[]) => loadProtocol(...args),
     },
@@ -477,6 +479,44 @@ describe('ProtocolPage — controls and export', () => {
     const status = await screen.findByTestId('export-status');
     expect(status).toHaveTextContent('schema_ready_untested');
     expect(within(status).queryByText(/created|synced/i)).not.toBeInTheDocument();
+  });
+
+  it('downloads the notebook bundle under the filename the server chose', async () => {
+    const user = userEvent.setup();
+    exportElnBundle.mockResolvedValue({
+      blob: new Blob(['zip'], { type: 'application/zip' }),
+      filename: 'western-blot-for-p53-eln.zip',
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<ProtocolPage />);
+    await generate(user);
+
+    await user.click(screen.getByTestId('eln-bundle'));
+
+    await waitFor(() => expect(exportElnBundle).toHaveBeenCalledTimes(1));
+    expect(click).toHaveBeenCalled();
+    click.mockRestore();
+  });
+
+  it('keeps the bundle download separate from the untested Benchling payload', async () => {
+    const user = userEvent.setup();
+    render(<ProtocolPage />);
+    await generate(user);
+
+    expect(screen.getByText(/attach it to an entry in whichever/i)).toBeInTheDocument();
+    expect(screen.getByText(/never run against a live tenant/i)).toBeInTheDocument();
+  });
+
+  it('reports a failed bundle download instead of leaving the button spinning', async () => {
+    const user = userEvent.setup();
+    exportElnBundle.mockRejectedValue(new Error('storage is unavailable'));
+    render(<ProtocolPage />);
+    await generate(user);
+
+    await user.click(screen.getByTestId('eln-bundle'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('storage is unavailable');
+    expect(screen.getByTestId('eln-bundle')).toBeEnabled();
   });
 
   it('surfaces a backend failure instead of showing a protocol that was not drafted', async () => {

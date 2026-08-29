@@ -89,6 +89,9 @@ export function useProtocolWorkspace() {
   const [exportPayload, setExportPayload] = useState<ElnExportPayload | null>(null);
   const [exporting, setExporting] = useState(false);
   const [bundling, setBundling] = useState(false);
+  // The bundle's own failure slot: reported beside its button rather than in the drafting form
+  // in the other pane, where a click at the bottom of the document looks like it did nothing.
+  const [bundleError, setBundleError] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedProtocolSummary[]>([]);
   const [opening, setOpening] = useState(false);
   const draftRef = useRef<ProtocolDraft | null>(null);
@@ -260,12 +263,15 @@ export function useProtocolWorkspace() {
     const current = draftRef.current;
     if (!current) return;
     setBundling(true);
-    setError(null);
+    setBundleError(null);
     try {
       const file = await api.exportElnBundle(current, getAccessToken());
       saveFile(file.blob, file.filename);
     } catch (cause) {
-      setError(message(cause, 'Building the notebook bundle failed.'));
+      // A proxy or gateway failure carries no hint of what was being fetched, so the action is
+      // always named: "Request failed (502)" alone never tells the researcher what to retry.
+      const detail = message(cause, 'No file was written.');
+      setBundleError(`Building the notebook bundle failed. ${detail}`);
     } finally {
       setBundling(false);
     }
@@ -349,6 +355,7 @@ export function useProtocolWorkspace() {
     exportPayload,
     exporting,
     bundling,
+    bundleError,
     saved,
     opening,
     setGoal,

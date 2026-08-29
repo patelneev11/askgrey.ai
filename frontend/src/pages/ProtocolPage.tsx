@@ -70,6 +70,7 @@ export function ProtocolPage() {
     exportPayload,
     exporting,
     bundling,
+    bundleError,
     saved,
     opening,
   } = workspace;
@@ -530,6 +531,11 @@ export function ProtocolPage() {
                   {bundling ? 'Building…' : 'Download for my notebook (.zip)'}
                 </Button>
               </div>
+              {bundleError && (
+                <p className={styles.error} role="alert" data-testid="eln-bundle-error">
+                  {bundleError}
+                </p>
+              )}
               <p className={styles.scopeNote}>
                 Benchling's API format is available separately below. It was built from their
                 public documentation and has never run against a live tenant, so it produces a

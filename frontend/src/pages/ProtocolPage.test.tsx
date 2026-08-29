@@ -507,15 +507,19 @@ describe('ProtocolPage — controls and export', () => {
     expect(screen.getByText(/never run against a live tenant/i)).toBeInTheDocument();
   });
 
-  it('reports a failed bundle download instead of leaving the button spinning', async () => {
+  it('reports a failed bundle download beside its own button, naming the action', async () => {
     const user = userEvent.setup();
-    exportElnBundle.mockRejectedValue(new Error('storage is unavailable'));
+    // A proxy failure says nothing about what was being fetched, which is exactly the case the
+    // message has to survive: the researcher must still learn the bundle is what failed.
+    exportElnBundle.mockRejectedValue(new Error('Request failed (502)'));
     render(<ProtocolPage />);
     await generate(user);
 
     await user.click(screen.getByTestId('eln-bundle'));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('storage is unavailable');
+    const alert = await screen.findByTestId('eln-bundle-error');
+    expect(alert).toHaveTextContent('Building the notebook bundle failed.');
+    expect(alert).toHaveTextContent('Request failed (502)');
     expect(screen.getByTestId('eln-bundle')).toBeEnabled();
   });
 

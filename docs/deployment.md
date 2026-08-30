@@ -1,35 +1,81 @@
-# Deployment: environments, variables and secrets
+# Deployment: AWS, variables and secrets
 
-Two deployed environments, identical in code and different in data:
+One deployed environment for now — production, on AWS in the account that already holds the
+documents bucket and its KMS key. One container serves both halves of the app on one origin
+(`Dockerfile`), ECS Fargate runs it behind an application load balancer, RDS Postgres holds the
+schema, and `JWT_SECRET`, `DATABASE_URL` and the provider keys are resolved from Secrets Manager
+at task start. Infrastructure is Terraform in [`infra/aws`](../infra/aws); the deploy workflow
+only ships code onto it.
 
-| | staging | production |
+A staging environment is the same `terraform apply` with a different `name`, `hostname` and
+bucket. It does not exist yet, and the workflow deploys production from `main`.
+
+## First apply
+
+From `infra/aws`, with an admin credential in the shell (not the `askgrey-app` document key,
+which deliberately cannot create anything):
+
+```
+terraform init
+terraform apply \
+  -var hostname=app.askgrey.ai \
+  -var documents_kms_key_arn=arn:aws:kms:us-east-2:<account>:key/<key-id>
+```
+
+What the variables decide, in order of how much they matter:
+
+| Variable | Default | Notes |
 | --- | --- | --- |
-| Deploys on | every push to `main` | manual `workflow_dispatch` → `target: production` |
-| Data | throwaway; safe to reset | real user workspaces |
-| Anthropic key | separate key, low spend cap | production key |
-| `LLM_DAILY_COST_ALERT_USD` | low (e.g. `5`) so the alert path is exercised | real budget |
+| `hostname` | — | the name the certificate is issued for and the app is reached at |
+| `documents_kms_key_arn` | — | the existing `askgrey-documents` key; must be in `region` |
+| `route53_zone_id` | empty | given a zone, Terraform writes the validation record and the alias itself and the apply waits for the certificate. Empty, it prints the record for your registrar and the HTTPS listener needs a second apply once it validates |
+| `private_tasks_with_nat` | `false` | `false` puts the task in a public subnet with a public address and inbound from the load balancer's security group only. `true` moves it to a private subnet behind a NAT gateway — no public address anywhere, for about **$33/month** more |
+| `documents_bucket` | `askgrey-documents-prod` | existing bucket, not managed here |
+| `desired_count` | `1` | `1` costs one task and still rolls without a gap (200% maximum). `2` survives a zone |
+| `db_instance_class` / `db_allocated_storage` | `db.t4g.micro` / 20 GiB | papers are in S3, so this holds rows and audit events |
+| `invite_email_sender` | empty | an SES-verified address. Empty means no `ses:SendEmail` in the task role at all, and invitations stay copyable tokens |
 
-Both are GitHub Environments of those names. Secrets live in the environment, not in the
-repository, so a run targeting staging cannot read the production token — that separation is
-the point of the split and is lost if the same secrets are set at repository level.
+The apply creates the Anthropic and USPTO secrets **empty** — a key in Terraform state is a key
+in a file. Paste them once, then redeploy:
 
-## Required per environment
+```
+aws secretsmanager put-secret-value --secret-id askgrey/anthropic-api-key --secret-string '<key>'
+```
 
-Configure under **Settings → Environments → {staging,production}**.
+## Continuous deployment
 
-Secrets:
+Every push to `main` builds the image, pushes it to ECR, registers a task definition that
+differs from the running one only by image tag, and rolls the service. The service's deployment
+circuit breaker rolls back a task that fails its migration or its health check, and
+`aws ecs wait services-stable` is what makes that rollback a failed run.
 
-| Name | Used by | Notes |
+CI holds no AWS key: the workflow assumes `askgrey-github-deploy` over OIDC, and that role's
+trust policy names `repo:<owner>/<repo>:ref:refs/heads/main` only. It can push an image and roll
+the service; it cannot read the app's secrets.
+
+Set these as **repository or `production` environment variables** (all non-secret) from the
+Terraform outputs:
+
+| Name | From | Notes |
 | --- | --- | --- |
-| `RAILWAY_TOKEN` | deploy workflow | project-scoped token, not an account token |
-| `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy workflow | separate Vercel project per environment |
+| `AWS_DEPLOY_ROLE_ARN` | `github_deploy_role_arn` | unset, the workflow fails with that instruction rather than an opaque credentials error |
+| `AWS_REGION` | `us-east-2` | defaulted |
+| `ECR_REPOSITORY`, `ECS_CLUSTER`, `ECS_SERVICE` | `askgrey` | defaulted; set them only if `name` was changed |
+| `HEALTHCHECK_URL` | `https://<hostname>/api/health` | the deploy fails if this never returns `{"status":"ok"}` |
 
-Variables (non-secret):
+Rollback is `aws ecs update-service --task-definition <previous revision>`; the last 20 image
+tags are kept in ECR for exactly that.
 
-| Name | Notes |
-| --- | --- |
-| `RAILWAY_SERVICE` | defaults to `askgrey-backend` |
-| `HEALTHCHECK_URL` | e.g. `https://api.askgrey.ai/api/health`; the deploy fails if this never returns `{"status":"ok"}` |
+## Getting a shell
+
+`enable_execute_command` is on, so there is no bastion:
+
+```
+aws ecs execute-command --cluster askgrey --task <task-id> --container app \
+  --interactive --command /bin/sh
+```
+
+That is also how a one-off `alembic` command or a `psql` against the private database is run.
 
 ## Runtime configuration (set on the host, not in the repo)
 
@@ -50,7 +96,7 @@ environment:
 | `SENTRY_DSN`, `RELEASE` | see [monitoring](./monitoring.md) |
 | `LLM_DAILY_COST_ALERT_USD`, `LLM_DAILY_CALL_BUDGET` | spend guards |
 | `FRONTEND_DIST_DIR` | set only for single-origin hosting, where FastAPI serves the built SPA (see below) |
-| `TRUSTED_PROXY_HOPS` | `1` on Railway. The platform terminates traffic at its edge proxy, so the peer address the app sees is the proxy for every visitor; left at `0` the per-source-address sign-in limit becomes one global bucket and any single client can lock everybody out. Count only proxies you control — each claimed hop trusts one more attacker-supplied `X-Forwarded-For` entry |
+| `TRUSTED_PROXY_HOPS` | `1` behind the load balancer, which terminates traffic at its edge, so the peer address the app sees is the proxy for every visitor; left at `0` the per-source-address sign-in limit becomes one global bucket and any single client can lock everybody out. Count only proxies you control — each claimed hop trusts one more attacker-supplied `X-Forwarded-For` entry |
 
 Frontend — `frontend/.env.example`. Everything prefixed `VITE_` is compiled into the bundle
 and is public: `VITE_SENTRY_DSN` is designed to be, an API key never is.
@@ -58,7 +104,7 @@ and is public: `VITE_SENTRY_DSN` is designed to be, an API key never is.
 ## Schema changes
 
 The schema is owned by Alembic (`backend/migrations`), and the deploy runs `alembic upgrade
-head` before starting the server — see `backend/railway.toml`. `Base.metadata.create_all` now
+head` before starting the server — see `deploy/docker-entrypoint.sh`. `Base.metadata.create_all` now
 runs only in development and in tests, so a deployed database never has its schema created as a
 side effect of a boot.
 
@@ -80,9 +126,10 @@ diff that is not empty at `head` is a missing migration, not a test problem.
 
 Both are supported:
 
-- **Split** (what the pipeline does today): Railway serves the API, Vercel serves the SPA.
-  `CORS_ORIGINS` must name the frontend origin exactly, and `FRONTEND_DIST_DIR` stays empty.
-- **Single origin**: build the frontend and point `FRONTEND_DIST_DIR` at `frontend/dist`. The
+- **Split**: a separate host serves the SPA. `CORS_ORIGINS` must then name the frontend origin
+  exactly, and `FRONTEND_DIST_DIR` stays empty.
+- **Single origin** (what the AWS deployment does): build the frontend and point
+  `FRONTEND_DIST_DIR` at it — the image puts it at `/app/frontend-dist`. The
   API then serves `index.html` for every non-`/api/` path so client-side routes survive a
   reload, hashed files under `/assets` are served immutable, and `CORS_ORIGINS` can be empty
   because the browser makes same-origin requests. Unknown `/api/` paths still return JSON 404s
@@ -111,16 +158,16 @@ Both are supported:
 
 ## Not covered yet
 
-- No infrastructure-as-code: environments are configured by hand in Railway/Vercel/GitHub.
-- Migrations run on deploy but are not gated: a release whose migration fails leaves the
-  previous container serving traffic, and nothing takes a backup first.
-- Uploaded PDFs are `LargeBinary` rows rather than object-storage keys, so the database carries
-  up to the per-user quota in blobs and every backup copies them.
+- One environment. Staging is the same apply under another `name`, and nobody has run it.
+- Nothing takes a database snapshot before a migration; a failed migration stops the release
+  (the circuit breaker keeps the previous task serving) but a migration that succeeds and is
+  wrong is a restore from the automated backup.
 - No re-encryption job: there is no command that rewrites existing rows under a new scheme or a
   new local key. Migration happens by writing new rows and letting old ones expire.
 - KMS is not cached: every read of a stored paper is a `kms:Decrypt` call. Fine at this volume,
   and the first thing to revisit if per-request latency or KMS spend matters.
-- No blue/green or automatic rollback. Rollback is redeploying the previous commit.
-- No secret manager: provider-held environment variables are the store. KMS holds the document
-  master key when `DOCUMENT_KMS_KEY_ID` is set, but `JWT_SECRET` and `ANTHROPIC_API_KEY` are still
-  plain environment variables rather than Secrets Manager references.
+- Rolling deploys with an automatic rollback on a failed health check, but not blue/green: the
+  two task definitions share one database, so a rollback across a migration is not automatic.
+- A single task by default, so a zone failure is an outage until ECS places a replacement.
+- The load balancer has no WAF and no rate limit of its own; the per-address limits are the
+  app's, which is why `TRUSTED_PROXY_HOPS` being right matters.

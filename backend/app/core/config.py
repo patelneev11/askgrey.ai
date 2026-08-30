@@ -207,7 +207,7 @@ class Settings(BaseSettings):
     # Abuse and cost controls. Turned off only in tests that assert on unthrottled behaviour.
     rate_limit_enabled: bool = True
     # Number of trusted reverse proxies in front of the app. 0 means the peer address is the
-    # client and X-Forwarded-For is ignored; behind Railway's single edge proxy set 1, so the
+    # client and X-Forwarded-For is ignored; behind the single load balancer set 1, so the
     # per-IP limits key on the visitor instead of collapsing into one shared bucket. Only count
     # proxies you control: each hop you claim is one entry of attacker-supplied XFF trusted.
     trusted_proxy_hops: int = 0

@@ -237,3 +237,10 @@ coverage/
 
 # Built SPA copied in for single-origin deployment
 backend/static/
+
+# Terraform: provider binaries and state (state holds the database password)
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/*.tfvars
+infra/**/.terraform.tfstate.lock.info

@@ -240,11 +240,19 @@ backoff, and normalized records behind `GET /api/pubmed/search`. See
 
 ## Deployment
 
-Frontend deploys to Vercel (`frontend/vercel.json`), backend to Railway
-(`backend/railway.toml`, health-checked at `/api/health`). `.github/workflows/deploy.yml`
-deploys `main` to **staging** automatically and to **production** only on a manual dispatch,
-reading each environment's credentials from the GitHub Environment of the same name; steps skip
-themselves until those secrets exist.
+One image serves both halves on one origin (`Dockerfile`: the SPA is built and handed to the API
+process), and it runs on ECS Fargate behind an application load balancer with RDS Postgres and
+Secrets Manager. The infrastructure is Terraform in [`infra/aws`](infra/aws), applied by hand;
+`.github/workflows/deploy.yml` then builds, pushes and rolls the service on every push to
+`main`, assuming an OIDC role so no AWS key lives in this repository.
+
+Run the same image locally:
+
+```
+docker build -t askgrey . && docker run -p 8000:8000 \
+  -e ENVIRONMENT=development -e DATABASE_URL=sqlite:////tmp/askgrey.db \
+  -e JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(48))") askgrey
+```
 
 Set at minimum in a deployed environment: `JWT_SECRET` (required — the app refuses to boot on
 the development placeholder), `DATABASE_URL` (Postgres; SQLite is development only), and

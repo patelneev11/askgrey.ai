@@ -1,59 +1,112 @@
 name: Deploy
 
-# Staging deploys itself from `main`; production is a deliberate act. Both read their
-# credentials from a GitHub Environment of the same name, so the production token is not
-# available to a run that only meant to touch staging — see docs/deployment.md.
+# One image, one service, one origin: the container built here serves both the API and the SPA
+# (see Dockerfile), and ECS rolls it behind the load balancer. Credentials are an OIDC role
+# assumed per run — there is no AWS key in this repository. Infrastructure is in infra/aws and
+# is applied by hand; this workflow only ships code onto it. See docs/deployment.md.
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      target:
-        description: Environment to deploy
-        type: choice
-        options: [staging, production]
-        default: staging
 
 concurrency:
-  group: deploy-${{ inputs.target || 'staging' }}
+  group: deploy-production
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # mint the OIDC token that stands in for an access key
 
 jobs:
   deploy:
-    name: Deploy ${{ inputs.target || 'staging' }}
+    name: Deploy production
     runs-on: ubuntu-latest
-    environment: ${{ inputs.target || 'staging' }}
+    environment: production
     env:
-      # Secrets resolve from the selected environment; nothing here is a literal value.
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'askgrey-backend' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'askgrey' }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'askgrey' }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE || 'askgrey' }}
+      ECS_CONTAINER: app
       HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
-      TARGET: ${{ inputs.target || 'staging' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      # No role configured means the infrastructure does not exist yet; say so rather than
+      # failing with an opaque credentials error.
+      - name: Check the deploy role is configured
+        run: |
+          if [ -z "${{ vars.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "::error::AWS_DEPLOY_ROLE_ARN is unset. Apply infra/aws and set it from the github_deploy_role_arn output."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
-          node-version: '22'
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      # Backend first: a frontend that expects an endpoint the API has not shipped yet is the
-      # more visible half of a partial deploy.
-      - name: Backend → Railway
-        if: env.RAILWAY_TOKEN != ''
-        working-directory: backend
-        run: npx --yes @railway/cli@3 up --service "$RAILWAY_SERVICE" --detach
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
 
-      - name: Frontend → Vercel
-        if: env.VERCEL_TOKEN != ''
-        working-directory: frontend
+      # Tagged by commit so a rollback names a specific build rather than "whatever latest was".
+      - name: Build and push the image
+        id: image
         env:
-          # Production is the only Vercel deployment that takes the project's domain.
-          PROD_FLAG: ${{ (inputs.target || 'staging') == 'production' && '--prod' || '' }}
-        run: npx --yes vercel@39 deploy $PROD_FLAG --yes --token "$VERCEL_TOKEN"
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:${GITHUB_SHA}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-      # A deploy that returned success and a service that is answering are different claims.
+      # Take the definition the service is running, swap only the image, and register that.
+      # Everything else — the secret ARNs, the environment, the roles — stays where Terraform
+      # put it, so a deploy cannot silently change the app's configuration.
+      - name: Register the task definition
+        id: taskdef
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$(aws ecs describe-services \
+              --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+              --query 'services[0].taskDefinition' --output text)" \
+            --query 'taskDefinition' > /tmp/current.json
+          python3 - <<'PY'
+          import json, os
+
+          definition = json.load(open("/tmp/current.json"))
+          for field in (
+              "taskDefinitionArn", "revision", "status", "requiresAttributes",
+              "compatibilities", "registeredAt", "registeredBy", "deregisteredAt",
+          ):
+              definition.pop(field, None)
+          image = os.environ["IMAGE"]
+          release = os.environ["GITHUB_SHA"]
+          for container in definition["containerDefinitions"]:
+              if container["name"] == os.environ["ECS_CONTAINER"]:
+                  container["image"] = image
+                  container["environment"] = [
+                      variable for variable in container.get("environment", [])
+                      if variable["name"] != "RELEASE"
+                  ] + [{"name": "RELEASE", "value": release}]
+          json.dump(definition, open("/tmp/next.json", "w"))
+          PY
+          ARN=$(aws ecs register-task-definition --cli-input-json file:///tmp/next.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "arn=$ARN" >> "$GITHUB_OUTPUT"
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+
+      # The service's circuit breaker rolls back a task that fails its migration or its health
+      # check, and `wait services-stable` is what turns that rollback into a failed run.
+      - name: Roll the service
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+            --task-definition "${{ steps.taskdef.outputs.arn }}" > /dev/null
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+
+      # A rolled service and a service that is answering are different claims.
       - name: Verify the deployment answers
         if: env.HEALTHCHECK_URL != ''
         run: |
@@ -64,11 +117,10 @@ jobs:
             fi
             sleep 15
           done
-          echo "::error::$TARGET did not report healthy at $HEALTHCHECK_URL within 5 minutes."
+          echo "::error::production did not report healthy at $HEALTHCHECK_URL within 5 minutes."
           exit 1
 
       - name: Report what was skipped
+        if: always()
         run: |
-          [ -n "$RAILWAY_TOKEN" ] || echo "::warning::RAILWAY_TOKEN unset; backend deploy skipped."
-          [ -n "$VERCEL_TOKEN" ] || echo "::warning::VERCEL_TOKEN unset; frontend deploy skipped."
-          [ -n "$HEALTHCHECK_URL" ] || echo "::warning::HEALTHCHECK_URL unset; deploy unverified."
+          [ -n "$HEALTHCHECK_URL" ] || echo "::warning::HEALTHCHECK_URL unset; the deploy is unverified."

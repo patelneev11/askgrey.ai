@@ -1,8 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel
 
-from app.api.deps import ActiveWorkspace, DbSession, LlmUser, ThrottledUser
+from app.api.deps import ActiveWorkspace, ClientIp, DbSession, LlmUser, ThrottledUser
+from app.api.export import download_response
+from app.core import audit
+from app.services.eln import build_bundle, record_from_protocol
 from app.services.protocols import (
     ChecklistItem,
     DrafterError,
@@ -222,6 +226,38 @@ def export_eln(request: ElnExportRequest, _user: ThrottledUser) -> ElnExportPayl
         return build_export(request)
     except ElnExportError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+class ElnBundleRequest(BaseModel):
+    protocol: ProtocolDraft
+
+
+# A rendering, like the xlsx and csv exports: no outbound request, no credential, no vendor
+# account. This is the ELN path that works for every notebook, which is why it is a download
+# rather than a payload for someone else's API.
+@router.post("/export/eln/bundle")
+def export_eln_bundle(
+    request: ElnBundleRequest, user: ThrottledUser, ip: ClientIp, db: DbSession
+) -> Response:
+    """
+    Render a protocol into a zip a researcher attaches to their own lab notebook.
+
+    The bundle carries the review notice in every file: a protocol that arrives in an ELN must
+    not read as validated because it arrived as a tidy document.
+    """
+    record = record_from_protocol(request.protocol)
+    response = download_response(build_bundle(record))
+    # Work leaving the workspace is a reviewable event. The protocol's content is not logged,
+    # and neither is its title: the step count is enough to recognise the export later.
+    audit.record(
+        "eln.bundle_exported",
+        actor=str(user.id),
+        client_ip=ip,
+        detail={"steps": len(request.protocol.steps), "origin": request.protocol.origin.value},
+        db=db,
+        user_id=str(user.id),
+    )
+    return response
 
 
 def _handle(exc: CalculatorError) -> HTTPException:

@@ -69,6 +69,8 @@ export function ProtocolPage() {
     mixError,
     exportPayload,
     exporting,
+    bundling,
+    bundleError,
     saved,
     opening,
   } = workspace;
@@ -514,9 +516,30 @@ export function ProtocolPage() {
             <section className={styles.calculator}>
               <h2 className={styles.docSection}>ELN export</h2>
               <p className={styles.scopeNote}>
-                Benchling entry format, built from public API documentation and never run against a
-                live Benchling account. It produces the payload for review — it does not create an
-                entry.
+                Download the protocol as a notebook bundle and attach it to an entry in whichever
+                ELN your lab runs — LabArchives, Benchling, eLabFTW or a Word document. The zip
+                holds the same record as a printable document, as Markdown and as JSON, and every
+                file carries the review notice.
+              </p>
+              <div className={styles.docActions}>
+                <Button
+                  size="sm"
+                  onClick={() => void workspace.downloadBundle()}
+                  disabled={!draft || bundling}
+                  data-testid="eln-bundle"
+                >
+                  {bundling ? 'Building…' : 'Download for my notebook (.zip)'}
+                </Button>
+              </div>
+              {bundleError && (
+                <p className={styles.error} role="alert" data-testid="eln-bundle-error">
+                  {bundleError}
+                </p>
+              )}
+              <p className={styles.scopeNote}>
+                Benchling's API format is available separately below. It was built from their
+                public documentation and has never run against a live tenant, so it produces a
+                payload to review rather than creating an entry.
               </p>
               <div className={styles.docActions}>
                 <label className={styles.inlineLabel} htmlFor="benchling-folder">

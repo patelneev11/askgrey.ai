@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from './api';
+import { saveFile } from './download';
 import { logger } from './observability';
 import {
   reorderSteps,
@@ -87,6 +88,10 @@ export function useProtocolWorkspace() {
 
   const [exportPayload, setExportPayload] = useState<ElnExportPayload | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [bundling, setBundling] = useState(false);
+  // The bundle's own failure slot: reported beside its button rather than in the drafting form
+  // in the other pane, where a click at the bottom of the document looks like it did nothing.
+  const [bundleError, setBundleError] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedProtocolSummary[]>([]);
   const [opening, setOpening] = useState(false);
   const draftRef = useRef<ProtocolDraft | null>(null);
@@ -254,6 +259,24 @@ export function useProtocolWorkspace() {
     }
   }, []);
 
+  const downloadBundle = useCallback(async () => {
+    const current = draftRef.current;
+    if (!current) return;
+    setBundling(true);
+    setBundleError(null);
+    try {
+      const file = await api.exportElnBundle(current, getAccessToken());
+      saveFile(file.blob, file.filename);
+    } catch (cause) {
+      // A proxy or gateway failure carries no hint of what was being fetched, so the action is
+      // always named: "Request failed (502)" alone never tells the researcher what to retry.
+      const detail = message(cause, 'No file was written.');
+      setBundleError(`Building the notebook bundle failed. ${detail}`);
+    } finally {
+      setBundling(false);
+    }
+  }, []);
+
   const editMix = useCallback((id: string, field: 'name' | 'volume' | 'unit', value: string) => {
     setMix((rows) => rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   }, []);
@@ -331,6 +354,8 @@ export function useProtocolWorkspace() {
     mixError,
     exportPayload,
     exporting,
+    bundling,
+    bundleError,
     saved,
     opening,
     setGoal,
@@ -342,6 +367,7 @@ export function useProtocolWorkspace() {
     save,
     reviewControls,
     exportEln,
+    downloadBundle,
     editMix,
     addMixRow,
     openSaved,

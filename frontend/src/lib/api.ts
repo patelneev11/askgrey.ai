@@ -975,6 +975,20 @@ export const api = {
     ),
 
   /**
+   * The protocol as a zip a researcher attaches to whatever notebook their lab runs.
+   *
+   * Unlike the Benchling payload above, this one is the whole export: it is a rendering, so
+   * there is no tenant, no key and nothing here that could be untested against a live API.
+   */
+  exportElnBundle: (protocol: ProtocolDraft, token?: string) =>
+    download(
+      '/protocols/export/eln/bundle',
+      { method: 'POST', body: JSON.stringify({ protocol }) },
+      token,
+      'protocol-eln.zip',
+    ),
+
+  /**
    * Draft a preclinical narrative and audit its numbers against the submitted table.
    *
    * The same long allowance as extraction: this is a full LLM pass followed by a

@@ -71,9 +71,9 @@ logger = logging.getLogger("askgrey.main")
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Deployed environments migrate before the server starts (`alembic upgrade head`, see
-    # railway.toml): a process that creates its own schema cannot express a column change,
-    # and two replicas doing it at once race. Development keeps the convenience of a database
-    # that appears on first run.
+    # deploy/docker-entrypoint.sh): a process that creates its own schema cannot express a
+    # column change, and two replicas doing it at once race. Development keeps the convenience
+    # of a database that appears on first run.
     if settings.environment == "development":
         Base.metadata.create_all(bind=engine)
     # Which key stored papers are being sealed under, so "why can't it read them" starts from a

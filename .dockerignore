@@ -1,0 +1,18 @@
+# The build needs backend/{app,migrations,alembic.ini,pyproject.toml} and frontend/ only.
+**/.venv
+**/node_modules
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/dist
+**/*.db
+**/.env
+**/.env.*
+.git
+.github
+docs
+infra
+backend/tests
+backend/training
+backend/askgrey_backend.egg-info

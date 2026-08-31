@@ -90,7 +90,7 @@ export const TAB_INTROS: TabIntro[] = [
     title: 'Workspace counts what this account holds',
     body: [
       'Your stored papers and their retention window, the work you have saved from each tab, your audit activity and which data sources this deployment can reach — all counted from your own records.',
-      'An account is the only unit that exists today: shared workspaces, seats, per-member roles and third-party integrations are not built, so the page says so rather than showing them.',
+      'Shared workspaces, seats and per-member roles are here too: invite colleagues and the work saved inside a workspace is readable by its members. No third-party system is connected — a protocol leaves as a notebook bundle you attach to your own ELN.',
     ],
   },
   {

@@ -63,8 +63,8 @@ function daysLeftOf(storage: AccountOverview['storage']): string {
 /**
  * This account, counted from its own rows, and the workspaces it shares work through.
  *
- * Third-party integrations are still absent: none are built, and a connected-systems list that
- * connects to nothing is the claim this page exists to avoid making.
+ * No third-party system is connected: saved work leaves as a file the user carries, and a
+ * connected-systems list that connects to nothing is the claim this page exists to avoid making.
  */
 export function WorkspacePage() {
   const [overview, setOverview] = useState<AccountOverview | null>(null);
@@ -239,8 +239,9 @@ export function WorkspacePage() {
             </ul>
             <p className={styles.muted}>
               These are the public sources the agents read from — not a document vault or an ELN.
-              Third-party integrations are not built: an ELN export is a payload this app can
-              build, not a system it is connected to.
+              No lab notebook is connected to this account: a protocol leaves as a notebook bundle
+              you attach yourself, which is a file this app builds rather than a system it signs
+              into.
             </p>
           </section>
         </>

@@ -44,6 +44,17 @@ const ACTIONS: Record<string, string> = {
   'workspace.member_removed': 'Removed a member from a workspace',
   'workspace.left': 'Left a workspace',
   'workspace.ownership_transferred': 'Handed a workspace to someone else',
+  'auth.refresh_reuse': 'Reused a session that had already been renewed',
+  'chat.message_sent': 'Asked the assistant a question',
+  'chat.turn_completed': 'The assistant answered',
+  'chat.turn_failed': 'The assistant could not answer',
+  'chat.tool_call': 'The assistant ran a tool',
+  'chat.out_of_scope': 'A question was refused as outside research work',
+  'chat.conversation_deleted': 'Deleted an assistant thread',
+  'chat.budget_exhausted': 'Reached the assistant spend cap',
+  'llm.budget_exhausted': "Reached the day's model call budget",
+  'rate_limit.blocked': 'A request was throttled',
+  'eln.bundle_exported': 'Downloaded a protocol notebook bundle',
 };
 
 /** Who or what the entry is about. The backend classifies this on write. */

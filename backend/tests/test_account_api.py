@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.services.library import ArtifactKind
+from tests.protocols.test_checklist import fixture_protocol
 
 CREDENTIALS = {"email": "owner@askgrey.ai", "password": "obsidian-workspace-1"}
 OTHER = {"email": "stranger@askgrey.ai", "password": "obsidian-workspace-2"}
@@ -137,3 +138,40 @@ def test_upstreams_say_when_a_key_is_missing_rather_than_showing_a_connection(
     assert "No API key" in str(by_name["Anthropic"]["detail"])
     assert by_name["USPTO Open Data"]["configured"] is False
     assert by_name["PubChem"]["configured"] is True
+
+
+def save_a_protocol(client: TestClient, headers: dict[str, str]) -> None:
+    body = {"protocol": fixture_protocol().model_dump(mode="json")}
+    response = client.post("/api/protocols", json=body, headers=headers)
+    assert response.status_code == 201, response.text
+
+
+def test_a_saved_protocol_counts_as_saved_work(client: TestClient) -> None:
+    """Protocols live in their own table; left out, the page said nothing was saved."""
+    headers = auth_header(client, CREDENTIALS)
+    save_a_protocol(client, headers)
+
+    work = overview(client, headers)["saved_work"]
+    assert isinstance(work, dict)
+    assert work["counts"] == {"protocol": 1}
+    assert work["total"] == 1
+    assert work["last_saved_at"] is not None
+
+
+def test_saved_protocols_and_artifacts_are_counted_together(client: TestClient) -> None:
+    headers = auth_header(client, CREDENTIALS)
+    save_an_eligibility_artifact(client, headers)
+    save_a_protocol(client, headers)
+
+    work = overview(client, headers)["saved_work"]
+    assert isinstance(work, dict)
+    assert work["counts"] == {ArtifactKind.GRANTS_ELIGIBILITY.value: 1, "protocol": 1}
+    assert work["total"] == 2
+
+
+def test_another_account_s_protocol_is_never_counted(client: TestClient) -> None:
+    save_a_protocol(client, auth_header(client, CREDENTIALS))
+
+    work = overview(client, auth_header(client, OTHER))["saved_work"]
+    assert isinstance(work, dict)
+    assert work == {"counts": {}, "total": 0, "last_saved_at": None}

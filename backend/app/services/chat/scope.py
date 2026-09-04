@@ -153,11 +153,25 @@ def check_patterns(message: str, policy: ScopePolicy | None = None) -> ScopeVerd
     return ScopeVerdict(decision=Decision.ALLOW, checked_by="patterns")
 
 
+@lru_cache(maxsize=1)
+def _vocabulary(policy_version: str) -> re.Pattern[str]:
+    """The research vocabulary as one word-bounded pattern, compiled once per policy version.
+
+    Word boundaries matter more here than anywhere else in the gate: this test is what decides
+    that a message needs no classifier, so a substring match hands a free pass to any sentence
+    carrying a short term inside a longer word — 'ICH' inside 'which' let a question about a
+    leaking faucet through to a full metered turn. The boundary is letters only, not \\w, because
+    the identifiers researchers paste are a term followed by digits: NCT01234567, ICH M3(R2).
+    """
+    terms = sorted(get_policy().in_scope_terms, key=len, reverse=True)
+    alternatives = "|".join(re.escape(term) for term in terms)
+    return re.compile(rf"(?<![A-Za-z])({alternatives})(?![A-Za-z])", re.IGNORECASE)
+
+
 def mentions_research_vocabulary(message: str, policy: ScopePolicy | None = None) -> bool:
     """Whether the message carries a term from the config's research vocabulary."""
     active = policy or get_policy()
-    lowered = message.lower()
-    return any(term in lowered for term in active.in_scope_terms)
+    return _vocabulary(active.version).search(message) is not None
 
 
 class ScopeGate:

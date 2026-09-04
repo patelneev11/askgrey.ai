@@ -197,3 +197,28 @@ async def test_a_classifier_outage_does_not_close_the_tab() -> None:
 
     assert verdict.allowed
     assert verdict.checked_by == "classifier_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_a_vocabulary_term_inside_a_longer_word_is_not_a_free_pass() -> None:
+    """'ICH' hides inside 'which': a substring match let a plumbing question skip the gate."""
+    calls: list[httpx.Request] = []
+    gate = ScopeGate(classifier=classifier("OFFTOPIC", calls=calls))
+
+    verdict = await gate.check("how do I fix a leaking faucet, and which wrench should I buy?")
+
+    assert not verdict.allowed
+    assert verdict.checked_by == "classifier"
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_term_itself_still_answers_without_the_classifier() -> None:
+    calls: list[httpx.Request] = []
+    gate = ScopeGate(classifier=classifier("OFFTOPIC", calls=calls))
+
+    verdict = await gate.check("does ICH M3(R2) require a second species here?")
+
+    assert verdict.allowed
+    assert verdict.checked_by == "patterns"
+    assert calls == []

@@ -1,13 +1,16 @@
 from typing import cast
 
+import pytest
 from sentry_sdk.types import Event
 
 from app.core.config import Settings
 from app.core.errors import _scrub, init_error_tracking
 
 
-def test_reporting_stays_off_until_a_dsn_is_configured() -> None:
-    # Development and CI must not need a Sentry project to boot.
+def test_reporting_stays_off_until_a_dsn_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Development and CI must not need a Sentry project to boot. The DSN is read from the
+    # environment, so it is dropped here rather than trusting the machine not to carry one.
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
     assert init_error_tracking(Settings()) is False
 
 

@@ -22,6 +22,7 @@ from app.core.config import Settings, get_settings
 from app.models.audit import AuditEvent
 from app.models.library import SavedArtifact
 from app.models.literature import LiteratureDocument
+from app.models.protocol import SavedProtocol
 from app.models.session import RefreshSession
 from app.models.user import User
 from app.services import literature as literature_service
@@ -155,6 +156,18 @@ def _saved_work(db: Session, user_id: str) -> SavedWork:
     ).all()
     counts = {str(kind): int(total) for kind, total, _ in rows}
     latest = [updated for *_, updated in rows if updated is not None]
+    # Protocols are saved work too, kept in their own table because they carry version history.
+    # Left out, this page said nothing was saved about an account whose protocol the assistant
+    # could read back by name.
+    protocols, protocol_latest = db.execute(
+        select(func.count(), func.max(SavedProtocol.updated_at)).where(
+            SavedProtocol.user_id == user_id
+        )
+    ).one()
+    if protocols:
+        counts["protocol"] = int(protocols)
+        if protocol_latest is not None:
+            latest.append(protocol_latest)
     return SavedWork(
         counts=counts,
         total=sum(counts.values()),

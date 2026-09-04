@@ -33,7 +33,7 @@ const STEPS: Step[] = [
     title: 'Every tab runs on your own data',
     body: 'The Assistant, Literature, Screening, Protocol, Regulatory and Grants all run against real services on the data you enter, as do the PubMed, PubChem, ClinicalTrials.gov, grants.gov and SBIR searches behind them. Workspace, Audit and Settings report your account: what you have stored and saved, what the agents did, and how this deployment is configured.',
     caveat:
-      'An account is the only unit that exists: shared workspaces, seats and third-party integrations are not built, and the grant review board is a mock panel.',
+      'Work is shared through workspaces with seats and roles, but no third-party system is connected — a protocol leaves as a notebook bundle you attach to your own ELN — and the grant review board is a mock panel.',
   },
   {
     eyebrow: 'Before you trust it',

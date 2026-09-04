@@ -55,10 +55,9 @@ describe('first-run tour', () => {
       /Literature, Screening, Protocol, Regulatory and Grants all run against real services/i,
     );
     expect(dialog).toHaveTextContent(/Workspace, Audit and Settings report your account/i);
-    // The absent org features are named here, because the pages no longer draw them at all.
-    expect(dialog).toHaveTextContent(
-      /shared workspaces, seats and third-party integrations are not built/i,
-    );
+    // What is still absent is named here, so the tour cannot outlive the limitation it describes.
+    expect(dialog).toHaveTextContent(/no third-party system is connected/i);
+    expect(dialog).toHaveTextContent(/review board is a mock panel/i);
   });
 
   it('skips: closes immediately and stays closed on the next visit', async () => {

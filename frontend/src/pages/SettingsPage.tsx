@@ -266,9 +266,9 @@ export function SettingsPage() {
 
       <p className={styles.footnote}>
         Editing these from the app is not built: they are deployment configuration, and an account
-        cannot change them for itself. Shared workspaces, per-member roles, SSO enforcement and
-        data residency selection do not exist yet, so they are absent rather than shown as controls
-        that do nothing.
+        cannot change them for itself. Shared workspaces and per-member roles live on the Workspace
+        page; SSO enforcement and data residency selection do not exist yet, so they are absent
+        rather than shown as controls that do nothing.
       </p>
     </PageCanvas>
   );

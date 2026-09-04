@@ -841,9 +841,10 @@ looks exactly like a broken counter. Use a genuinely different PDF (e.g. a secon
 ### Forbidden-string sweeps must distinguish denials from claims
 
 Both pages intentionally contain `seats`, `integrations`, `data residency` and `21 CFR Part 11` as
-explicit **negations** ("Shared workspaces, seats and third-party integrations are not built…";
-"Operational log, not a 21 CFR Part 11 archive"). A naive `includes()` sweep flags these as
-fabrication. Always print ~160 chars of surrounding context and judge the sentence, not the token.
+explicit **negations** ("No lab notebook is connected to this account…"; "SSO enforcement and data
+residency selection do not exist yet…"; "Operational log, not a 21 CFR Part 11 archive"). A naive
+`includes()` sweep flags these as fabrication. Always print ~160 chars of surrounding context and
+judge the sentence, not the token.
 
 ### The onboarding tour copy is a separate surface from the pages
 

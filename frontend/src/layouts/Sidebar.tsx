@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 
+import { BrandMark } from '@/components/BrandMark';
 import { Icon } from '@/components/icons';
 
 import { OPERATIONAL_TABS, WORKSPACE_LINKS, type NavItem } from './navigation';
@@ -33,9 +34,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       data-collapsed={collapsed}
     >
       <div className={styles.brand}>
-        <span className={styles.brandMark} aria-hidden="true">
-          ag
-        </span>
+        <BrandMark className={styles.brandMark} aria-hidden="true" role="presentation" />
         <span className={styles.brandName}>askgrey</span>
       </div>
 

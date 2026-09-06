@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.api import deps
 from app.api.grants import get_review_board
+from app.core.terms import TERMS_VERSION
 from app.main import app
 from app.services.grants.review_board import (
     MAX_TEXT_CHARS,
@@ -42,7 +43,9 @@ def install() -> Iterator[Install]:
 
 
 def auth_header(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

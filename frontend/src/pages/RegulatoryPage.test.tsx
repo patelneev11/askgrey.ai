@@ -340,7 +340,7 @@ describe('Regulatory · preclinical', () => {
     expect(output.queryByText(/Fixture output/)).not.toBeInTheDocument();
   });
 
-  it('shows a safe message when the draft fails and keeps the warning on screen', async () => {
+  it('shows a safe message when the draft fails, and no draft to warn about', async () => {
     preclinicalReport.mockRejectedValue(new ApiError('drafting the narrative failed', 502));
     const user = userEvent.setup();
     renderRegulatory();
@@ -350,7 +350,9 @@ describe('Regulatory · preclinical', () => {
     await user.click(inputs.getByRole('button', { name: 'Draft narrative and audit numbers' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('drafting the narrative failed');
-    expect(screen.getAllByRole('note')).toHaveLength(2);
+    // Nothing was drafted, so there is nothing to qualify; the review requirement these panes
+    // used to repeat is stated in the terms of agreement.
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 });
 

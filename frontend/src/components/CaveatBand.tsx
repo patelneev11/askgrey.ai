@@ -3,13 +3,18 @@ import type { ReactNode } from 'react';
 import styles from './CaveatBand.module.css';
 
 interface CaveatBandProps {
-  /** Short lead, e.g. "Unvalidated prediction". Rendered before the body on the same line. */
+  /** Short lead, e.g. "Unvalidated". Rendered before the body on the same line. */
   label: string;
   children: ReactNode;
 }
 
 /**
- * The standing reliability warning for agent-generated or computationally predicted content.
+ * The reliability note for extracted values and computational predictions.
+ *
+ * It used to be an amber warning panel with a hazard triangle, repeated on every tab. That is how
+ * a caveat stops being read: the full statement of these limits now lives in the terms of
+ * agreement each account accepts, and what stays here is one small line of text beside the two
+ * outputs that would otherwise be read as measurements — an extracted value and a prediction.
  *
  * Distinct from `StatusPill tone="idle">Sample data</StatusPill>`, which states where a record
  * came from: this states how far the content can be trusted, and must stay visible even once a
@@ -17,18 +22,14 @@ interface CaveatBandProps {
  */
 export function CaveatBand({ label, children }: CaveatBandProps) {
   return (
-    <aside className={styles.band} role="note">
-      <span className={styles.mark} aria-hidden="true">
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor">
-          <path d="M8 2.5 14.5 13.5H1.5L8 2.5Z" strokeWidth="1.3" strokeLinejoin="round" />
-          <path d="M8 6.5v3.2" strokeWidth="1.3" strokeLinecap="round" />
-          <circle cx="8" cy="11.6" r="0.7" fill="currentColor" stroke="none" />
-        </svg>
-      </span>
-      <p className={styles.text}>
-        <span className={styles.label}>{label}</span>
-        {children}
-      </p>
-    </aside>
+    <p className={styles.band} role="note">
+      <span className={styles.label}>{label}</span>
+      {children}
+      {/* A plain anchor, not a router link: it opens in its own tab, and this note renders on
+          surfaces that tests and future embeds may mount outside a router. */}
+      <a className={styles.link} href="/terms" target="_blank" rel="noreferrer">
+        Terms
+      </a>
+    </p>
   );
 }

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { StatusPill } from '@/components/StatusPill';
@@ -286,14 +285,6 @@ export function ProtocolPage() {
           flush
         >
           <article className={styles.document}>
-            {/* Never conditional on having a draft: this tab must never render a protocol-shaped
-                surface without the review requirement attached to it. */}
-            <CaveatBand label="Draft">
-              Agent-drafted content. Requires qualified researcher review before lab use. Nothing on
-              this page has been validated at the bench; the only verified numbers are the
-              calculator's arithmetic, scoped to that panel.
-            </CaveatBand>
-
             {draft ? (
               <>
                 <header className={styles.docHeader}>

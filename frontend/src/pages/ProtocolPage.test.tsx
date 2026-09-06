@@ -250,19 +250,17 @@ async function generate(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('ProtocolPage — drafting', () => {
-  it('renders the review disclaimer before any protocol exists and keeps it after drafting', async () => {
+  // The requirement to have a draft reviewed is stated in the terms of agreement the account
+  // accepted, so the pane gives its space to the draft instead of a standing warning.
+  it('shows no standing warning over the draft, before or after drafting', async () => {
     const user = userEvent.setup();
     render(<ProtocolPage />);
 
-    expect(screen.getByRole('note')).toHaveTextContent(
-      /Agent-drafted content\. Requires qualified researcher review before lab use\./i,
-    );
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
 
     await generate(user);
 
-    expect(screen.getByRole('note')).toHaveTextContent(
-      /Agent-drafted content\. Requires qualified researcher review before lab use\./i,
-    );
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
   it('sends the goal to the backend and renders the returned steps', async () => {
@@ -423,10 +421,7 @@ describe('ProtocolPage — saved protocols', () => {
 
     await waitFor(() => expect(loadProtocol).toHaveBeenCalledWith('protocol-1', undefined));
     expect(await screen.findByDisplayValue('Harvest treated cells')).toBeInTheDocument();
-    // The reopened document is still agent-derived, so the review requirement stays attached.
-    expect(screen.getByRole('note')).toHaveTextContent(
-      /Requires qualified researcher review before lab use/i,
-    );
+
   });
 
   it('remembers a save so the next visit reopens it', async () => {

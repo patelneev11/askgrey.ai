@@ -16,6 +16,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from app.core.terms import TERMS_VERSION
 from app.services.eln import (
     DOCUMENT_NAME,
     JSON_NAME,
@@ -31,7 +32,12 @@ from app.services.protocols.models import REVIEW_DISCLAIMER, ProtocolDraft
 
 def auth_header(client: TestClient, email: str) -> dict[str, str]:
     tokens = client.post(
-        "/api/auth/register", json={"email": email, "password": "obsidian-workspace-9"}
+        "/api/auth/register",
+        json={
+            "email": email,
+            "password": "obsidian-workspace-9",
+            "accepted_terms_version": TERMS_VERSION,
+        },
     ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 

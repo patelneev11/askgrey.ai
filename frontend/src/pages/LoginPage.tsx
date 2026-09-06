@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/Button';
+import { PasswordInput } from '@/components/PasswordInput';
 import { api, type SSOConfig } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
@@ -19,12 +20,21 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sso, setSso] = useState<SSOConfig | null>(null);
+  // The version of the terms this form is offering. Registration submits it, and the API refuses
+  // any version other than the published one, so an acceptance can only name wording that was on
+  // screen. Null means the terms could not be read, and registration stays unavailable.
+  const [termsVersion, setTermsVersion] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     api
       .ssoConfig()
       .then(setSso)
       .catch(() => setSso(null));
+    api
+      .terms()
+      .then((info) => setTermsVersion(info.version))
+      .catch(() => setTermsVersion(null));
   }, []);
 
   if (!loading && user) {
@@ -39,8 +49,10 @@ export function LoginPage() {
     try {
       if (mode === 'login') {
         await login(email, password);
+      } else if (termsVersion === null) {
+        setError('The terms of agreement could not be loaded. Reload the page and try again.');
       } else {
-        await register(email, password, fullName);
+        await register(email, password, fullName, termsVersion);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Something went wrong');
@@ -93,9 +105,7 @@ export function LoginPage() {
 
           <label className={styles.field}>
             <span className={styles.label}>Password</span>
-            <input
-              className={styles.input}
-              type="password"
+            <PasswordInput
               required
               minLength={mode === 'register' ? 12 : undefined}
               value={password}
@@ -107,13 +117,36 @@ export function LoginPage() {
             )}
           </label>
 
+          {mode === 'register' && (
+            <label className={styles.consent}>
+              <input
+                type="checkbox"
+                className={styles.checkbox}
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+              />
+              <span>
+                I have read, understood and comply with the{' '}
+                <Link className={styles.termsLink} to="/terms" target="_blank" rel="noreferrer">
+                  Terms of Agreement
+                </Link>
+                .
+              </span>
+            </label>
+          )}
+
           {error && (
             <p className={styles.error} role="alert">
               {error}
             </p>
           )}
 
-          <Button type="submit" variant="primary" fullWidth disabled={submitting}>
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            disabled={submitting || (mode === 'register' && !acceptedTerms)}
+          >
             {submitting ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create workspace'}
           </Button>
         </form>
@@ -135,12 +168,19 @@ export function LoginPage() {
           onClick={() => {
             setMode(mode === 'login' ? 'register' : 'login');
             setError(null);
+            // Leaving the register form and coming back must ask again rather than remember a
+            // tick from a session the researcher may have abandoned.
+            setAcceptedTerms(false);
           }}
         >
           {mode === 'login'
             ? 'No workspace yet? Create one'
             : 'Already have a workspace? Sign in'}
         </button>
+
+        <Link className={styles.footerLink} to="/terms">
+          Terms of Agreement
+        </Link>
       </div>
     </div>
   );

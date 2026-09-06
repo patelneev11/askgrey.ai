@@ -7,10 +7,12 @@ from app.api.deps import ClientIp, CurrentUser, DbSession, throttle_account, thr
 from app.core import audit
 from app.core.config import get_settings
 from app.core.security import create_token
+from app.core.terms import TERMS_VERSION
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
     SSOConfig,
+    TermsInfo,
     TokenResponse,
     UserRead,
 )
@@ -85,8 +87,28 @@ def register(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "That account could not be created with those details"
         )
-    user = user_service.create_user(db, payload.email, payload.password, payload.full_name)
-    audit.record("auth.register", actor=user.id, client_ip=ip, db=db, user_id=user.id)
+    if payload.accepted_terms_version != TERMS_VERSION:
+        # The client accepted wording that is no longer the published one, so what it showed the
+        # researcher and what the record would claim they agreed to have diverged.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "The terms of agreement have changed. Reload the page and read them again.",
+        )
+    user = user_service.create_user(
+        db,
+        payload.email,
+        payload.password,
+        payload.full_name,
+        terms_version=payload.accepted_terms_version,
+    )
+    audit.record(
+        "auth.register",
+        actor=user.id,
+        client_ip=ip,
+        db=db,
+        user_id=user.id,
+        detail={"accepted_terms_version": payload.accepted_terms_version},
+    )
     return _sign_in(db, response, user.id)
 
 
@@ -168,6 +190,12 @@ def logout_all(db: DbSession, response: Response, ip: ClientIp, user: CurrentUse
 @router.get("/me", response_model=UserRead)
 def me(current_user: CurrentUser) -> UserRead:
     return UserRead.model_validate(current_user)
+
+
+@router.get("/terms", response_model=TermsInfo)
+def terms() -> TermsInfo:
+    """The terms version a registration has to accept, read before any session exists."""
+    return TermsInfo(version=TERMS_VERSION)
 
 
 @router.get("/sso", response_model=SSOConfig)

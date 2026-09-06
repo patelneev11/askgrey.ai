@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { SavedLibrary } from '@/components/SavedLibrary';
@@ -71,8 +70,8 @@ function Outcome({ outcome }: { outcome: RuleOutcome }) {
  * The rules-based eligibility screen.
  *
  * Every verdict on screen came from a numeric threshold in the service's rule config, so there
- * is no prediction caveat here — but it is still not a legal determination, and the panel says
- * so permanently rather than only in the intro notice.
+ * is no prediction caveat here. That these are the encoded SBA baselines rather than a legal
+ * determination is stated in the terms of agreement, which the account accepted to register.
  */
 export function EligibilityChecklist() {
   const [profile, setProfile] = useState<CompanyProfile>(EMPTY_PROFILE);
@@ -350,12 +349,6 @@ export function EligibilityChecklist() {
           setError(null);
         }}
       />
-
-      <CaveatBand label="Not a legal determination.">
-        These are the encoded SBA baseline thresholds, not the agency's own supplements. Blank
-        answers are reported as needing review rather than assumed. Confirm against the
-        solicitation and, where money turns on it, with counsel.
-      </CaveatBand>
 
       {report === null ? (
         <EmptyState title="No profile checked yet">

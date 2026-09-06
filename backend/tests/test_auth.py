@@ -1,12 +1,16 @@
 from fastapi.testclient import TestClient
 
+from app.core.terms import TERMS_VERSION
 from app.main import app
 
 CREDENTIALS = {"email": "researcher@askgrey.ai", "password": "obsidian-workspace-1"}
 
 
 def register(client: TestClient) -> dict[str, str]:
-    response = client.post("/api/auth/register", json={**CREDENTIALS, "full_name": "Ada Lab"})
+    response = client.post(
+        "/api/auth/register",
+        json={**CREDENTIALS, "full_name": "Ada Lab", "accepted_terms_version": TERMS_VERSION},
+    )
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -18,7 +22,10 @@ def test_health(client: TestClient) -> None:
 
 
 def test_register_returns_an_access_token_and_a_refresh_cookie(client: TestClient) -> None:
-    response = client.post("/api/auth/register", json={**CREDENTIALS, "full_name": "Ada Lab"})
+    response = client.post(
+        "/api/auth/register",
+        json={**CREDENTIALS, "full_name": "Ada Lab", "accepted_terms_version": TERMS_VERSION},
+    )
 
     assert response.json()["access_token"]
     assert response.json()["token_type"] == "bearer"
@@ -35,14 +42,53 @@ def test_register_rejects_duplicate_email_without_confirming_it_exists(
     client: TestClient,
 ) -> None:
     register(client)
-    response = client.post("/api/auth/register", json=CREDENTIALS)
+    response = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    )
     assert response.status_code == 409
     assert "already" not in response.json()["detail"].lower()
 
 
 def test_register_rejects_short_password(client: TestClient) -> None:
-    response = client.post("/api/auth/register", json={"email": "a@b.co", "password": "short"})
+    response = client.post(
+        "/api/auth/register",
+        json={"email": "a@b.co", "password": "short", "accepted_terms_version": TERMS_VERSION},
+    )
     assert response.status_code == 422
+
+
+def test_register_requires_accepting_the_terms(client: TestClient) -> None:
+    """A client that sends no acceptance gets no account: the tick is not the record."""
+    response = client.post("/api/auth/register", json=CREDENTIALS)
+    assert response.status_code == 422
+
+
+def test_register_refuses_an_acceptance_of_other_terms(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/register",
+        json={**CREDENTIALS, "accepted_terms_version": "1999-01-01"},
+    )
+    assert response.status_code == 409
+    assert "terms" in response.json()["detail"].lower()
+
+
+def test_register_records_which_terms_were_accepted(client: TestClient) -> None:
+    tokens = register(client)
+    response = client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+
+    body = response.json()
+    assert body["terms_version"] == TERMS_VERSION
+    # Stamped server-side, so the record does not depend on the client's clock.
+    assert body["terms_accepted_at"] is not None
+
+
+def test_the_published_terms_version_is_readable_without_a_session(client: TestClient) -> None:
+    response = client.get("/api/auth/terms")
+
+    assert response.status_code == 200
+    assert response.json() == {"version": TERMS_VERSION}
 
 
 def test_login_and_me(client: TestClient) -> None:

@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from app.core.terms import TERMS_VERSION
 from tests.grants.test_budget_api import payload as budget_payload
 
 OWNER = {"email": "keeper@askgrey.ai", "password": "obsidian-workspace-1"}
@@ -18,7 +19,9 @@ ASPIRIN = "CC(=O)OC1=CC=CC=C1C(=O)O"
 
 
 def auth_header(client: TestClient, credentials: dict[str, str]) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=credentials).json()
+    tokens = client.post(
+        "/api/auth/register", json={**credentials, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

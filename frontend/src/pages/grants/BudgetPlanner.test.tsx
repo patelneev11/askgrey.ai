@@ -104,7 +104,9 @@ describe('budget builder', () => {
 
     expect(screen.getByText('Nothing costed yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export .xlsx' })).toBeDisabled();
-    expect(screen.getByRole('note')).toHaveTextContent(/Planning figures, not a submission/i);
+    // That these are planning figures against annually revised federal rules is stated in the
+    // terms of agreement, not repeated over the form.
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
   it('costs the lines the user entered and renders the backend totals', async () => {

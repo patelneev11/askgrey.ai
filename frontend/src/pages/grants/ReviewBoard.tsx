@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { SavedLibrary } from '@/components/SavedLibrary';
@@ -183,13 +182,6 @@ export function ReviewBoard() {
           setError(null);
         }}
       />
-
-      <CaveatBand label="Unvalidated mock review.">
-        Scores and critiques are written by a language model role-playing reviewer personas. They
-        are not calibrated against real NIH or SBIR reviewer scores and carry no predictive value
-        for a funding decision — a qualified reviewer has to read the draft before you act on any
-        of this.
-      </CaveatBand>
 
       {personaError && (
         <p className={styles.error} role="alert">

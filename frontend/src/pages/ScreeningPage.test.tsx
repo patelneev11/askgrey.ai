@@ -111,10 +111,8 @@ describe('caveats and provenance in the DOM', () => {
 
     const bands = screen.getAllByRole('note');
     expect(bands.length).toBeGreaterThanOrEqual(3);
-    expect(bands[0]).toHaveTextContent(
-      /computational approximations \(RDKit\/LLM\).*not validated assay results/i,
-    );
-    expect(bands.some((band) => /not evidence that this compound has the liability/i.test(band.textContent ?? ''))).toBe(
+    expect(bands[0]).toHaveTextContent(/a prediction, not a measurement/i);
+    expect(bands.some((band) => /absence is not evidence of safety/i.test(band.textContent ?? ''))).toBe(
       true,
     );
     expect(bands.some((band) => /not measured, not fitted to this compound/i.test(band.textContent ?? ''))).toBe(
@@ -172,7 +170,7 @@ describe('toxicity and liability visibility', () => {
     render(<ScreeningPage />);
     await profile(user);
 
-    const link = screen.getByRole('link');
+    const link = screen.getByRole('link', { name: /liability flags/ });
     expect(link).toHaveAttribute('href', '#screening-liabilities');
     expect(link).toHaveTextContent('2 liability flags');
   });
@@ -222,9 +220,7 @@ describe('substituent suggestions', () => {
       expect(screen.getByText(/Replace the tert-butyl group/)).toBeInTheDocument(),
     );
     expect(screeningSuggestions).toHaveBeenCalledWith(TERFENADINE, 'token-123');
-    expect(
-      screen.getAllByRole('note').some((band) => /Unvalidated heuristic suggestions/.test(band.textContent ?? '')),
-    ).toBe(true);
+    expect(screen.getByText(/Unvalidated heuristic suggestions/)).toBeInTheDocument();
     expect(screen.getByText('heuristic')).toBeInTheDocument();
   });
 
@@ -272,10 +268,8 @@ describe('the patent landscape', () => {
       screen.getByText(/Structural similarity \/ substructure prior-art search: unavailable/),
     ).toBeInTheDocument();
     expect(
-      screen
-        .getAllByRole('note')
-        .some((band) => /not a structural similarity\s+search, not a novelty assessment/i.test(band.textContent ?? '')),
-    ).toBe(true);
+      screen.getByText(/not a structural similarity search, not a novelty assessment/i),
+    ).toBeInTheDocument();
   });
 
   it('says the source was unavailable rather than letting an empty list read as no prior art', async () => {

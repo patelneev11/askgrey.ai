@@ -6,11 +6,15 @@ from typing import Any
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 
+from app.core.terms import TERMS_VERSION
+
 CREDENTIALS = {"email": "budget@askgrey.ai", "password": "obsidian-workspace-1"}
 
 
 def auth_header(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

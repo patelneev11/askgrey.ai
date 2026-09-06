@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core import audit as audit_log
 from app.core.config import get_settings
+from app.core.terms import TERMS_VERSION
 from app.models.audit import AuditEvent
 from app.services import audit as service
 
@@ -18,7 +19,9 @@ OTHER = {"email": "stranger@askgrey.ai", "password": "obsidian-workspace-2"}
 
 
 def auth_header(client: TestClient, credentials: dict[str, str]) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=credentials).json()
+    tokens = client.post(
+        "/api/auth/register", json={**credentials, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
@@ -45,6 +48,16 @@ def test_signing_in_is_on_the_account_s_own_feed(client: TestClient) -> None:
     names = [event["event"] for event in events(client, headers)]
 
     assert "auth.register" in names
+
+
+def test_registration_records_which_terms_the_account_accepted(client: TestClient) -> None:
+    headers = auth_header(client, CREDENTIALS)
+
+    registered = next(
+        event for event in events(client, headers) if event["event"] == "auth.register"
+    )
+
+    assert registered["detail"] == {"accepted_terms_version": TERMS_VERSION}
 
 
 def test_one_account_never_sees_another_s_events(client: TestClient) -> None:

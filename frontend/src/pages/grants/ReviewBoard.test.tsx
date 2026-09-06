@@ -81,12 +81,12 @@ beforeEach(() => {
 });
 
 describe('mock review board', () => {
-  it('carries the unvalidated caveat before any draft is submitted', async () => {
+  it('shows no score, and no standing warning, before a draft is submitted', async () => {
     render(<ReviewBoard />);
 
-    expect(screen.getByRole('note')).toHaveTextContent(
-      /Unvalidated mock review.*not calibrated against real NIH or SBIR reviewer scores/is,
-    );
+    // What these scores are worth is stated in the terms of agreement; a report that is run
+    // carries the backend's own caveat beside its scores.
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
     expect(screen.getByText('No review run yet')).toBeInTheDocument();
     expect(await screen.findByText(/Strict Biostatistician/)).toBeInTheDocument();
   });

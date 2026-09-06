@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.api import deps
 from app.api.pdf_extraction import MAX_UPLOAD_BYTES, get_pdf_extraction_service
+from app.core.terms import TERMS_VERSION
 from app.main import app
 from app.services.pdf_extraction import PdfExtractionService, PdfFetcher, RawDataPoint
 from tests.pdf_extraction.conftest import StubExtractor, fixture_bytes
@@ -59,7 +60,9 @@ def install() -> Iterator[Callable[..., FetchTransport]]:
 
 
 def auth_header(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
@@ -212,7 +215,9 @@ OTHER_CREDENTIALS = {"email": "second@askgrey.ai", "password": "obsidian-workspa
 
 
 def second_user(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=OTHER_CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**OTHER_CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

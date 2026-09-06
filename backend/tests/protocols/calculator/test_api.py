@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.core.terms import TERMS_VERSION
+
 CREDENTIALS = {"email": "protocols@askgrey.ai", "password": "obsidian-workspace-1"}
 
 DILUTION = {
@@ -12,7 +14,9 @@ DILUTION = {
 
 
 def auth_header(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

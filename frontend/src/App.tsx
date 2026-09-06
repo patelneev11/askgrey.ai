@@ -16,6 +16,7 @@ import { RegulatoryPage } from '@/pages/RegulatoryPage';
 import { RegulatoryProvider } from '@/pages/regulatory/state';
 import { ScreeningPage } from '@/pages/ScreeningPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { TermsPage } from '@/pages/TermsPage';
 import { WorkspacePage } from '@/pages/WorkspacePage';
 
 function RequireAuth({ children }: { children: ReactElement }) {
@@ -39,6 +40,9 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Outside the auth guard: the terms have to be readable before there is an account to
+          accept them with. */}
+      <Route path="/terms" element={<TermsPage />} />
       <Route
         element={
           <RequireAuth>

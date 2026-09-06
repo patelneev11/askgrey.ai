@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.api.screening import get_patents_service
 from app.core.config import get_settings
+from app.core.terms import TERMS_VERSION
 from app.main import app
 from app.services.screening.patents import MAX_KEYWORD_LENGTH
 from tests.screening.patents.conftest import (
@@ -39,7 +40,9 @@ def stub_service() -> Iterator[Callable[..., None]]:
 
 
 def auth_header(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

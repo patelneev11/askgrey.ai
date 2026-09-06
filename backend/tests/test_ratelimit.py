@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.api import deps
 from app.core.ratelimit import DailyBudget, SlidingWindowLimiter
+from app.core.terms import TERMS_VERSION
 
 
 def test_the_window_allows_the_limit_then_refuses() -> None:
@@ -44,7 +45,12 @@ def test_the_budget_stops_at_the_ceiling_and_resets_the_next_day() -> None:
 def _register(client: TestClient) -> str:
     response = client.post(
         "/api/auth/register",
-        json={"email": "rate@example.com", "password": "correct horse battery", "full_name": "R"},
+        json={
+            "email": "rate@example.com",
+            "password": "correct horse battery",
+            "full_name": "R",
+            "accepted_terms_version": TERMS_VERSION,
+        },
     )
     assert response.status_code == 201
     token: str = response.json()["access_token"]

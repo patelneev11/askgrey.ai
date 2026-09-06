@@ -133,7 +133,13 @@ export interface User {
   full_name: string;
   role: 'owner' | 'admin' | 'member';
   provider: 'password' | 'oidc';
+  terms_version: string | null;
+  terms_accepted_at: string | null;
   created_at: string;
+}
+
+export interface TermsInfo {
+  version: string;
 }
 
 export interface SSOConfig {
@@ -644,11 +650,16 @@ function refresh(): Promise<TokenResponse> {
 export const api = {
   // `credentials: 'include'` is what carries the HttpOnly refresh cookie; without it the
   // browser drops the cookie on a cross-origin call and every reload signs the user out.
-  register: (email: string, password: string, fullName: string) =>
+  register: (email: string, password: string, fullName: string, termsVersion: string) =>
     request<TokenResponse>('/auth/register', {
       method: 'POST',
       credentials: 'include',
-      body: JSON.stringify({ email, password, full_name: fullName }),
+      body: JSON.stringify({
+        email,
+        password,
+        full_name: fullName,
+        accepted_terms_version: termsVersion,
+      }),
     }),
 
   login: (email: string, password: string) =>
@@ -669,6 +680,9 @@ export const api = {
   me: (token: string) => request<User>('/auth/me', {}, token),
 
   ssoConfig: () => request<SSOConfig>('/auth/sso'),
+
+  /** Which terms version a registration must accept; read before any session exists. */
+  terms: () => request<TermsInfo>('/auth/terms'),
 
   /** Extract the goal's fields out of an uploaded PDF (Ticket 1.4). */
   extractFromUpload: (file: File, goal: string, token?: string) => {

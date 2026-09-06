@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.terms import TERMS_VERSION
 from app.models.user import User
 from app.models.workspace import WorkspaceInvite
 from app.services import literature, workspaces
@@ -27,7 +28,9 @@ OUTSIDER = {"email": "nobody@askgrey.ai", "password": "obsidian-workspace-3"}
 
 
 def register(client: TestClient, credentials: dict[str, str]) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=credentials).json()
+    tokens = client.post(
+        "/api/auth/register", json={**credentials, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

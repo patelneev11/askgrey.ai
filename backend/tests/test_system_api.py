@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.core.dependency_health import health
 from app.core.llm_cost import get_meter
+from app.core.terms import TERMS_VERSION
 
 CREDENTIALS = {
     "email": "ops@askgrey.dev",
@@ -24,7 +25,9 @@ def clean_counters() -> Iterator[None]:
 
 
 def auth_header(client: TestClient) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=CREDENTIALS).json()
+    tokens = client.post(
+        "/api/auth/register", json={**CREDENTIALS, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

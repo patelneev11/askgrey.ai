@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { Panel } from '@/components/Panel';
 import { SavedLibrary } from '@/components/SavedLibrary';
@@ -381,13 +380,6 @@ export function BudgetPlanner() {
           saved; cost the budget again to export a file.
         </p>
       )}
-
-      <CaveatBand label="Planning figures, not a submission.">
-        Amounts are computed from the federal rules in the service's config — the salary cap,
-        indirect base and fee ceiling — which are revised annually and vary by agency. Check them
-        against the solicitation, and have your finance office confirm the rates before you
-        submit.
-      </CaveatBand>
 
       {budget === null ? (
         <EmptyState title="Nothing costed yet">

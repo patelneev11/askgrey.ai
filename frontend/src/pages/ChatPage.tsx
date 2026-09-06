@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
 import { EmptyState } from '@/components/EmptyState';
 import { StatusPill } from '@/components/StatusPill';
 import { api, ApiError } from '@/lib/api';
@@ -423,13 +422,6 @@ export function ChatPage() {
                 )}). It resets at 00:00 UTC; the other tabs still work.`}
           </p>
         )}
-        <CaveatBand label="Model output.">
-          Answers, drafts and predictions here require expert review. ADMET and SAR values are
-          predictions, not measurements; nothing said here is legal, regulatory or clinical advice.
-          The assistant can read and draft, but it cannot save, edit or delete your work, and it
-          cannot file anything in an external lab notebook.
-        </CaveatBand>
-
         <div className={styles.transcript} ref={transcript}>
           {messages.length === 0 && !pending && (
             <EmptyState title="Ask about the work you already have">

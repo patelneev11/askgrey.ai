@@ -199,7 +199,7 @@ describe("opportunity search", () => {
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 
-  it("ranks by focus and marks the scores as unvalidated model output", async () => {
+  it("ranks by focus and says the scores came from a model", async () => {
     const user = userEvent.setup();
     render(<OpportunityFinder />);
 
@@ -215,9 +215,9 @@ describe("opportunity search", () => {
     expect(matchGrants.mock.calls[0][0]).toBe("GLP-1 co-agonists");
     expect(await screen.findByText("92% predicted fit")).toBeInTheDocument();
     expect(screen.getByText("1 ranked of 12 considered")).toBeInTheDocument();
-    expect(screen.getByRole("note")).toHaveTextContent(
-      /Unvalidated prediction.*produced by a language model/i,
-    );
+    expect(
+      screen.getByText(/come from a language model reading each opportunity/i),
+    ).toBeInTheDocument();
     expect(searchGrants).not.toHaveBeenCalled();
   });
 
@@ -236,9 +236,11 @@ describe("opportunity search", () => {
 
     expect(await screen.findByText("92% term overlap")).toBeInTheDocument();
     expect(screen.queryByText(/predicted fit/)).not.toBeInTheDocument();
-    expect(screen.getByRole("note")).toHaveTextContent(
-      /Keyword ranking, not a semantic match.*because none is configured/is,
-    );
+    expect(
+      screen.getByText(
+        /how many of your focus terms appear.*because none is configured/is,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("says so when the model call failed and the keyword ranker stood in", async () => {
@@ -255,9 +257,9 @@ describe("opportunity search", () => {
     );
 
     expect(await screen.findByText("92% term overlap")).toBeInTheDocument();
-    expect(screen.getByRole("note")).toHaveTextContent(
-      /because the model call failed/i,
-    );
+    expect(
+      screen.getByText(/because the model call failed/i),
+    ).toBeInTheDocument();
   });
 
   it("reports a failed search instead of showing stale or invented results", async () => {

@@ -91,9 +91,8 @@ export function LiteraturePage() {
               {/* Values are read out of the papers by a language model: the citation proves
                   where a value came from, never that it was read correctly. */}
               <CaveatBand label="Unvalidated">
-                Every value here was extracted by a language model and is unvalidated: open the
-                cited passage and confirm it against the paper before relying on it. A value with
-                no citation has not been checked against any passage at all.
+                Values are extracted by a language model — open the citation and confirm it
+                against the paper before relying on it.
               </CaveatBand>
 
               <label className={styles.label} htmlFor="extraction-goal">

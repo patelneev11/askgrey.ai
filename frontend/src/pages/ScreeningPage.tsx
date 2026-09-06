@@ -293,10 +293,7 @@ export function ScreeningPage() {
           {/* Standing on the tab whether or not a profile is loaded: nothing this page can
               show is a measurement, and the band must not depend on a request succeeding. */}
           <CaveatBand label="Unvalidated">
-            Every ADMET, liability and toxicity value on this page is predicted: computational
-            approximations (RDKit/LLM) from published physicochemical rules and heuristics, not
-            validated assay results. Expert review and experimental confirmation are required
-            before any compound or series decision.
+            Every ADMET, liability and toxicity value here is a prediction, not a measurement.
           </CaveatBand>
 
           {!loaded ? (
@@ -319,9 +316,7 @@ export function ScreeningPage() {
               <section id={LIABILITIES_ANCHOR}>
                 <h3 className={styles.sectionTitle}>Toxicity &amp; liability flags</h3>
                 <CaveatBand label="Predicted">
-                  Flags below are rule classifications and substructure matches to motifs reported
-                  in the literature — not evidence that this compound has the liability, and their
-                  absence is not evidence of safety.
+                  Rule and substructure matches: their absence is not evidence of safety.
                 </CaveatBand>
                 {flags.length > 0 ? (
                   <ul className={styles.flags}>
@@ -448,11 +443,10 @@ export function ScreeningPage() {
 
               <section>
                 <h3 className={styles.sectionTitle}>Patent &amp; prior-art landscape</h3>
-                <CaveatBand label="Keyword search only">
-                  These are keyword matches in USPTO patent text — not a structural similarity
-                  search, not a novelty assessment and not freedom to operate. A registered patent
-                  attorney must review the landscape before any filing, licensing or FTO decision.
-                </CaveatBand>
+                <p className={styles.estimateNote}>
+                  Keyword matches in USPTO patent text: not a structural similarity search, not a
+                  novelty assessment and not freedom to operate.
+                </p>
                 <div className={styles.patentForm}>
                   <label className={styles.label} htmlFor="screening-keywords">
                     Scaffold or indication keywords (optional)
@@ -579,7 +573,7 @@ export function ScreeningPage() {
                 <h3 className={styles.sectionTitle}>Substituent suggestions</h3>
                 {suggestions ? (
                   <>
-                    <CaveatBand label="Unvalidated heuristics">{suggestions.caveat}</CaveatBand>
+                    <p className={styles.estimateNote}>{suggestions.caveat}</p>
                     <ul className={styles.suggestions}>
                       {suggestions.suggestions.map((suggestion) => (
                         <li key={suggestion.title} className={styles.suggestion}>

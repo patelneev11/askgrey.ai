@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/Button";
-import { CaveatBand } from "@/components/CaveatBand";
 import { EmptyState } from "@/components/EmptyState";
 import { Panel } from "@/components/Panel";
 import { StatusPill } from "@/components/StatusPill";
@@ -370,26 +369,17 @@ export function OpportunityFinder() {
 
       {results && <ProviderStatus sources={results.sources} />}
 
-      {results?.matched &&
-        (rankedByModel(results.matcher) ? (
-          <CaveatBand label="Unvalidated prediction.">
-            Fit percentages and the reasoning beside them are produced by a
-            language model reading each opportunity's topic text. They are not
-            an agency assessment — read the solicitation before deciding what to
-            apply for.
-          </CaveatBand>
-        ) : (
-          <CaveatBand label="Keyword ranking, not a semantic match.">
-            No language model ranked these{" "}
-            {results.matcher === "claude+lexical"
-              ? "because the model call failed"
-              : "because none is configured"}
-            . The percentages are how many of your focus terms appear in each
-            topic description — they are not a prediction of fit and not an
-            agency assessment. Read the solicitation before deciding what to
-            apply for.
-          </CaveatBand>
-        ))}
+      {results?.matched && (
+        <p className={styles.matchNote}>
+          {rankedByModel(results.matcher)
+            ? "Fit percentages come from a language model reading each opportunity's topic text."
+            : `Fit percentages are how many of your focus terms appear in each topic description: no language model ranked these ${
+                results.matcher === "claude+lexical"
+                  ? "because the model call failed"
+                  : "because none is configured"
+              }.`}
+        </p>
+      )}
 
       {results === null ? (
         <EmptyState title="No search run yet">

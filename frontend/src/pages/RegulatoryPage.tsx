@@ -1,7 +1,6 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { Button } from '@/components/Button';
-import { CaveatBand } from '@/components/CaveatBand';
 import { Panel } from '@/components/Panel';
 import { DualPaneWorkspace } from '@/layouts/DualPaneWorkspace';
 
@@ -12,10 +11,10 @@ import styles from './regulatory/regulatory.module.css';
 import { useRegulatory, type RegulatoryFeature } from './regulatory/state-context';
 
 /**
- * The banner every generated view in this tab carries, verbatim.
+ * The review requirement the backend stamps on every draft this tab returns, verbatim.
  *
- * Exported so the disclaimer tests assert the same string the UI renders, and duplicated into
- * both panes: a reviewer scrolling a long draft must not be able to leave the warning behind.
+ * Exported so the tests assert the same string the API sends. The requirement itself is stated in
+ * full in the terms of agreement, which registration records the account accepting.
  */
 export const REGULATORY_REVIEW_NOTICE =
   'Agent-drafted content. Requires qualified regulatory affairs review before any regulatory use.';
@@ -118,9 +117,6 @@ export function RegulatoryPage() {
       left={
         <Panel title={active.inputs} actions={tabs} className={styles.fill} flush>
           <div className={styles.pane}>
-            <div className={styles.sticky}>
-              <CaveatBand label="Draft">{REGULATORY_REVIEW_NOTICE}</CaveatBand>
-            </div>
             <div className={styles.scroll}>
               <Slot active={feature === 'preclinical'} label="Preclinical inputs">
                 <PreclinicalForm controller={preclinical} />
@@ -138,9 +134,6 @@ export function RegulatoryPage() {
       right={
         <Panel title={active.output} className={styles.fill} flush>
           <div className={styles.pane}>
-            <div className={styles.sticky}>
-              <CaveatBand label="Draft">{REGULATORY_REVIEW_NOTICE}</CaveatBand>
-            </div>
             <div className={styles.scroll}>
               <Slot active={feature === 'preclinical'} label="Preclinical output">
                 <PreclinicalOutput controller={preclinical} />

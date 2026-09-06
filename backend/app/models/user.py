@@ -41,6 +41,12 @@ class User(Base):
     # Null for SSO users, who never hold a local password.
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    # Which terms of agreement this account accepted, and when. Nullable because accounts that
+    # registered before the terms existed cannot retroactively have agreed to them.
+    terms_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Which workspace this account is working in, null meaning privately. Account state rather
     # than a token claim, so switching workspace cannot leave one browser tab saving into a
     # workspace the researcher believes they have left. No foreign key, because workspaces point

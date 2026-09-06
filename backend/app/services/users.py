@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -18,7 +20,13 @@ def count_users(db: Session) -> int:
     return db.execute(select(func.count()).select_from(User)).scalar_one()
 
 
-def create_user(db: Session, email: str, password: str, full_name: str = "") -> User:
+def create_user(
+    db: Session,
+    email: str,
+    password: str,
+    full_name: str = "",
+    terms_version: str | None = None,
+) -> User:
     # The first account to register owns the workspace.
     role = UserRole.OWNER if count_users(db) == 0 else UserRole.MEMBER
     user = User(
@@ -27,6 +35,10 @@ def create_user(db: Session, email: str, password: str, full_name: str = "") -> 
         role=role,
         provider=AuthProvider.PASSWORD,
         password_hash=hash_password(password),
+        terms_version=terms_version,
+        # Stamped here rather than taken from the client: an acceptance time a browser can choose
+        # is worth nothing as evidence.
+        terms_accepted_at=datetime.now(timezone.utc) if terms_version else None,
     )
     db.add(user)
     db.commit()

@@ -20,6 +20,7 @@ from app.api import chat as chat_api
 from app.api import deps
 from app.api.chat import get_chat_agent
 from app.core.config import Settings, get_settings
+from app.core.terms import TERMS_VERSION
 from app.main import app
 from app.services.chat import spend
 from app.services.chat.agent import ChatAgent
@@ -38,7 +39,9 @@ def keyless_settings() -> Settings:
 
 
 def auth(client: TestClient, credentials: dict[str, str]) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=credentials).json()
+    tokens = client.post(
+        "/api/auth/register", json={**credentials, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

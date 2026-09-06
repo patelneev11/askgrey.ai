@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from app.core.terms import TERMS_VERSION
 from tests.protocols.test_checklist import fixture_protocol
 
 OWNER = {"email": "owner@askgrey.ai", "password": "obsidian-workspace-1"}
@@ -11,7 +12,9 @@ OTHER = {"email": "other@askgrey.ai", "password": "obsidian-workspace-2"}
 
 
 def auth_header(client: TestClient, credentials: dict[str, str]) -> dict[str, str]:
-    tokens = client.post("/api/auth/register", json=credentials).json()
+    tokens = client.post(
+        "/api/auth/register", json={**credentials, "accepted_terms_version": TERMS_VERSION}
+    ).json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 

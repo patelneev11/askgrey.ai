@@ -125,8 +125,9 @@ describe('Assistant tab', () => {
     expect(await screen.findByText(/Ask about the work you already have/)).toBeInTheDocument();
     // The capability list is the server's, so the tab cannot imply a tool that does not exist.
     await waitFor(() => expect(screen.getByText(/Search PubMed/)).toBeInTheDocument());
-    expect(screen.getByText(/require expert review/i)).toBeInTheDocument();
-    expect(screen.getByText(/cannot file anything in an external lab notebook/i)).toBeInTheDocument();
+    // The assistant's read-only scope and the review requirement are stated in the terms of
+    // agreement the account accepted, not repeated as a banner over every answer.
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
   it('streams the answer and shows the tools behind it with their sources', async () => {

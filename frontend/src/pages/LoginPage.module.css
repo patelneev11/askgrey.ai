@@ -100,6 +100,28 @@
   color: var(--color-text-tertiary);
 }
 
+/* The one gate on registration: what it says has to be readable, so it is body text rather than
+   fine print. */
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  cursor: pointer;
+}
+
+.checkbox {
+  margin: 2px 0 0;
+  accent-color: var(--color-accent-pipeline);
+}
+
+.termsLink {
+  color: var(--color-accent-pipeline);
+  text-decoration: underline;
+}
+
 .error {
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -156,5 +178,17 @@
 }
 
 .modeToggle:hover {
+  color: var(--color-accent-pipeline);
+}
+
+.footerLink {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  text-align: center;
+}
+
+.footerLink:hover {
   color: var(--color-accent-pipeline);
 }

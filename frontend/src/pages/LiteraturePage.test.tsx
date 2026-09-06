@@ -198,12 +198,12 @@ describe('LiteraturePage — dynamic column generation', () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(screen.getByText(/extracted by a language model and is unvalidated/i)).toBeVisible();
+    expect(screen.getByText(/extracted by a language model/i)).toBeVisible();
     await addUrlSource(user);
     await generate(user);
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
 
-    expect(screen.getByText(/extracted by a language model and is unvalidated/i)).toBeVisible();
+    expect(screen.getByText(/extracted by a language model/i)).toBeVisible();
   });
 
   it('rejects a non-PDF upload at add time instead of queueing a doomed source', () => {

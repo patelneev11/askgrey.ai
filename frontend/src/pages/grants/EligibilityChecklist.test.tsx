@@ -54,10 +54,12 @@ beforeEach(() => {
 });
 
 describe('eligibility checklist', () => {
-  it('keeps the legal caveat visible before anything is checked', () => {
+  it('shows nothing before a profile is checked, and no standing warning', () => {
     render(<EligibilityChecklist />);
 
-    expect(screen.getByRole('note')).toHaveTextContent(/Not a legal determination/i);
+    // Every verdict is a numeric threshold, and that these are the encoded SBA baselines rather
+    // than a legal determination is stated in the terms of agreement.
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
     expect(screen.getByText('No profile checked yet')).toBeInTheDocument();
   });
 

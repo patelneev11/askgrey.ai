@@ -89,9 +89,10 @@ export function useProtocolWorkspace() {
   const [exportPayload, setExportPayload] = useState<ElnExportPayload | null>(null);
   const [exporting, setExporting] = useState(false);
   const [bundling, setBundling] = useState(false);
-  // The bundle's own failure slot: reported beside its button rather than in the drafting form
-  // in the other pane, where a click at the bottom of the document looks like it did nothing.
+  // Each export has its own failure slot: reported beside its button rather than in the drafting
+  // form in the other pane, where a click at the bottom of the document looks like it did nothing.
   const [bundleError, setBundleError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedProtocolSummary[]>([]);
   const [opening, setOpening] = useState(false);
   const draftRef = useRef<ProtocolDraft | null>(null);
@@ -111,7 +112,7 @@ export function useProtocolWorkspace() {
   }, []);
 
   const openSaved = useCallback(
-    async (id: string) => {
+    async (id: string, silently = false) => {
       setOpening(true);
       setError(null);
       try {
@@ -129,7 +130,14 @@ export function useProtocolWorkspace() {
         setHistory(await api.protocolHistory(stored.id, getAccessToken()));
         setChecklist(await api.reagentChecklist(stored.protocol, getAccessToken()));
       } catch (cause) {
-        setError(message(cause, 'That protocol could not be opened.'));
+        // The remembered id belongs to whoever was signed in when it was stored, so it can name
+        // a protocol this account cannot read: forget it rather than re-failing on every arrival.
+        rememberLastOpened(null);
+        if (silently) {
+          logger.warn('protocol.restore_failed', { message: message(cause, 'unknown') });
+        } else {
+          setError(message(cause, 'That protocol could not be opened.'));
+        }
       } finally {
         setOpening(false);
       }
@@ -146,7 +154,7 @@ export function useProtocolWorkspace() {
     void (async () => {
       await refreshSaved();
       const last = readLastOpened();
-      if (last) await openSaved(last);
+      if (last) await openSaved(last, true);
     })();
   }, [openSaved, refreshSaved]);
 
@@ -249,11 +257,13 @@ export function useProtocolWorkspace() {
     const current = draftRef.current;
     if (!current) return;
     setExporting(true);
-    setError(null);
+    setExportError(null);
     try {
       setExportPayload(await api.exportEln(current, folderId.trim(), getAccessToken()));
     } catch (cause) {
-      setError(message(cause, 'Export failed.'));
+      // A gateway failure carries no hint of what was being fetched, so the action is named:
+      // "Request failed (502)" alone never tells the researcher what to retry.
+      setExportError(`Building the Benchling payload failed. ${message(cause, 'Nothing was built.')}`);
     } finally {
       setExporting(false);
     }
@@ -353,6 +363,7 @@ export function useProtocolWorkspace() {
     mixResult,
     mixError,
     exportPayload,
+    exportError,
     exporting,
     bundling,
     bundleError,

@@ -140,8 +140,13 @@ class GrantsService:
         opportunities: list[GrantOpportunity] = []
         statuses: list[SourceStatus] = []
         total = 0
+        seen: set[str] = set()
         for found, status in results:
-            kept = [item for item in found if self._keep(item, search, today)]
+            kept = [
+                item
+                for item in found
+                if self._keep(item, search, today) and _first_sighting(item, seen)
+            ]
             status.returned = len(kept)
             opportunities.extend(kept)
             statuses.append(status)
@@ -178,20 +183,37 @@ class GrantsService:
             raise InvalidQueryError(f"candidate_pool must be between 1 and {MAX_MATCH_CANDIDATES}")
 
         candidates: list[GrantOpportunity] = []
-        statuses: list[SourceStatus] = []
+        # Deduplicated across pages and providers, and counted from what survives: a provider that
+        # repeats an opportunity on a later page (or two providers carrying the same number) would
+        # otherwise rank it twice and inflate both the pool size and the per-provider tallies the
+        # tab prints beside the results.
+        seen: set[str] = set()
+        tallies: dict[GrantSource, SourceStatus] = {}
         page = 0
         while len(candidates) < candidate_pool:
             page_size = min(MAX_PAGE_SIZE, candidate_pool - len(candidates))
             found = await self.search(search, page=page, page_size=page_size)
-            statuses = found.sources
+            room = candidate_pool - len(candidates)
+            fresh = [item for item in found.opportunities if _first_sighting(item, seen)][:room]
+            for status in found.sources:
+                tally = tallies.get(status.source)
+                if tally is None:
+                    tally = status.model_copy(update={"returned": 0})
+                    tallies[status.source] = tally
+                tally.total_count = max(tally.total_count, status.total_count)
+                if not status.ok:
+                    tally.ok = False
+                    tally.error = status.error
+                tally.returned += sum(1 for item in fresh if item.source is status.source)
             if not found.opportunities:
                 break
-            candidates.extend(found.opportunities)
+            candidates.extend(fresh)
             if not found.has_more:
                 break
             page += 1
 
         candidates = candidates[:candidate_pool]
+        statuses = list(tallies.values())
         ranked = (
             await self.ranker.rank(normalized, candidates)
             if candidates
@@ -288,6 +310,27 @@ class GrantsService:
         if search.open_only and close_date is not None and close_date < today:
             return False
         return True
+
+
+def _identity(opportunity: GrantOpportunity) -> str:
+    """What makes two rows the same opportunity.
+
+    A funding-opportunity number (PAR-25-153) is unique across the federal announcements both
+    providers publish, so it identifies a duplicate even when the two copies differ in the fields
+    one provider fills in and the other does not; without one, only the provider's own id is left.
+    """
+    number = opportunity.number.strip().lower()
+    if number:
+        return f"number:{number}"
+    return f"{opportunity.source.value}:{opportunity.opportunity_id.strip().lower()}"
+
+
+def _first_sighting(opportunity: GrantOpportunity, seen: set[str]) -> bool:
+    key = _identity(opportunity)
+    if key in seen:
+        return False
+    seen.add(key)
+    return True
 
 
 def _deadline_sort_key(opportunity: GrantOpportunity) -> tuple[int, date, str]:

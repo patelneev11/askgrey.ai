@@ -488,3 +488,64 @@ async def test_opportunities_are_dated_against_the_pinned_today() -> None:
     assert soonest.close_date is not None
     assert soonest.days_until_close(TODAY) == (soonest.close_date - TODAY).days
     await service.aclose()
+
+
+def _hit(number: str, *, title: str) -> dict[str, object]:
+    """One grants.gov search2 hit, minimal but complete enough to parse."""
+    return {
+        "id": number,
+        "number": number,
+        "title": title,
+        "agencyCode": "HHS-NIH11",
+        "agency": "National Institutes of Health",
+        "openDate": "05/28/2026",
+        "closeDate": "04/05/2027",
+        "oppStatus": "posted",
+        "docType": "synopsis",
+    }
+
+
+def _search2(hits: list[dict[str, object]], hit_count: int) -> Handler:
+    return json_response({"errorcode": 0, "data": {"hitCount": hit_count, "oppHits": hits}})
+
+
+async def test_one_opportunity_listed_twice_on_a_page_is_kept_once() -> None:
+    hits = [
+        _hit("PAR-25-153", title="Potency assay development"),
+        _hit("PAR-25-153", title="Potency assay development"),
+        _hit("PAR-25-154", title="Bioreactor scale-up"),
+    ]
+    service, _ = make_service(search2=_search2(hits, 3), enrich_limit=0)
+
+    page = await service.search(GrantSearch(keyword="assay", sources=GRANTS_ONLY))
+
+    assert sorted(item.number for item in page.opportunities) == ["PAR-25-153", "PAR-25-154"]
+    assert [status.returned for status in page.sources] == [2]
+    await service.aclose()
+
+
+async def test_a_repeated_opportunity_is_ranked_once_and_counted_once() -> None:
+    """The pool spans pages, so a provider repeating a row must not rank or tally it twice."""
+    first = _search2([_hit("PAR-25-153", title="Potency assay development")], 40)
+    second = _search2(
+        [
+            _hit("PAR-25-153", title="Potency assay development"),
+            _hit("PAR-25-160", title="Potency assay automation"),
+        ],
+        40,
+    )
+    service, _ = make_service(search2=[first, second], enrich_limit=0)
+
+    result = await service.match(
+        "potency assay development for cell therapy release testing",
+        GrantSearch(keyword="assay", sources=GRANTS_ONLY),
+        limit=30,
+        candidate_pool=2,
+    )
+
+    numbers = sorted(match.opportunity.number for match in result.matches)
+    assert numbers == ["PAR-25-153", "PAR-25-160"]
+    assert result.candidates_considered == 2
+    # The tally beside the results is the deduplicated pool, not the pages added up.
+    assert [status.returned for status in result.sources] == [2]
+    await service.aclose()

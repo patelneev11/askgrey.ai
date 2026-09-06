@@ -68,6 +68,7 @@ export function ProtocolPage() {
     mixResult,
     mixError,
     exportPayload,
+    exportError,
     exporting,
     bundling,
     bundleError,
@@ -562,6 +563,11 @@ export function ProtocolPage() {
                 </Button>
                 <StatusPill tone="warning">Untested against live API</StatusPill>
               </div>
+              {exportError && (
+                <p className={styles.error} role="alert" data-testid="eln-payload-error">
+                  {exportError}
+                </p>
+              )}
               {exportPayload && (
                 <div className={styles.exportResult}>
                   <p className={styles.scopeNote} data-testid="export-status">

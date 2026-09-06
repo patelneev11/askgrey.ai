@@ -11,8 +11,12 @@ import { getAccessToken } from '@/lib/session';
 
 import styles from './WorkspacePage.module.css';
 
+/** A saved protocol is not an artifact row: it lives in its own table, with version history. */
+type SavedWorkKind = ArtifactKind | 'protocol';
+
 /** Which tab produced a saved artifact, so the counts read as work rather than as row types. */
-const WORK_LABELS: Record<ArtifactKind, string> = {
+const WORK_LABELS: Record<SavedWorkKind, string> = {
+  protocol: 'Protocol — saved protocols',
   screening_profile: 'Screening — compound profiles',
   screening_descriptors: 'Screening — descriptor reads',
   screening_admet: 'Screening — ADMET predictions',
@@ -102,7 +106,7 @@ export function WorkspacePage() {
   }, [load]);
 
   const work = overview
-    ? (Object.entries(overview.saved_work.counts) as [ArtifactKind, number][]).sort(
+    ? (Object.entries(overview.saved_work.counts) as [SavedWorkKind, number][]).sort(
         ([, left], [, right]) => right - left,
       )
     : [];
@@ -170,9 +174,9 @@ export function WorkspacePage() {
             {overview.saved_work.total === 0 && (
               <EmptyState title="Nothing saved yet">
                 <p>
-                  Screening profiles, regulatory drafts, eligibility screens and budgets appear
-                  here once you save them from their tab. Saved work survives a reload and is what
-                  a future chat can reference.
+                  Screening profiles, regulatory drafts, eligibility screens, budgets and saved
+                  protocols appear here once you save them from their tab. Saved work survives a
+                  reload and is what a future chat can reference.
                 </p>
               </EmptyState>
             )}

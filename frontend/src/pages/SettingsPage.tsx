@@ -232,7 +232,9 @@ export function SettingsPage() {
               <div className={styles.rowText}>
                 <span className={styles.rowLabel}>Sign out everywhere</span>
                 <span className={styles.rowHelp}>
-                  Revokes all {overview.sessions.length} sign-ins, including this one.
+                  {overview.sessions.length === 1
+                    ? 'Revokes this sign-in, the only one active.'
+                    : `Revokes all ${overview.sessions.length} sign-ins, including this one.`}
                 </span>
               </div>
               <Button size="sm" onClick={() => void signOutEverywhere()} disabled={signingOut}>

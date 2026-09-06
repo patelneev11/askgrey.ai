@@ -523,6 +523,33 @@ describe('ProtocolPage — controls and export', () => {
     expect(screen.getByTestId('eln-bundle')).toBeEnabled();
   });
 
+  it('reports a failed Benchling payload beside its own button, not in the drafting form', async () => {
+    const user = userEvent.setup();
+    exportEln.mockRejectedValue(new Error('Request failed (502)'));
+    render(<ProtocolPage />);
+    await generate(user);
+
+    await user.type(screen.getByLabelText('Benchling folder id'), 'lib_A1');
+    await user.click(screen.getByRole('button', { name: 'Export to ELN format' }));
+
+    const alert = await screen.findByTestId('eln-payload-error');
+    expect(alert).toHaveTextContent('Building the Benchling payload failed.');
+    expect(alert).toHaveTextContent('Request failed (502)');
+    expect(screen.getByRole('button', { name: 'Export to ELN format' })).toBeEnabled();
+  });
+
+  it('forgets a remembered protocol this account cannot open, silently', async () => {
+    // The id outlives the sign-in that stored it, so an account switch used to greet the next
+    // researcher with someone else's protocol id in an error.
+    window.localStorage.setItem('askgrey:protocol:last', 'protocol-from-another-account');
+    loadProtocol.mockRejectedValue(new Error('Request failed (404)'));
+    render(<ProtocolPage />);
+
+    await waitFor(() => expect(loadProtocol).toHaveBeenCalledTimes(1));
+    expect(window.localStorage.getItem('askgrey:protocol:last')).toBeNull();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('surfaces a backend failure instead of showing a protocol that was not drafted', async () => {
     const user = userEvent.setup();
     draftProtocol.mockRejectedValue(new Error('drafting needs a configured model'));

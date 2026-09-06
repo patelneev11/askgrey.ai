@@ -49,11 +49,29 @@ deterministic — but it needs a draft in memory, so plan the order of your test
 - Audit: the event is `eln.bundle_exported` with detail exactly `{steps, origin}`. Grep the whole
   feed for the title, a reagent and a step phrase — zero hits expected. A **failed** export writes no
   audit row at all.
-- Failure path: `kill -TERM` the uvicorn pid (Vite keeps serving, so its proxy answers **502**). The
-  page shows `Request failed (502)`, writes no zip, and leaves the button on its idle label. Note the
-  error renders in the **left draft pane**, not beside the bundle button — easy to miss on a
-  screenshot cropped to the ELN section. Restart the backend and re-click to prove recovery.
+- Failure path: `pkill -f "uvicorn app.main:app"` (Vite keeps serving, so its proxy answers **502**;
+  confirm with `curl -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8000/api/health`
+  → `000`). No zip is written and the button returns to its idle label. Restart the backend from a
+  wrapper with `setsid nohup … < /dev/null &`, re-check `/api/health`, and re-click to prove recovery
+  — the draft is still in React state, so recovery costs no second drafting call.
+- Which pane the error lands in depends on the action, and this changed: the **Benchling** payload
+  export has its own slot rendered beside its own button (`[data-testid="eln-payload-error"]`, text
+  beginning `Building the Benchling payload failed. …`). The **bundle** download has historically
+  shared the drafting `error` slot in the left pane, so if you crop a screenshot to the ELN section
+  you may miss it — check both places, and assert placement with a DOM query rather than by eye:
+  `document.querySelector('[data-testid="eln-payload-error"]').textContent` plus a count of
+  `[role="alert"]` inside the left "Draft a protocol" section (expected 0 for a Benchling failure).
 - `POST /api/protocols/export/eln/bundle` with no bearer, or a bogus one, must be **401** with no zip.
+
+## Remembered protocol id (`localStorage` key `askgrey:protocol:last`)
+
+Opening or saving a protocol stores its id under `askgrey:protocol:last`; on arrival `/protocol`
+silently restores it. To test the cross-account case without a second 50 s draft, read a *foreign*
+protocol id straight from the database
+(`select id, user_id from saved_protocols` via `backend/.venv/bin/python`), seed it into
+`localStorage` for the signed-in account and reload `/protocol`. Expected: an empty drafting form,
+**no** `[role="alert"]` anywhere (in particular not `That protocol could not be opened.`), and the
+key cleared to `null` — the failure must be forgotten, not re-raised on every arrival.
 
 ## Safety invariant to re-check on any UI change
 

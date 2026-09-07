@@ -116,6 +116,15 @@ export function TermsPage() {
             provider, so treat it as leaving your systems. You are responsible for holding whatever
             rights you need in the documents you upload.
           </p>
+          <p>
+            You may not use the assistant, or any other part of this service, to work towards
+            harming people: designing or producing a biological or chemical weapon, making a
+            pathogen more transmissible or more lethal, poisoning or incapacitating anyone, or
+            routes to controlled substances or explosives. The assistant refuses requests of that
+            shape before they reach the model, and the refusal is written to the audit trail with
+            the rule that produced it. Asking anyway is a breach of these terms and grounds for
+            closing the account.
+          </p>
         </section>
 
         <section className={styles.section}>

@@ -1,9 +1,56 @@
 {
-  "version": "2026-08-13",
+  "version": "2026-08-14",
   "purpose": "Biomedical R&D research support: literature, compounds and screening, clinical trials, protocols, regulatory drafting, and grant funding — over this workspace's own data and the public sources the tabs already query.",
   "refusal": "I only answer questions about biomedical R&D work in this workspace — literature, compounds and screening, clinical trials, protocols, regulatory drafting, and grants. Ask me one of those and I will use the same services the tabs do.",
-  "comment": "Editable scope policy for the Assistant tab. `off_topic_rules` are matched against the researcher's message before any model call, so a blatantly out-of-scope request costs nothing at Anthropic. Patterns are case-insensitive Python regular expressions and are deliberately narrow: a false refusal on real research work is worse than paying for one off-topic answer, so anything a rule does not catch goes to the classifier, and anything the classifier cannot decide is allowed. A pattern here cannot be vetoed by research vocabulary, so it must not contain a word the work uses: `population of` was removed from general_trivia because `population of patients` is how researchers ask about trial enrolment, and questions about a country's population are left to the classifier instead.",
+  "comment": "Editable scope policy for the Assistant tab. `off_topic_rules` are matched against the researcher's message before any model call, so a blatantly out-of-scope request costs nothing at Anthropic. Patterns are case-insensitive Python regular expressions and are deliberately narrow: a false refusal on real research work is worse than paying for one off-topic answer, so anything a rule does not catch goes to the classifier, and anything the classifier cannot decide is allowed. A pattern here cannot be vetoed by research vocabulary, so it must not contain a word the work uses: `population of` was removed from general_trivia because `population of patients` is how researchers ask about trial enrolment, and questions about a country's population are left to the classifier instead. The first four rules are a different kind of rule: they exist for safety, not cost, and they are deliberately the one place where a false refusal is the acceptable trade — a request to weaponise a pathogen, synthesise a nerve agent, poison a person or work out a human lethal dose carries the same vocabulary as the work, so nothing downstream would catch it. They set their own `refusal` because the default text invites the asker to rephrase, which is the wrong answer to those questions. A clinical-toxicology question phrased as a human lethal dose will be refused too; ask it as the published LD50, exposure limit or overdose management instead.",
   "off_topic_rules": [
+    {
+      "id": "weaponisation",
+      "explanation": "a request about making a biological or chemical weapon",
+      "refusal": "I will not help with that, however it is framed. I can answer the underlying published toxicology, mechanism-of-action and exposure-safety questions instead.",
+      "patterns": [
+        "\\b(weapon(ise|ize|isation|ization)|aerosoli[sz]e|aerosoli[sz]ing|disperse over|militari[sz]e)\\b[^.?!]{0,50}\\b(anthrax|bacillus anthracis|ricin|botulinum|smallpox|variola|ebola|marburg|plague|yersinia|tularensis|select agent|pathogen|virus|toxin|spores?)\\b",
+        "\\b(anthrax|ricin|botulinum|smallpox|variola|ebola|marburg|plague|nerve agent|sarin|vx|novichok|mustard gas|tabun|soman|phosgene)\\b[^.?!]{0,50}\\b(weapon(ise|ize)|as a weapon|attack|bioterror|to (kill|infect|harm)\\b)",
+        "\\b(make|engineer|modify|alter|select for)\\b[^.?!]{0,50}\\bmore (transmissible|contagious|lethal|virulent|deadly|resistant to (vaccines?|treatment))\\b",
+        "\\b(synthesi[sz]e|synthesis of|route to|make|produce|prepare|manufacture)\\b[^.?!]{0,50}\\b(sarin|vx nerve agent|novichok|nerve agent|mustard gas|tabun|soman|chlorine gas|phosgene|ricin|botulinum toxin)\\b",
+        "\\b(bioweapon|bio-weapon|biological weapon|chemical weapon|bioterror(ism|ist)?)\\b"
+      ]
+    },
+    {
+      "id": "harm_to_a_person",
+      "explanation": "a request about harming a person rather than research work",
+      "refusal": "I will not help with that. I answer research questions about toxicity, exposure and dosing as published science, not as instructions for harming anyone.",
+      "patterns": [
+        "\\b(how (do|can|would|should) i|how to|help me|best way to|i want to|i need to|what can i use to)\\b[^.?!]{0,30}\\b(poison|kill|harm|incapacitate|sedate|drug)\\b[^.?!]{0,30}\\b(someone|somebody|a person|a human being|my (wife|husband|partner|boss|neighbou?r|roommate|colleague))\\b",
+        "\\b(untraceable|undetectable|unnoticeable)\\b[^.?!]{0,30}\\b(poison|toxin|drug|overdose|dose)\\b",
+        "\\b(lethal|fatal|deadly) dose\\b[^.?!]{0,40}\\b(for|in|to) (a |an )?(human being|human|person|adult|child|man|woman|someone|me)\\b",
+        "\\bhow much\\b[^.?!]{0,40}\\bwould (it take to |be enough to )?(kill|poison)\\b[^.?!]{0,20}\\b(a |an )?(human being|human|person|adult|child|someone|me|him|her|them)\\b",
+        "\\b(slip|put|add)\\b[^.?!]{0,30}\\binto (his|her|their|someone's|somebody's) (drink|food|coffee|water)\\b"
+      ]
+    },
+    {
+      "id": "self_harm",
+      "explanation": "",
+      "refusal": "I am not able to help with this, and I would rather say so plainly than give you a number. If you are thinking about harming yourself, please talk to someone now — in the US you can call or text 988 (Suicide & Crisis Lifeline), and elsewhere findahelpline.com lists local lines.",
+      "patterns": [
+        "\\b(kill|hurt|harm) (myself|my ?self)\\b",
+        "\\bhow (can|do|should) i (end my (own )?life|commit suicide)\\b",
+        "\\b(overdose|enough (pills|medication)) (to|so i) (die|end (it|my life))\\b",
+        "\\bi (want|plan) to (die|end my life)\\b"
+      ]
+    },
+    {
+      "id": "controlled_substance_synthesis",
+      "explanation": "a request for a route to a controlled substance outside legitimate research use",
+      "refusal": "I will not walk through a synthesis route for a controlled substance. I can find published literature, patents and regulatory records about these compounds instead.",
+      "patterns": [
+        "\\b(synthesi[sz]e|synthesis (route|of)|cook|make|produce|manufacture|extract)\\b[^.?!]{0,40}\\b(methamphetamine|crystal meth|fentanyl|carfentanil|heroin|mdma|ecstasy|lsd|cocaine|crack cocaine|ghb|krokodil|nitazene)\\b",
+        "\\b(home|kitchen|clandestine|basement|garage)\\b[^.?!]{0,30}\\b(lab|synthesis|drug (lab|synthesis))\\b",
+        "\\b(precursors?|reagents?)\\b[^.?!]{0,40}\\b(to (make|synthesi[sz]e))\\b[^.?!]{0,30}\\b(methamphetamine|fentanyl|heroin|mdma|cocaine)\\b",
+        "\\b(explosive|bomb|ied|tatp|rdx|nitroglycerin(e)?)\\b[^.?!]{0,30}\\b(how to|make|build|synthesi[sz]e|recipe)\\b",
+        "\\b(how to|make|build|synthesi[sz]e|recipe for)\\b[^.?!]{0,30}\\b(an? )?(explosive|bomb|ied|tatp|pipe bomb)\\b"
+      ]
+    },
     {
       "id": "creative_writing",
       "explanation": "creative writing, which this assistant does not do",

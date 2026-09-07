@@ -27,7 +27,7 @@ vi.mock('@/lib/api', async () => {
   };
 });
 
-const VERSION = '2026-09-06';
+const VERSION = '2026-09-07';
 
 beforeEach(() => {
   terms.mockReset();
@@ -49,9 +49,9 @@ beforeEach(() => {
       full_name: '',
       role: 'owner',
       provider: 'password',
-      created_at: '2026-09-06T00:00:00+00:00',
+      created_at: '2026-09-07T00:00:00+00:00',
       terms_version: VERSION,
-      terms_accepted_at: '2026-09-06T00:00:01+00:00',
+      terms_accepted_at: '2026-09-07T00:00:01+00:00',
     },
   });
 });
@@ -76,6 +76,17 @@ describe('the terms of agreement page', () => {
 
     expect(screen.getByRole('heading', { name: 'Terms of Agreement' })).toBeInTheDocument();
     expect(await screen.findByText(`Version ${VERSION}`)).toBeInTheDocument();
+  });
+
+  it('states the acceptable use the assistant enforces in code', async () => {
+    render(
+      <MemoryRouter>
+        <TermsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/biological or chemical weapon/i)).toBeInTheDocument();
+    expect(screen.getByText(/controlled substances or explosives/i)).toBeInTheDocument();
   });
 
   // A registration that could not read the terms must not be able to claim they were accepted,

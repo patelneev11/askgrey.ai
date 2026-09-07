@@ -125,6 +125,14 @@ export function TermsPage() {
             the rule that produced it. Asking anyway is a breach of these terms and grounds for
             closing the account.
           </p>
+          <p>
+            Refusals are not only ours. The model provider applies its own safety policy, and it
+            declines some phrasings of a legitimate question — a bare lethal-dose question, for
+            instance — without us being able to override it. When that happens the assistant says
+            the model declined rather than showing you nothing. Asking for the literature itself,
+            the occupational exposure limit, or the adverse events reported in trials generally
+            reaches the same published science.
+          </p>
         </section>
 
         <section className={styles.section}>

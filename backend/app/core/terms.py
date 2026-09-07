@@ -10,4 +10,4 @@ accepted; nothing re-prompts them, which is a product decision to make when the 
 materially rather than a behaviour to guess at now.
 """
 
-TERMS_VERSION = "2026-09-07"
+TERMS_VERSION = "2026-09-08"

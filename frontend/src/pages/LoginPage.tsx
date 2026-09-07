@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 
+import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/Button';
 import { PasswordInput } from '@/components/PasswordInput';
 import { api, type SSOConfig } from '@/lib/api';
@@ -65,10 +66,16 @@ export function LoginPage() {
     <div className={styles.screen}>
       <div className={styles.card}>
         <div className={styles.brand}>
-          <span className={styles.brandMark} aria-hidden="true">
-            ag
+          <BrandMark
+            className={styles.brandMark}
+            size={40}
+            aria-hidden="true"
+            role="presentation"
+          />
+          <span className={styles.brandText}>
+            <span className={styles.brandName}>askgrey</span>
+            <span className={styles.brandSubtitle}>Research Intelligence</span>
           </span>
-          <span className={styles.brandName}>askgrey</span>
         </div>
         <h1 className={styles.heading}>
           {mode === 'login' ? 'Sign in to your workspace' : 'Create your workspace'}

@@ -29,22 +29,30 @@
 }
 
 .brandMark {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent-pipeline);
-  color: var(--color-text-inverse);
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .brandName {
   font-family: var(--font-family-display);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-dense);
+}
+
+.brandSubtitle {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
 }
 
 .heading {

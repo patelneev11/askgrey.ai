@@ -25,17 +25,8 @@
 }
 
 .brandMark {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
-  background: var(--color-accent-pipeline);
-  color: var(--color-text-inverse);
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
 }
 
 .brandName {

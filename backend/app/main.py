@@ -31,9 +31,9 @@ from app.core.errors import init_error_tracking
 from app.core.headers import SecurityHeadersMiddleware
 from app.core.logging import RequestLoggingMiddleware, configure_logging
 from app.core.spa import mount_spa
+from app.db.dev_schema import migrate_development_schema
 from app.db.session import engine
 from app.models.audit import AuditEvent  # noqa: F401  (registers the table)
-from app.models.base import Base
 from app.models.chat import (  # noqa: F401  (registers the tables)
     ChatConversation,
     ChatMessage,
@@ -71,11 +71,11 @@ logger = logging.getLogger("askgrey.main")
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Deployed environments migrate before the server starts (`alembic upgrade head`, see
-    # deploy/docker-entrypoint.sh): a process that creates its own schema cannot express a
-    # column change, and two replicas doing it at once race. Development keeps the convenience
-    # of a database that appears on first run.
+    # deploy/docker-entrypoint.sh): two replicas migrating at once race. Development keeps the
+    # convenience of a database that appears on first run, and migrates an existing one, so a
+    # pull that adds a column does not leave the developer with a schema the code cannot query.
     if settings.environment == "development":
-        Base.metadata.create_all(bind=engine)
+        migrate_development_schema(engine)
     # Which key stored papers are being sealed under, so "why can't it read them" starts from a
     # fact in the log rather than a guess about the environment. Names a scheme, never a key.
     logger.info(

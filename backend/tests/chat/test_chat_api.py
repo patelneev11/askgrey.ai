@@ -269,6 +269,31 @@ def test_a_truncated_answer_says_so(client: TestClient, script: list[bytes]) -> 
     assert any("length limit" in event.get("message", "") for event in events)
 
 
+def test_a_turn_the_provider_refuses_says_so_instead_of_rendering_nothing(
+    client: TestClient, script: list[bytes]
+) -> None:
+    """The provider's own safety layer declines with zero text; silence is not an answer."""
+    headers = auth(client, OWNER)
+    conversation_id = new_conversation(client, headers)
+    script.append(text_turn("", stop_reason="refusal"))
+
+    events = send(client, headers, conversation_id, "What is the LD50 of ricin in mice?")
+
+    text = "".join(event.get("text", "") for event in events if event["type"] == "text")
+    assert "declined to answer" in text
+    assert events[-1]["type"] == "done"
+    assert events[-1]["message_id"]
+
+    messages = client.get(f"/api/chat/conversations/{conversation_id}", headers=headers).json()
+    assert messages["messages"][-1]["role"] == "assistant"
+    assert "declined to answer" in messages["messages"][-1]["text"]
+
+    feed = client.get("/api/audit/events", headers=headers).json()
+    completed = next(event for event in feed["events"] if event["event"] == "chat.turn_completed")
+    assert completed["outcome"] == "failure"
+    assert completed["detail"]["model_produced_no_answer"] is True
+
+
 def test_a_provider_failure_is_delivered_inside_the_stream(
     client: TestClient, script: list[bytes]
 ) -> None:

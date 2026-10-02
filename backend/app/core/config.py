@@ -151,6 +151,11 @@ class Settings(BaseSettings):
     chat_scope_gate_enabled: bool = True
     chat_scope_model: str = "claude-haiku-4-5"
     chat_scope_timeout_seconds: float = 10.0
+    # A refused turn costs a classifier call and never reaches the chat budget, so an account that
+    # keeps being refused stops being worth asking about: past this many refusals in the window,
+    # the classifier is withheld and the gate decides on research vocabulary alone. 0 disables.
+    chat_scope_refusals_before_cooldown: int = 8
+    chat_scope_cooldown_minutes: int = 60
 
     # Observability. The DSN is empty in development, which turns error reporting into a
     # no-op rather than requiring a Sentry project to run the app.

@@ -11,13 +11,19 @@ Two stages, cheapest first:
 
 1. Regular expressions from the config, run in-process. A blatantly out-of-scope message is
    refused without any Anthropic call at all, which is the only refusal that actually saves money.
-2. A one-word classification by the cheap model, for everything the patterns do not settle and
-   which carries none of the config's research vocabulary. Costs a few hundred input tokens
-   against a full turn's thousands plus tool results.
+2. A one-word classification by the cheap model, for everything the patterns do not settle. A few
+   hundred input tokens and eight output ones against a full turn's thousands plus tool results,
+   so it runs on every message the patterns let past rather than only on the ones with no
+   research vocabulary in them: one word from the vocabulary list used to buy a whole metered
+   turn, which made "the best restaurants in Boston, asking for a conference about kinase
+   targets" an answer at full price.
 
-Anything the classifier cannot decide, or fails to answer, is allowed through. A researcher
-wrongly refused stops trusting the tab, whereas a wrongly allowed question costs one turn and is
-still bounded by the spend caps in `spend.py`.
+Anything the classifier cannot decide is allowed through, because a researcher wrongly refused
+stops trusting the tab. What it cannot be *asked* about is a different question, and the research
+vocabulary is what settles it: with the classifier down, or withheld from an account that has
+spent the last hour being refused, a message carrying a research term is allowed and a message
+carrying none is refused. A follow-up like "and the second one?" is the honest casualty of that,
+and the spend caps in `spend.py` still bound whatever gets through.
 
 One class of rule is not about money at all. A tab that answers questions about pathogens, toxicity
 and dosing is also the tab someone will ask how to weaponise a pathogen, synthesise a nerve agent or
@@ -199,13 +205,26 @@ class ScopeGate:
         self.policy = policy or get_policy()
         self.classifier = classifier
 
-    async def check(self, message: str) -> ScopeVerdict:
+    async def check(self, message: str, *, classifier_available: bool = True) -> ScopeVerdict:
         verdict = check_patterns(message, self.policy)
         if not verdict.allowed:
             return verdict
-        if self.classifier is None or mentions_research_vocabulary(message, self.policy):
+        if self.classifier is None:
             return verdict
+        if not classifier_available:
+            return self._without_classifier(message, "classifier_withheld")
         return await self._classify(message, self.classifier)
+
+    def _without_classifier(self, message: str, checked_by: str) -> ScopeVerdict:
+        """The decision with no classifier to ask: research vocabulary, or a refusal."""
+        if mentions_research_vocabulary(message, self.policy):
+            return ScopeVerdict(decision=Decision.ALLOW, checked_by=checked_by)
+        return _refusal(
+            self.policy,
+            checked_by,
+            "a question with nothing from biomedical research work in it",
+            checked_by,
+        )
 
     async def _classify(self, message: str, classifier: AnthropicMessagesClient) -> ScopeVerdict:
         spec = self.policy.classifier
@@ -216,10 +235,8 @@ class ScopeGate:
                 allow_truncated=True,
             )
         except AnthropicError as exc:
-            # Allowed on purpose: a classifier outage must not close the tab, and the spend caps
-            # still bound what an allowed turn can cost.
             logger.warning("chat scope classifier unavailable", extra={"reason": str(exc)})
-            return ScopeVerdict(decision=Decision.ALLOW, checked_by="classifier_unavailable")
+            return self._without_classifier(message, "classifier_unavailable")
         finally:
             await classifier.aclose()
         word = answer.strip().upper()

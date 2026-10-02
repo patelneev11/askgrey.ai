@@ -153,6 +153,54 @@ the notice is showing and confirm the text lands.
   `aria-valuenow` (integer percent) is the cleanest oracle.
 - The separator also supports ArrowLeft/ArrowRight (2% steps), `Home` and double-click to reset.
 
+## Brand mark, favicon and "does it match the artwork?"
+
+The brand lockup is `frontend/src/components/BrandMark.tsx` (inline SVG on a 64x64 grid, tile
+`#0c0c0e`, glyph `#00d9ff`, tile `rx=13.5` = 21% rounding), used at **40px** on the login card and
+at **24px** in the sidebar; `frontend/public/favicon.svg` repeats the same path data and
+`apple-touch-icon.png` is its 180x180 raster. `index.html` carries the title
+`askgrey.ai — research intelligence` plus `theme-color`.
+
+Useful, non-obvious testing notes:
+
+- **The collapsed rail is the risky surface.** `--layout-sidebar-width-collapsed` is 56px and the
+  sidebar is `overflow: hidden`, so a mark wider than the ~24px content box clips silently. Don't
+  judge by eye — measure:
+
+```js
+const nav=document.querySelector('nav[aria-label="Primary"]');
+const m=nav.querySelector('svg[aria-label="askgrey"]').getBoundingClientRect();
+({rail:nav.getBoundingClientRect().width, box:[m.width,m.height], right:m.right,
+  centre:m.x+m.width/2,
+  iconCentres:[...new Set([...nav.querySelectorAll('a svg')].map(e=>e.getBoundingClientRect().x+8))]});
+```
+
+  Healthy: rail 56, box `[24,24]`, right 40 (< 56), and the mark's **centre** equals the nav icons'
+  centre (28). Compare *centres*, not left edges — the mark box (24px) is wider than the nav icons
+  (16px), so their left edges legitimately differ by 4px.
+
+- **Rasterising the SVG is not possible on this box** (`convert` has no `rsvg-convert` delegate).
+  Two workarounds: open `http://localhost:5173/favicon.svg` in Chrome for a big visual render, and
+  do the *objective* comparison against `apple-touch-icon.png`, which is the same geometry already
+  rasterised. Supplied brand artwork is usually a transparent-background PNG on a wide canvas, so
+  crop the tile by alpha before comparing:
+
+```python
+from PIL import Image, ImageChops
+art = Image.open(ARTWORK).convert('RGBA')          # find the tile bbox from opaque dark pixels
+tile = art.crop(TILE_BBOX).resize((180,180), Image.LANCZOS).convert('RGB')
+impl = Image.open('frontend/public/apple-touch-icon.png').convert('RGB')
+h = ImageChops.difference(tile, impl).convert('L').histogram()
+print(sum(h[64:]))    # 0 == visually identical; also check Counter(impl.getdata()) for exact hexes
+```
+
+  A `Counter` over the PNG pixels is the cleanest colour oracle (expect `#0c0c0e` and `#00d9ff`);
+  corner radius falls out of "first opaque x per row" (x hits 0 at ~21% of the tile height).
+  `apple-touch-icon.png` has **square** corners on purpose — iOS applies its own mask.
+
+- Chrome's tab favicon is only a few pixels in a 1024-wide screenshot: `zoom` the region
+  `[0,0,320,28]` to show it, and read `document.title` for the exact string.
+
 ## Inspecting the sidebar rail icons
 
 Icons are 16px inline SVGs from `frontend/src/components/icons.tsx`. At the default 1024-wide

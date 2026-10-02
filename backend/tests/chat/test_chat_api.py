@@ -18,14 +18,16 @@ from sqlalchemy.orm import Session
 
 from app.api import chat as chat_api
 from app.api import deps
-from app.api.chat import get_chat_agent
+from app.api.chat import build_gate, get_chat_agent
 from app.core.config import Settings, get_settings
 from app.core.terms import TERMS_VERSION
 from app.main import app
 from app.services.chat import spend
 from app.services.chat.agent import ChatAgent
+from app.services.chat.scope import ScopeGate
 from app.services.chat.tools import ToolRegistry
 from app.services.llm.tool_use import AnthropicToolClient
+from tests.chat.test_scope import classifier as scope_classifier
 from tests.chat.test_tool_use import sse
 from tests.test_library_api import descriptors, save
 
@@ -71,6 +73,19 @@ def text_turn(text: str, *, stop_reason: str = "end_turn") -> bytes:
         {"type": "content_block_stop", "index": 0},
         {"type": "message_delta", "delta": {"stop_reason": stop_reason}},
     )
+
+
+@pytest.fixture(autouse=True)
+def pattern_only_gate() -> Iterator[None]:
+    """The scope gate every turn here passes through, with no classifier behind it.
+
+    Without this the gate reaches for a cheap model whenever the machine running the tests has a
+    key in its environment, which makes these assertions depend on a live Anthropic call. The
+    classifier's own behaviour is tested against a mock transport in test_scope.py.
+    """
+    app.dependency_overrides[build_gate] = lambda: ScopeGate(classifier=None)
+    yield
+    app.dependency_overrides.pop(build_gate, None)
 
 
 @pytest.fixture
@@ -469,6 +484,39 @@ def test_an_off_topic_question_is_answered_from_the_config_without_calling_claud
     # A refusal is the assistant declining to work, so the Agent runs filter has to show it
     # next to the turns it replaced rather than filing it under the researcher's own actions.
     assert refusal["kind"] == "agent"
+
+
+def test_an_account_that_keeps_being_refused_stops_paying_for_the_classifier(
+    client: TestClient, script: list[bytes], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cost ceiling on refusals: a refused turn never reaches the dollar cap, so the gate
+    stops asking the cheap model about an account that has just been refused."""
+    calls: list[httpx.Request] = []
+    app.dependency_overrides[build_gate] = lambda: ScopeGate(
+        classifier=scope_classifier("OFFTOPIC", calls=calls)
+    )
+    monkeypatch.setattr(
+        "app.services.chat.scope_abuse.get_settings",
+        lambda: get_settings().model_copy(
+            update={"chat_scope_refusals_before_cooldown": 1, "chat_scope_cooldown_minutes": 60}
+        ),
+    )
+    headers = auth(client, OWNER)
+    conversation_id = new_conversation(client, headers)
+
+    first = send(client, headers, conversation_id, "plan my wedding seating chart")
+    second = send(client, headers, conversation_id, "plan my birthday party instead")
+
+    assert "biomedical R&D" in first[0]["text"]
+    assert "biomedical R&D" in second[0]["text"]
+    # The second refusal cost nothing at Anthropic, and no turn ran either way.
+    assert len(calls) == 1
+    assert script == []
+    feed = client.get("/api/audit/events", headers=headers).json()
+    rules = [
+        event["detail"]["rule"] for event in feed["events"] if event["event"] == "chat.out_of_scope"
+    ]
+    assert rules == ["classifier_withheld", "classifier"]
 
 
 def test_an_exhausted_dollar_cap_refuses_the_turn_and_names_the_reset(

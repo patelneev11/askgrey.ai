@@ -37,6 +37,25 @@ const SEVERITY_LABEL: Record<Concern['severity'], string> = {
   unknown: 'not available',
 };
 
+/** One digest line: the severity, the headline, and the numbers behind it on the same row. */
+function ConcernRow({ concern }: { concern: Concern }) {
+  return (
+    <li className={styles.concern}>
+      <StatusPill tone={concernTone(concern.severity)}>
+        {SEVERITY_LABEL[concern.severity]}
+      </StatusPill>
+      <a className={styles.concernLink} href={`#${concern.anchor}`}>
+        {concern.title}
+      </a>
+      {concern.detail && (
+        <span className={styles.concernDetail} title={concern.detail}>
+          {concern.detail}
+        </span>
+      )}
+    </li>
+  );
+}
+
 function errorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback;
 }
@@ -189,6 +208,7 @@ export function ScreeningPage() {
     [admet, descriptors],
   );
   const actionable = concerns.filter((concern) => concern.severity !== 'unknown');
+  const ungrounded = concerns.filter((concern) => concern.severity === 'unknown');
   const estimates = useMemo(() => (admet ? admetOrder(admet) : []), [admet]);
   const affinity = descriptors?.unavailable.find((entry) => entry.key === 'binding_affinity');
   const loaded = descriptors !== null && admet !== null;
@@ -330,43 +350,44 @@ export function ScreeningPage() {
                   never has to scroll the tab to find out whether anything fired. */}
               <section id={SCREENING_ANCHORS.review} className={styles.review}>
                 <h3 className={styles.sectionTitle}>Review first</h3>
-                {concerns.length > 0 ? (
-                  <>
-                    <p className={styles.estimateNote}>
-                      {actionable.length > 0
-                        ? `${actionable.length} ${
-                            actionable.length === 1 ? 'item' : 'items'
-                          } fired or sit outside a published threshold`
-                        : 'Nothing fired'}
-                      {concerns.length > actionable.length &&
-                        `; ${concerns.length - actionable.length} propert${
-                          concerns.length - actionable.length === 1 ? 'y' : 'ies'
-                        } could not be grounded at all`}
-                      . Each row links to the evidence below.
-                    </p>
+                <p className={styles.estimateNote}>
+                  {actionable.length > 0
+                    ? `${actionable.length} ${
+                        actionable.length === 1 ? 'item' : 'items'
+                      } fired or sit outside a published threshold`
+                    : 'No screened rule, structural alert or rule-set threshold fired'}
+                  {ungrounded.length > 0 &&
+                    `; ${ungrounded.length} propert${
+                      ungrounded.length === 1 ? 'y' : 'ies'
+                    } could not be grounded at all`}
+                  {concerns.length > 0 ? '. Each row links to the evidence below.' : '.'}
+                </p>
+                {actionable.length > 0 && (
+                  <ul className={styles.concerns}>
+                    {actionable.map((concern) => (
+                      <ConcernRow key={concern.key} concern={concern} />
+                    ))}
+                  </ul>
+                )}
+                {ungrounded.length > 0 && (
+                  <details className={styles.ungrounded}>
+                    <summary className={styles.ungroundedSummary}>
+                      {ungrounded.length} propert
+                      {ungrounded.length === 1 ? 'y' : 'ies'} this product will not estimate
+                    </summary>
                     <ul className={styles.concerns}>
-                      {concerns.map((concern) => (
-                        <li key={concern.key} className={styles.concern}>
-                          <StatusPill tone={concernTone(concern.severity)}>
-                            {SEVERITY_LABEL[concern.severity]}
-                          </StatusPill>
-                          <a className={styles.concernLink} href={`#${concern.anchor}`}>
-                            {concern.title}
-                          </a>
-                          {concern.detail && (
-                            <span className={styles.concernDetail}>{concern.detail}</span>
-                          )}
-                        </li>
+                      {ungrounded.map((concern) => (
+                        <ConcernRow key={concern.key} concern={concern} />
                       ))}
                     </ul>
-                  </>
-                ) : (
-                  <p className={styles.flagEmpty}>
-                    No screened rule, structural alert or rule-set threshold fired for this
-                    structure, and every property in the profile could be grounded. That is not a
-                    safety assessment — it means only that nothing on the screened list is present.
-                  </p>
+                  </details>
                 )}
+                {/* Said on every profile, not only a clean one: a digest with nothing in it
+                    is the reading most easily mistaken for a safety verdict. */}
+                <p className={styles.flagEmpty}>
+                  This is not a safety assessment — it reports only what the screened list and the
+                  published thresholds say about this structure.
+                </p>
               </section>
 
               {/* Safety-critical content sits first, so it is on screen without scrolling on a

@@ -291,6 +291,31 @@ describe('the review-first digest', () => {
     expect(within(review).queryAllByRole('listitem')).toHaveLength(0);
     expect(within(review).getByText(/is not a\s+safety assessment/)).toBeInTheDocument();
   });
+
+  it('folds the ungrounded properties away so the actionable rows stay on screen', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first').closest('section') as HTMLElement;
+    const folded = within(review).getByText(/2 properties this product will not estimate/);
+    const group = folded.closest('details') as HTMLDetailsElement;
+    expect(group.open).toBe(false);
+    // Only the three rows that need a decision are outside the fold.
+    const [actionable] = within(review).getAllByRole('list');
+    expect(within(actionable).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(group).getByRole('link', { name: /Binding affinity/ })).toBeInTheDocument();
+  });
+
+  it('says a profile is not a safety assessment even when something fired', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first').closest('section') as HTMLElement;
+    expect(within(review).getAllByRole('listitem').length).toBeGreaterThan(0);
+    expect(within(review).getByText(/is not a safety assessment/)).toBeInTheDocument();
+  });
 });
 
 describe('substituent suggestions', () => {

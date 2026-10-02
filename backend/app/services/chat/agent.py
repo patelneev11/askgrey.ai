@@ -261,7 +261,11 @@ class ChatAgent:
 
         arguments = invocation.arguments
         yield ToolStartEvent(
-            id=invocation.id, tool=tool.name, title=tool.title, arguments=arguments
+            id=invocation.id,
+            tool=tool.name,
+            title=tool.title,
+            working=tool.working,
+            arguments=arguments,
         )
         detail: JsonValue = None
         citations: tuple[Citation, ...] = ()

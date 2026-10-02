@@ -9,7 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api import deps
-from app.api.pdf_extraction import MAX_UPLOAD_BYTES, get_pdf_extraction_service
+from app.api.pdf_extraction import get_pdf_extraction_service
+from app.api.uploads import MAX_UPLOAD_BYTES
 from app.core.terms import TERMS_VERSION
 from app.main import app
 from app.services.pdf_extraction import PdfExtractionService, PdfFetcher, RawDataPoint

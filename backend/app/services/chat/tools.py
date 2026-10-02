@@ -144,6 +144,8 @@ class ChatTool:
 
     name: str
     title: str
+    #: The same work said as it happens ("Searching PubMed"), for the status line of an open turn.
+    working: str
     tab: str
     description: str
     input_schema: dict[str, JsonValue]
@@ -172,6 +174,7 @@ def _tool(
     *,
     name: str,
     title: str,
+    working: str,
     tab: str,
     description: str,
     input_model: type[ModelT],
@@ -191,6 +194,7 @@ def _tool(
     return ChatTool(
         name=name,
         title=title,
+        working=working,
         tab=tab,
         description=description,
         input_schema=schema,
@@ -694,6 +698,7 @@ async def _draft_protocol(_context: ToolContext, arguments: DraftRequest) -> Too
 TOOLS: tuple[ChatTool, ...] = (
     _tool(
         name="read_literature_workspace",
+        working="Reading your Literature workspace",
         title="Literature workspace",
         tab="Literature",
         description=(
@@ -706,6 +711,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="list_saved_work",
+        working="Looking through your saved work",
         title="Saved work",
         tab="Workspace",
         description=(
@@ -717,6 +723,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="open_saved_work",
+        working="Opening the saved item",
         title="Open saved item",
         tab="Workspace",
         description=(
@@ -727,6 +734,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="list_saved_protocols",
+        working="Looking through your saved protocols",
         title="Saved protocols",
         tab="Protocol",
         description="List the caller's saved protocols with their current version numbers.",
@@ -735,6 +743,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="open_saved_protocol",
+        working="Opening the saved protocol",
         title="Open saved protocol",
         tab="Protocol",
         description="Read one saved protocol's current version in full, by its id.",
@@ -743,6 +752,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="search_pubmed",
+        working="Searching PubMed",
         title="PubMed search",
         tab="Literature",
         description=(
@@ -755,6 +765,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="lookup_compound",
+        working="Looking the compound up in PubChem",
         title="PubChem lookup",
         tab="Screening",
         description=(
@@ -766,6 +777,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="search_clinical_trials",
+        working="Searching ClinicalTrials.gov",
         title="Trial search",
         tab="Literature",
         description=(
@@ -781,6 +793,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="compute_descriptors",
+        working="Computing descriptors",
         title="Descriptors",
         tab="Screening",
         description=(
@@ -792,6 +805,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="predict_admet",
+        working="Predicting ADMET endpoints",
         title="ADMET prediction",
         tab="Screening",
         description=(
@@ -805,6 +819,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="search_patents",
+        working="Searching USPTO applications",
         title="Patent search",
         tab="Screening",
         description=(
@@ -816,6 +831,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="search_grants",
+        working="Searching funding opportunities",
         title="Grant search",
         tab="Grants",
         description=(
@@ -827,6 +843,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="check_grant_eligibility",
+        working="Screening against the SBIR rules",
         title="Eligibility check",
         tab="Grants",
         description=(
@@ -840,6 +857,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="build_grant_budget",
+        working="Costing the budget",
         title="Grant budget",
         tab="Grants",
         description=(
@@ -851,6 +869,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="check_regulatory_guidelines",
+        working="Checking the guidelines",
         title="Guideline check",
         tab="Regulatory",
         description=(
@@ -863,6 +882,7 @@ TOOLS: tuple[ChatTool, ...] = (
     ),
     _tool(
         name="draft_protocol",
+        working="Drafting the protocol",
         title="Protocol draft",
         tab="Protocol",
         description=(

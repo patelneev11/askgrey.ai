@@ -17,6 +17,7 @@ const chatLimits = vi.fn();
 const listArtifacts = vi.fn();
 const listProtocols = vi.fn();
 const sendChatMessage = vi.fn();
+const attachChatFile = vi.fn();
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
@@ -32,6 +33,7 @@ vi.mock('@/lib/api', async () => {
       listArtifacts: (...args: unknown[]) => listArtifacts(...args),
       listProtocols: (...args: unknown[]) => listProtocols(...args),
       sendChatMessage: (...args: unknown[]) => sendChatMessage(...args),
+      attachChatFile: (...args: unknown[]) => attachChatFile(...args),
     },
   };
 });
@@ -366,5 +368,127 @@ describe('Assistant tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ask' }));
 
     expect(await screen.findByText('$0.61 of $2.00')).toBeInTheDocument();
+  });
+  it('names the tool it is running in the status line while the turn is open', async () => {
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    sendChatMessage.mockResolvedValue(
+      new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          controller.enqueue(
+            encoder.encode(
+              event({
+                type: 'tool_start',
+                id: 'tool-1',
+                tool: 'search_pubmed',
+                title: 'Search PubMed',
+                working: 'Searching PubMed',
+                arguments: {},
+              }),
+            ),
+          );
+          await held;
+          controller.enqueue(
+            encoder.encode(event({ type: 'done', conversation_id: 'conv-1', message_id: 'msg-1' })),
+          );
+          controller.close();
+        },
+      }),
+    );
+    render(<ChatPage />);
+
+    await userEvent.type(await screen.findByLabelText('Message the assistant'), 'Any QT risk?');
+    await userEvent.click(screen.getByRole('button', { name: 'Ask' }));
+
+    expect(await screen.findByText('Searching PubMed')).toBeInTheDocument();
+    release?.();
+    await waitFor(() => expect(screen.queryByText('Searching PubMed')).not.toBeInTheDocument());
+  });
+
+  it('queues a question asked mid-answer and sends it with its own references after', async () => {
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    sendChatMessage
+      .mockResolvedValueOnce(
+        new ReadableStream<Uint8Array>({
+          async start(controller) {
+            await held;
+            controller.enqueue(
+              new TextEncoder().encode(
+                event({ type: 'done', conversation_id: 'conv-1', message_id: 'msg-1' }),
+              ),
+            );
+            controller.close();
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        stream(event({ type: 'done', conversation_id: 'conv-1', message_id: 'msg-2' })),
+      );
+    render(<ChatPage />);
+
+    const box = await screen.findByLabelText('Message the assistant');
+    await userEvent.type(box, 'First question');
+    await userEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    // The composer stays usable: the second question is typed while the first is still streaming.
+    await userEvent.type(box, 'Second question');
+    await userEvent.click(await screen.findByRole('button', { name: 'Queue' }));
+
+    expect(screen.getByLabelText('Queued messages')).toHaveTextContent('Second question');
+    expect(sendChatMessage).toHaveBeenCalledTimes(1);
+
+    release?.();
+    await waitFor(() => expect(sendChatMessage).toHaveBeenCalledTimes(2));
+    expect(sendChatMessage).toHaveBeenLastCalledWith(
+      'conv-1',
+      'Second question',
+      [],
+      'token-123',
+    );
+    expect(screen.queryByLabelText('Queued messages')).not.toBeInTheDocument();
+  });
+
+  it('attaches an uploaded PDF as a reference sent by id, never as bytes', async () => {
+    attachChatFile.mockResolvedValue({
+      document_id: 'doc-7',
+      filename: 'trial.pdf',
+      pages: 12,
+      characters: 4200,
+    });
+    sendChatMessage.mockResolvedValue(
+      stream(event({ type: 'done', conversation_id: 'conv-1', message_id: 'msg-1' })),
+    );
+    render(<ChatPage />);
+
+    const file = new File(['%PDF-1.7'], 'trial.pdf', { type: 'application/pdf' });
+    await userEvent.upload(await screen.findByLabelText('Attach a PDF'), file);
+
+    expect(await screen.findByText('@trial.pdf')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Message the assistant'), 'Summarise the endpoints');
+    await userEvent.click(screen.getByRole('button', { name: 'Ask' }));
+
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenCalledWith(
+        'conv-1',
+        'Summarise the endpoints',
+        [{ kind: 'document', id: 'doc-7' }],
+        'token-123',
+      ),
+    );
+  });
+
+  it('reports an upload the server refused instead of attaching nothing silently', async () => {
+    attachChatFile.mockRejectedValue(new ApiError('the uploaded file is not a PDF', 415));
+    render(<ChatPage />);
+
+    const file = new File(['not a pdf'], 'notes.pdf', { type: 'application/pdf' });
+    await userEvent.upload(await screen.findByLabelText('Attach a PDF'), file);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('the uploaded file is not a PDF');
   });
 });

@@ -260,8 +260,107 @@
   white-space: pre-wrap;
 }
 
-.running {
+/* The assistant working: three dots and what it is doing, in place of a spinner that says
+   nothing. The label comes from the tool that is running, so it changes as the turn moves. */
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+
+.thinkingDots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.thinkingDots span {
+  width: 4px;
+  height: 4px;
+  background: var(--color-accent-pipeline);
+  border-radius: var(--radius-full);
+  animation: thinking 1.2s ease-in-out infinite;
+}
+
+.thinkingDots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinkingDots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.thinkingLabel::after {
+  content: '\2026';
+}
+
+@keyframes thinking {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinkingDots span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Questions typed while an answer is still being written, waiting their turn in order. */
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-inset);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.queueText {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.queueMeta {
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.queue button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The picker is opened by the button beside it; the input itself is never shown. */
+.file {
+  display: none;
 }
 
 .notice {

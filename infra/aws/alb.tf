@@ -33,8 +33,9 @@ resource "aws_lb_target_group" "app" {
 }
 
 resource "aws_acm_certificate" "this" {
-  domain_name       = var.hostname
-  validation_method = "DNS"
+  domain_name               = var.hostname
+  subject_alternative_names = var.redirect_hostnames
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -80,6 +81,32 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+# An old name keeps resolving but is not an origin: it answers once, with the same path on the
+# canonical host, so sessions, cookies and CORS only ever belong to one address.
+resource "aws_lb_listener_rule" "canonical_host" {
+  count        = length(var.redirect_hostnames) == 0 ? 0 : 1
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 1
+
+  condition {
+    host_header {
+      values = var.redirect_hostnames
+    }
+  }
+
+  action {
+    type = "redirect"
+    redirect {
+      host        = var.hostname
+      path        = "/#{path}"
+      query       = "#{query}"
+      protocol    = "HTTPS"
+      port        = "443"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
 # Plain HTTP exists only to send a browser to HTTPS; nothing is served over it.
 resource "aws_lb_listener" "http_redirect" {
   load_balancer_arn = aws_lb.this.arn
@@ -97,10 +124,10 @@ resource "aws_lb_listener" "http_redirect" {
 }
 
 resource "aws_route53_record" "app" {
-  count   = var.route53_zone_id == "" ? 0 : 1
-  zone_id = var.route53_zone_id
-  name    = var.hostname
-  type    = "A"
+  for_each = var.route53_zone_id == "" ? toset([]) : toset(concat([var.hostname], var.redirect_hostnames))
+  zone_id  = var.route53_zone_id
+  name     = each.value
+  type     = "A"
 
   alias {
     name                   = aws_lb.this.dns_name

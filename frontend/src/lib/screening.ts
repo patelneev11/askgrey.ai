@@ -187,9 +187,120 @@ export function liabilityFlags(profile: AdmetProfile): LiabilityFlag[] {
   return [...fromRules, ...fromAlerts];
 }
 
-/** The estimates the UI shows in the ADMET section, unavailable ones included. */
+const OUTCOME_RANK: Record<Outcome, number> = {
+  unfavourable: 0,
+  borderline: 1,
+  unavailable: 2,
+  favourable: 3,
+};
+
+/**
+ * The estimates the UI shows in the ADMET section, unavailable ones included, worst outcome
+ * first. A researcher reading top to bottom meets the properties that need a decision before
+ * the ones that do not; ties keep the backend's order, which groups A, D, M, E and T.
+ */
 export function admetOrder(profile: AdmetProfile): AdmetEstimate[] {
-  return profile.estimates;
+  return [...profile.estimates].sort(
+    (left, right) => OUTCOME_RANK[left.outcome] - OUTCOME_RANK[right.outcome],
+  );
+}
+
+/** Anchors of the sections a concern can send the reader to. */
+export const SCREENING_ANCHORS = {
+  review: 'screening-review',
+  liabilities: 'screening-liabilities',
+  identity: 'screening-identity',
+  rules: 'screening-rules',
+  admet: 'screening-admet',
+} as const;
+
+/**
+ * `flag`: something fired. `borderline`: inside a rule set's grey zone or outside one of its
+ * thresholds. `unknown`: the property could not be grounded at all, which is a gap in the
+ * profile rather than a finding — and is exactly the thing a reader otherwise misses.
+ */
+export type ConcernSeverity = 'flag' | 'borderline' | 'unknown';
+
+export interface Concern {
+  key: string;
+  severity: ConcernSeverity;
+  title: string;
+  detail: string;
+  anchor: string;
+}
+
+export function concernTone(severity: ConcernSeverity): OutcomeTone {
+  return severity === 'unknown' ? 'idle' : 'warning';
+}
+
+/**
+ * Everything in a profile that a researcher should not have to scroll to find, worst first:
+ * fired liabilities, then borderline classifications and rule-set violations, then the
+ * properties this product refuses to estimate.
+ *
+ * It restates what the sections below already say rather than deciding anything of its own —
+ * every row carries the section anchor it came from, so the digest is a route into the
+ * evidence, not a replacement for it.
+ */
+export function screeningConcerns(
+  descriptors: DescriptorProfile,
+  admet: AdmetProfile,
+): Concern[] {
+  const flags: Concern[] = liabilityFlags(admet).map((flag) => ({
+    key: `flag:${flag.key}`,
+    severity: 'flag',
+    title: flag.title,
+    detail: flag.body,
+    anchor: SCREENING_ANCHORS.liabilities,
+  }));
+
+  const borderline: Concern[] = admet.estimates
+    .filter((estimate) => estimate.available && estimate.outcome === 'borderline')
+    .map((estimate) => ({
+      key: `borderline:${estimate.key}`,
+      severity: 'borderline',
+      title: `${estimate.label} — ${estimate.verdict}`,
+      detail: estimate.scope,
+      anchor: SCREENING_ANCHORS.admet,
+    }));
+
+  const violations: Concern[] = descriptors.rule_sets
+    .filter((ruleSet) => !ruleSet.compliant)
+    .map((ruleSet) => {
+      const outside = ruleSet.checks.filter((check) => !check.passed);
+      return {
+        key: `ruleset:${ruleSet.key}`,
+        severity: 'borderline',
+        title: `${ruleSet.name} — ${ruleSet.violations} threshold${
+          ruleSet.violations === 1 ? '' : 's'
+        } outside`,
+        detail: outside
+          .map((check) => `${check.label} ${check.value_display} (limit ${check.limit})`)
+          .join('; '),
+        anchor: SCREENING_ANCHORS.rules,
+      };
+    });
+
+  const ungrounded: Concern[] = [
+    ...admet.estimates
+      .filter((estimate) => !estimate.available)
+      .map((estimate) => ({
+        key: `unavailable:${estimate.key}`,
+        severity: 'unknown' as const,
+        title: `${estimate.label} — not available`,
+        detail: estimate.requires ? `Would require ${estimate.requires}` : estimate.reason,
+        anchor: SCREENING_ANCHORS.admet,
+      })),
+    ...descriptors.unavailable.map((entry) => ({
+      key: `unavailable:${entry.key}`,
+      severity: 'unknown' as const,
+      title: `${entry.label} — not available`,
+      detail: entry.requires ? `Would require ${entry.requires}` : entry.reason,
+      anchor: SCREENING_ANCHORS.identity,
+    })),
+  ];
+
+  return [...flags, ...borderline, ...violations, ...ungrounded];
 }
 
 const SMILES_MAX_LENGTH = 600;

@@ -13,11 +13,16 @@ import { logger } from '@/lib/observability';
 import {
   EXAMPLE_STRUCTURES,
   PATENT_KEYWORDS_MAX_LENGTH,
+  SCREENING_ANCHORS,
+  admetOrder,
+  concernTone,
   liabilityFlags,
   outcomeTone,
+  screeningConcerns,
   smilesInputError,
   type AdmetEstimate,
   type AdmetProfile,
+  type Concern,
   type DescriptorProfile,
   type PatentLandscape,
   type SuggestionSet,
@@ -26,7 +31,11 @@ import { getAccessToken } from '@/lib/session';
 
 import styles from './ScreeningPage.module.css';
 
-const LIABILITIES_ANCHOR = 'screening-liabilities';
+const SEVERITY_LABEL: Record<Concern['severity'], string> = {
+  flag: 'flag',
+  borderline: 'borderline',
+  unknown: 'not available',
+};
 
 function errorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback;
@@ -175,6 +184,12 @@ export function ScreeningPage() {
   };
 
   const flags = useMemo(() => (admet ? liabilityFlags(admet) : []), [admet]);
+  const concerns = useMemo(
+    () => (descriptors && admet ? screeningConcerns(descriptors, admet) : []),
+    [admet, descriptors],
+  );
+  const actionable = concerns.filter((concern) => concern.severity !== 'unknown');
+  const estimates = useMemo(() => (admet ? admetOrder(admet) : []), [admet]);
   const affinity = descriptors?.unavailable.find((entry) => entry.key === 'binding_affinity');
   const loaded = descriptors !== null && admet !== null;
 
@@ -254,7 +269,7 @@ export function ScreeningPage() {
           actions={
             loaded ? (
               flags.length > 0 ? (
-                <a className={styles.anchor} href={`#${LIABILITIES_ANCHOR}`}>
+                <a className={styles.anchor} href={`#${SCREENING_ANCHORS.liabilities}`}>
                   <StatusPill tone="warning">
                     {flags.length} liability {flags.length === 1 ? 'flag' : 'flags'}
                   </StatusPill>
@@ -311,9 +326,52 @@ export function ScreeningPage() {
             </EmptyState>
           ) : (
             <div className={styles.profile}>
+              {/* The digest: whatever needs a decision, above the full profile, so a reader
+                  never has to scroll the tab to find out whether anything fired. */}
+              <section id={SCREENING_ANCHORS.review} className={styles.review}>
+                <h3 className={styles.sectionTitle}>Review first</h3>
+                {concerns.length > 0 ? (
+                  <>
+                    <p className={styles.estimateNote}>
+                      {actionable.length > 0
+                        ? `${actionable.length} ${
+                            actionable.length === 1 ? 'item' : 'items'
+                          } fired or sit outside a published threshold`
+                        : 'Nothing fired'}
+                      {concerns.length > actionable.length &&
+                        `; ${concerns.length - actionable.length} propert${
+                          concerns.length - actionable.length === 1 ? 'y' : 'ies'
+                        } could not be grounded at all`}
+                      . Each row links to the evidence below.
+                    </p>
+                    <ul className={styles.concerns}>
+                      {concerns.map((concern) => (
+                        <li key={concern.key} className={styles.concern}>
+                          <StatusPill tone={concernTone(concern.severity)}>
+                            {SEVERITY_LABEL[concern.severity]}
+                          </StatusPill>
+                          <a className={styles.concernLink} href={`#${concern.anchor}`}>
+                            {concern.title}
+                          </a>
+                          {concern.detail && (
+                            <span className={styles.concernDetail}>{concern.detail}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className={styles.flagEmpty}>
+                    No screened rule, structural alert or rule-set threshold fired for this
+                    structure, and every property in the profile could be grounded. That is not a
+                    safety assessment — it means only that nothing on the screened list is present.
+                  </p>
+                )}
+              </section>
+
               {/* Safety-critical content sits first, so it is on screen without scrolling on a
                   1280–1440px laptop; the header pill also anchors here. */}
-              <section id={LIABILITIES_ANCHOR}>
+              <section id={SCREENING_ANCHORS.liabilities}>
                 <h3 className={styles.sectionTitle}>Toxicity &amp; liability flags</h3>
                 <CaveatBand label="Predicted">
                   Rule and substructure matches: their absence is not evidence of safety.
@@ -343,7 +401,7 @@ export function ScreeningPage() {
                 )}
               </section>
 
-              <section>
+              <section id={SCREENING_ANCHORS.identity}>
                 <h3 className={styles.sectionTitle}>Identity</h3>
                 <dl className={styles.identityFacts}>
                   <div>
@@ -394,7 +452,7 @@ export function ScreeningPage() {
                 <p className={styles.estimateNote}>{descriptors.caveat}</p>
               </section>
 
-              <section>
+              <section id={SCREENING_ANCHORS.rules}>
                 <h3 className={styles.sectionTitle}>Drug-likeness rule sets</h3>
                 <div className={styles.ruleSets}>
                   {descriptors.rule_sets.map((ruleSet) => (
@@ -428,13 +486,13 @@ export function ScreeningPage() {
                 </div>
               </section>
 
-              <section>
+              <section id={SCREENING_ANCHORS.admet}>
                 <h3 className={styles.sectionTitle}>ADMET prediction</h3>
                 <CaveatBand label="Predicted">
                   {admet.caveat}
                 </CaveatBand>
                 <div className={styles.estimates}>
-                  {admet.estimates.map((estimate) => (
+                  {estimates.map((estimate) => (
                     <EstimateCard key={estimate.key} estimate={estimate} />
                   ))}
                 </div>

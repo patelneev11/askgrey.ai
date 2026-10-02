@@ -19,7 +19,7 @@ dependencies = [
     "pydantic-settings==2.7.0",
     # PyJWT replaces python-jose: python-jose's latest release still carries an unfixed advisory
     # (PYSEC-2025-185) and it drags in the vulnerable `ecdsa` package.
-    "pyjwt==2.13.0",
+    "pyjwt==2.15.0",
     "bcrypt==4.2.1",
     "python-multipart==0.0.32",
     "email-validator==2.2.0",

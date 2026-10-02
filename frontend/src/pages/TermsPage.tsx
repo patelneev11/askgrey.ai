@@ -116,6 +116,23 @@ export function TermsPage() {
             provider, so treat it as leaving your systems. You are responsible for holding whatever
             rights you need in the documents you upload.
           </p>
+          <p>
+            You may not use the assistant, or any other part of this service, to work towards
+            harming people: designing or producing a biological or chemical weapon, making a
+            pathogen more transmissible or more lethal, poisoning or incapacitating anyone, or
+            routes to controlled substances or explosives. The assistant refuses requests of that
+            shape before they reach the model, and the refusal is written to the audit trail with
+            the rule that produced it. Asking anyway is a breach of these terms and grounds for
+            closing the account.
+          </p>
+          <p>
+            Refusals are not only ours. The model provider applies its own safety policy, and it
+            declines some phrasings of a legitimate question — a bare lethal-dose question, for
+            instance — without us being able to override it. When that happens the assistant says
+            the model declined rather than showing you nothing. Asking for the literature itself,
+            the occupational exposure limit, or the adverse events reported in trials generally
+            reaches the same published science.
+          </p>
         </section>
 
         <section className={styles.section}>

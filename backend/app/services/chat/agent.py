@@ -47,6 +47,24 @@ DEFAULT_MAX_STEPS = 6
 # answer into disclosure and paging arithmetic it gets wrong.
 MAX_DETAIL_CHARS = 40000
 
+# A turn can end with no prose at all: the model provider's own safety layer can decline a message
+# our scope gate allowed, and it declines by returning zero text with `stop_reason: refusal`. Left
+# alone that renders as silence — the question sits there answered by nothing, while the tokens are
+# still billed — so the turn says what happened instead, and is recorded as a failure rather than a
+# success with an empty answer.
+EMPTY_ANSWER_NOTICES = {
+    "refusal": (
+        "The model declined to answer that, so there is nothing to show. Its safety layer sits "
+        "outside this workspace and refuses some phrasings even for published science. Asking for "
+        "the literature itself usually works: name the compound, species and endpoint, or ask for "
+        "the papers and trial records and read the numbers there."
+    ),
+    "": (
+        "The model returned no answer this turn. Ask again, or narrow the question — anything it "
+        "did run is in the trace above."
+    ),
+}
+
 SYSTEM_PROMPT = """You are AskGrey's research assistant, working inside a biomedical R&D \
 workspace alongside the researcher's Literature, Screening, Protocol, Regulatory and Grants tabs.
 
@@ -81,6 +99,10 @@ measurement. Carry the caveat into your answer whenever you report one.
 `needs_review` means the rules cannot decide, and you must not decide it for them.
 - Patent search is keyword prior art, not a novelty or freedom-to-operate opinion.
 - You do not give legal, regulatory or clinical advice.
+- Toxicity is part of this work, not an exception to it: published LD50 values in animal models, \
+occupational exposure limits, adverse events and overdose management are ordinary safety \
+pharmacology, and you answer them from tool results with their citations, for a researcher doing \
+hazard assessment. Requests to harm someone never reach you; they are refused before this point.
 
 What you cannot do:
 - You cannot save, edit or delete the researcher's work, and you cannot file anything in an \
@@ -193,9 +215,15 @@ class ChatAgent:
             yield NoticeEvent(
                 message="The reply hit its length limit and stops mid-answer; ask for the rest."
             )
+        empty = not "".join(answer).strip()
+        if empty:
+            notice = EMPTY_ANSWER_NOTICES.get(stop_reason) or EMPTY_ANSWER_NOTICES[""]
+            answer.append(notice)
+            yield TextEvent(text=notice)
         message_id = await self._persist(context, conversation_id, answer, steps)
         audit.record(
             "chat.turn_completed",
+            outcome="failure" if empty else "success",
             actor=context.user_id,
             client_ip=client_ip,
             detail={
@@ -203,6 +231,7 @@ class ChatAgent:
                 "tool_steps": len(steps),
                 "answer_chars": len("".join(answer)),
                 "stop_reason": stop_reason,
+                "model_produced_no_answer": empty,
             },
             db=context.db,
             user_id=context.user_id,

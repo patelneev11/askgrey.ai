@@ -18,6 +18,12 @@ Two stages, cheapest first:
 Anything the classifier cannot decide, or fails to answer, is allowed through. A researcher
 wrongly refused stops trusting the tab, whereas a wrongly allowed question costs one turn and is
 still bounded by the spend caps in `spend.py`.
+
+One class of rule is not about money at all. A tab that answers questions about pathogens, toxicity
+and dosing is also the tab someone will ask how to weaponise a pathogen, synthesise a nerve agent or
+work out a lethal dose for a person, and those requests carry the same vocabulary as the work, so
+the classifier would wave them through. They are refused by pattern, before any model sees them,
+and they answer in their own words rather than inviting the asker to rephrase.
 """
 
 from __future__ import annotations
@@ -59,6 +65,10 @@ class OffTopicRule(BaseModel):
     id: str
     explanation: str
     patterns: list[str] = Field(default_factory=list)
+    # A rule may answer in its own words. The default refusal invites the researcher to ask a
+    # research question instead, which is the wrong thing to say to someone asking how to weaponise
+    # a pathogen or how much of a drug would kill a person.
+    refusal: str = ""
 
 
 class ClassifierSpec(BaseModel):
@@ -122,23 +132,26 @@ def get_policy() -> ScopePolicy:
 
 
 @lru_cache(maxsize=1)
-def _compiled(policy_version: str) -> tuple[tuple[str, str, re.Pattern[str]], ...]:
-    """(rule id, explanation, pattern) for every rule, compiled once per policy version."""
+def _compiled(policy_version: str) -> tuple[tuple[OffTopicRule, re.Pattern[str]], ...]:
+    """(rule, pattern) for every rule, compiled once per policy version."""
     return tuple(
-        (rule.id, rule.explanation, re.compile(pattern, re.IGNORECASE))
+        (rule, re.compile(pattern, re.IGNORECASE))
         for rule in get_policy().off_topic_rules
         for pattern in rule.patterns
     )
 
 
-def _refusal(policy: ScopePolicy, rule_id: str, explanation: str, checked_by: str) -> ScopeVerdict:
+def _refusal(
+    policy: ScopePolicy, rule_id: str, explanation: str, checked_by: str, override: str = ""
+) -> ScopeVerdict:
+    closing = override or policy.refusal
     return ScopeVerdict(
         decision=Decision.REFUSE,
         rule=rule_id,
         message=(
-            f"That reads as {explanation}, so I did not run it. {policy.refusal}"
+            f"That reads as {explanation}, so I did not run it. {closing}"
             if explanation
-            else policy.refusal
+            else closing
         ),
         checked_by=checked_by,
     )
@@ -147,9 +160,9 @@ def _refusal(policy: ScopePolicy, rule_id: str, explanation: str, checked_by: st
 def check_patterns(message: str, policy: ScopePolicy | None = None) -> ScopeVerdict:
     """The free half of the gate: refuse on a config pattern, without calling Claude."""
     active = policy or get_policy()
-    for rule_id, explanation, pattern in _compiled(active.version):
+    for rule, pattern in _compiled(active.version):
         if pattern.search(message):
-            return _refusal(active, rule_id, explanation, "patterns")
+            return _refusal(active, rule.id, rule.explanation, "patterns", rule.refusal)
     return ScopeVerdict(decision=Decision.ALLOW, checked_by="patterns")
 
 

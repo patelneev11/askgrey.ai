@@ -23,7 +23,10 @@ from app.models.user import User  # noqa: F401
 
 config = context.config
 
-if config.config_file_name is not None:
+# A run from the CLI owns the process, so alembic.ini's logging applies. A run from inside the
+# development server does not: fileConfig replaces the app's handlers and disables the loggers it
+# does not name, which would silence the audit trail for the rest of the process.
+if config.config_file_name is not None and config.attributes.get("configure_logging", True):
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata

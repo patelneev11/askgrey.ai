@@ -104,9 +104,10 @@ and is public: `VITE_SENTRY_DSN` is designed to be, an API key never is.
 ## Schema changes
 
 The schema is owned by Alembic (`backend/migrations`), and the deploy runs `alembic upgrade
-head` before starting the server — see `deploy/docker-entrypoint.sh`. `Base.metadata.create_all` now
-runs only in development and in tests, so a deployed database never has its schema created as a
-side effect of a boot.
+head` before starting the server — see `deploy/docker-entrypoint.sh`, which is also where two
+replicas would otherwise race to migrate. A development server migrates itself on startup
+instead, so pulling a migration is enough and no local database is left a column behind;
+`Base.metadata.create_all` survives only in the tests, which build their schema from the models.
 
 The baseline revision adopts a database that predates Alembic: it creates each table only if it
 is missing, so a deployment whose tables came from the old startup `create_all` can be stamped

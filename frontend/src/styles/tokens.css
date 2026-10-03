@@ -47,12 +47,13 @@
   --color-accent-danger: #c25b5b;
   --color-accent-danger-surface: #2b1414;
 
-  /* ---- Typography: SF Pro Display, high density ---- */
-  --font-family-display: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+  /* ---- Typography: Inter, self-hosted so every platform renders the same, high density ---- */
+  --font-family-display: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Helvetica Neue', sans-serif;
-  --font-family-text: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+  --font-family-text: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Helvetica Neue', sans-serif;
-  --font-family-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+  --font-family-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo',
+    monospace;
 
   --font-size-2xs: 0.6875rem; /* 11px — table metadata, column units */
   --font-size-xs: 0.75rem; /* 12px — dense table body */

@@ -452,8 +452,13 @@ export function ChatPage() {
           <p className={styles.threadsEmpty}>Nothing asked yet. Threads you start appear here.</p>
         )}
         {limits && (
-          <div className={styles.limits}>
-            <h3>Scope and budget</h3>
+          <details className={styles.limits} open>
+            <summary>
+              <h3>Scope and budget</h3>
+              <span className={styles.railSpend}>
+                {spendLabel(limits.daily_spent_usd, limits.daily_cap_usd)} today
+              </span>
+            </summary>
             <p className={styles.limitsScope}>{limits.scope_purpose}</p>
             <dl className={styles.limitsFigures}>
               <div>
@@ -470,17 +475,20 @@ export function ChatPage() {
               </div>
             </dl>
             <p className={styles.limitsPolicy}>Scope policy {limits.scope_version}</p>
-          </div>
+          </details>
         )}
-        <div className={styles.capabilities}>
-          <h3>What it can reach</h3>
+        <details className={styles.capabilities}>
+          <summary>
+            <h3>What it can reach</h3>
+            <span className={styles.railSpend}>{tools.length} tools</span>
+          </summary>
           {grouped.map(([tab, group]) => (
             <p key={tab}>
               <span className={styles.capabilityTab}>{tab}</span>
               {group.map((tool) => tool.title).join(', ')}
             </p>
           ))}
-        </div>
+        </details>
       </aside>
 
       <section className={styles.conversation} aria-label="Assistant">
@@ -510,23 +518,27 @@ export function ChatPage() {
         )}
         <div className={styles.transcript} ref={transcript}>
           {messages.length === 0 && !pending && (
-            <EmptyState title="Ask about the work you already have">
-              <p>
-                Reference something you saved with the <strong>Reference</strong> button and it is
-                read from your account — your Literature workspace, a saved screening or grants
-                result, or a saved protocol. Nothing from another account is reachable.
-              </p>
-              <p>
-                It answers biomedical R&amp;D questions only — literature, compounds and screening,
-                trials, protocols, regulatory drafting and grants. Anything else it declines before
-                a model runs, which is what keeps the account&rsquo;s budget for research work.
-              </p>
-              <p>
-                Good first questions: &ldquo;What did my last hERG prediction say, and how reliable
-                is that endpoint?&rdquo;, &ldquo;Find trials for ziprasidone in the last five
-                years&rdquo;, &ldquo;Am I eligible for SBIR Phase I as a 30-person company?&rdquo;
-              </p>
-            </EmptyState>
+            <div className={styles.intro}>
+              <EmptyState title="Ask about the work you already have">
+                <p>
+                  Reference something you saved with the <strong>Reference</strong> button and it is
+                  read from your account — your Literature workspace, a saved screening or grants
+                  result, or a saved protocol. Nothing from another account is reachable.
+                </p>
+                <p>
+                  It answers biomedical R&amp;D questions only — literature, compounds and
+                  screening, trials, protocols, regulatory drafting and grants. Anything else it
+                  declines before a model runs, which is what keeps the account&rsquo;s budget for
+                  research work.
+                </p>
+                <p>
+                  Good first questions: &ldquo;What did my last hERG prediction say, and how
+                  reliable is that endpoint?&rdquo;, &ldquo;Find trials for ziprasidone in the last
+                  five years&rdquo;, &ldquo;Am I eligible for SBIR Phase I as a 30-person
+                  company?&rdquo;
+                </p>
+              </EmptyState>
+            </div>
           )}
           {messages.map((message) => (
             <MessageBlock key={message.id} message={message} />

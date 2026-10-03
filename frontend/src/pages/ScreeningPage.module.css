@@ -174,7 +174,7 @@
 
 .propertyGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(164px, 1fr));
   gap: var(--space-2);
 }
 
@@ -217,12 +217,16 @@
 .ruleSets,
 .estimates {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 
+/* Rows inside a card lay themselves out against the card, not the viewport: two cards side by
+   side are narrow enough that a value and its threshold would collide on one line. */
 .ruleSet,
 .estimate {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -268,6 +272,14 @@
   text-transform: uppercase;
 }
 
+/* Section-level notes stand off the grid above them rather than touching its border. */
+.propertyGrid + .basis,
+.estimates + .estimateNote,
+.ruleSets + .estimateNote,
+.basis + .estimateNote {
+  margin-top: var(--space-3);
+}
+
 /* The provenance line: required on screen for every predicted or unavailable field. */
 .basis {
   margin: 0;
@@ -309,11 +321,22 @@
 
 .input {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-inset);
   border-radius: var(--radius-xs);
+}
+
+@container (max-width: 420px) {
+  .input {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .input .inputThreshold {
+    grid-column: 1 / -1;
+  }
 }
 
 .inputOutside {
@@ -323,6 +346,7 @@
 .inputLabel {
   color: var(--color-text-secondary);
   font-size: var(--font-size-2xs);
+  line-height: var(--line-height-normal);
 }
 
 .inputValue {
@@ -531,7 +555,6 @@
   color: var(--color-accent-pipeline);
   font-size: var(--font-size-2xs);
 }
-
 
 /* ---- phone layout ---- */
 

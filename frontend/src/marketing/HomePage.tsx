@@ -1,9 +1,11 @@
-import type { IconName } from '@/components/icons';
-import { Icon } from '@/components/icons';
 import { productUrl } from '@/lib/hosts';
 
+import heroShot from './screens/literature.webp';
 import styles from './marketing.module.css';
 import { Section } from './Section';
+import type { ProductTab } from './tabs';
+import { PRODUCT_TABS } from './tabs';
+import { useReveal } from './useReveal';
 
 const SOURCES = [
   'PubMed',
@@ -13,6 +15,20 @@ const SOURCES = [
   'SBIR.gov',
   'USPTO',
   'your own PDFs',
+];
+
+/** Counts of what is built — no usage, customer or performance number appears on this page. */
+const FIGURES = [
+  { value: '9', label: 'tabs, each a job a preclinical team already has' },
+  {
+    value: '6',
+    label: 'public databases queried directly, plus the PDFs you upload',
+  },
+  {
+    value: '16',
+    label: 'typed, read-only tools the assistant may call — and nothing else',
+  },
+  { value: '0', label: 'model API keys for you to buy, rotate or expose' },
 ];
 
 const STEPS = [
@@ -30,53 +46,6 @@ const STEPS = [
   },
 ];
 
-const CAPABILITIES: { icon: IconName; title: string; body: string }[] = [
-  {
-    icon: 'assistant',
-    title: 'Assistant',
-    body: 'A biomedical research chat with read-only tools over every other tab. Off-topic questions are refused before a model is ever called, so the credits go to research.',
-  },
-  {
-    icon: 'literature',
-    title: 'Literature',
-    body: 'Search PubMed, upload PDFs, and pull a goal-driven table of extracted values out of them — each cell clicking through to the sentence and page it was read from. Export to Excel or CSV with a linked sources sheet.',
-  },
-  {
-    icon: 'screening',
-    title: 'Screening',
-    body: 'Descriptors, rule sets and QSAR-based ADMET estimates for a SMILES string, opening with what needs reviewing: fired liabilities, borderline calls, rule violations. Estimates, not a safety assessment.',
-  },
-  {
-    icon: 'protocol',
-    title: 'Protocol',
-    body: 'Draft a protocol with controls and a master-mix calculator, keep its version history, and export a notebook bundle any ELN can import.',
-  },
-  {
-    icon: 'regulatory',
-    title: 'Regulatory',
-    body: 'Preclinical package and IND section drafting with a guideline checker that says which requirement each statement answers, and which are still unaddressed.',
-  },
-  {
-    icon: 'grants',
-    title: 'Grants',
-    body: 'Find NIH/SBIR opportunities matched to your work, check eligibility against editable federal rules, build an SF-424 (R&R) budget, and get a mock review-board critique before you submit.',
-  },
-  {
-    icon: 'workspace',
-    title: 'Workspace',
-    body: 'Share saved literature, protocols and screens with your team through workspaces with seats, roles and single-use invitations.',
-  },
-  {
-    icon: 'audit',
-    title: 'Audit',
-    body: 'Every document, model call, invitation and export is written to an append-only trail you can read, with outcomes — including refusals and failures.',
-  },
-  {
-    icon: 'settings',
-    title: 'Settings',
-    body: 'Retention windows, spend and rate limits, storage and encryption state, read from the account itself rather than hard-coded.',
-  },
-];
 
 const PROOFS = [
   {
@@ -116,38 +85,146 @@ const LIMITS = [
   },
 ];
 
+/** The product's own Literature tab, captured against the repository's fixture papers. */
+function InterfacePreview() {
+  const ref = useReveal<HTMLElement>();
+
+  return (
+    <figure className={styles.preview} ref={ref}>
+      <div className={styles.previewFrame}>
+        <img className={styles.previewShot} src={heroShot} alt={PRODUCT_TABS[0].alt} />
+      </div>
+      <figcaption className={styles.previewCaption}>
+        The Literature tab, running. Every extracted value opens the page it was read from.
+      </figcaption>
+    </figure>
+  );
+}
+
+/** A silent screen capture of one run through the product, looped like a diagram. */
+function DemoFilm() {
+  const ref = useReveal<HTMLElement>();
+
+  return (
+    <section className={styles.film} id="watch" ref={ref}>
+      <div className={styles.filmInner}>
+        <p className={styles.eyebrow}>Thirty seconds</p>
+        <h2 className={styles.sectionTitle}>Watch a question become a cited table.</h2>
+        <p className={styles.sectionLead}>
+          One unedited run: two papers uploaded, the columns asked for in plain English, then a
+          value clicked to open the sentence it was read from.
+        </p>
+        <div className={styles.filmFrame}>
+          <video
+            className={styles.filmVideo}
+            src="/demo/askgrey-literature.mp4"
+            poster={heroShot}
+            controls
+            muted
+            loop
+            autoPlay
+            playsInline
+            preload="metadata"
+            aria-label="Screen recording of AskGrey extracting cited values from two uploaded papers"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** One tab, told once: what it is for, then the tab itself. */
+function TabHighlight({ tab, index }: { tab: ProductTab; index: number }) {
+  const ref = useReveal<HTMLElement>();
+
+  const className = [styles.highlight, index % 2 === 1 ? styles.highlightFlip : '']
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <section className={className} id={tab.id} ref={ref}>
+      <div className={styles.highlightText}>
+        <p className={styles.eyebrow}>
+          {String(index + 1).padStart(2, '0')} · {tab.name}
+        </p>
+        <h3 className={styles.highlightTitle}>{tab.title}</h3>
+        <p className={styles.cardBody}>{tab.body}</p>
+        <ul className={styles.highlightPoints}>
+          {tab.points.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </div>
+      <figure className={styles.highlightShot}>
+        <img src={tab.shot} alt={tab.alt} loading="lazy" decoding="async" />
+      </figure>
+    </section>
+  );
+}
+
+function Figures() {
+  const ref = useReveal<HTMLElement>();
+
+  return (
+    <section className={styles.figures} ref={ref}>
+      <div className={styles.figuresInner}>
+        {FIGURES.map((figure) => (
+          <div key={figure.label} className={styles.figure}>
+            <span className={styles.figureValue}>{figure.value}</span>
+            <span className={styles.figureLabel}>{figure.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function HomePage() {
   return (
     <>
       <header className={styles.hero}>
-        <h1 className={styles.heroTitle}>
-          Biomedical answers you can <span className={styles.heroAccent}>check</span>.
-        </h1>
-        <p className={styles.heroLead}>
-          AskGrey is a research workspace for preclinical teams: it searches the literature,
-          screens compounds, drafts protocols and IND sections, and finds funding — and every
-          number it gives you links back to the paper and page it was read from. When the sources
-          cannot answer, it says so.
-        </p>
-        <div className={styles.heroActions}>
-          <a className={[styles.cta, styles.ctaPrimary].join(' ')} href={productUrl('/login')}>
-            Open the workspace
-          </a>
-          <a className={[styles.cta, styles.ctaSecondary].join(' ')} href="#how-it-works">
-            See how it works
-          </a>
+        <div className={styles.heroGrid}>
+          <h1 className={styles.heroTitle}>
+            Biomedical answers you can <span className={styles.heroAccent}>check</span>.
+          </h1>
+          <div>
+            <p className={styles.heroLead}>
+              AskGrey is a research workspace for preclinical teams: it searches the literature,
+              screens compounds, drafts protocols and IND sections, and finds funding — and every
+              number it gives you links back to the paper and page it was read from. When the
+              sources cannot answer, it says so.
+            </p>
+            <div className={styles.heroActions}>
+              <a className={[styles.cta, styles.ctaPrimary].join(' ')} href={productUrl('/login')}>
+                Open the workspace
+              </a>
+              <a className={[styles.cta, styles.ctaSecondary].join(' ')} href="#how-it-works">
+                See how it works
+              </a>
+            </div>
+            <p className={styles.heroNote}>
+              Built for preclinical biotech and academic labs. No model API key of your own
+              required.
+            </p>
+          </div>
         </div>
-        <ul className={styles.sources}>
-          {SOURCES.map((source) => (
-            <li key={source} className={styles.source}>
-              {source}
-            </li>
-          ))}
-        </ul>
-        <p className={styles.heroNote}>
-          Built for preclinical biotech and academic labs. No model API key of your own required.
-        </p>
       </header>
+
+      <InterfacePreview />
+
+
+      <div className={styles.sourcesBand}>
+        <div className={styles.sourcesInner}>
+          <p className={styles.sourcesLabel}>Reads from</p>
+          <ul className={styles.sources}>
+            {SOURCES.map((source) => (
+              <li key={source} className={styles.source}>
+                {source}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
 
       <main className={styles.main}>
         <Section
@@ -167,24 +244,30 @@ export function HomePage() {
           </ol>
         </Section>
 
+        <DemoFilm />
+
+        <Figures />
+
         <Section
           id="product"
           eyebrow="What is inside"
           title="Nine tabs, one evidence trail."
-          lead="Each tab is a job a preclinical team actually has, and each writes to the same audit trail and the same shared workspace."
+          lead="Each tab is a job a preclinical team already has, and each writes to the same audit trail and the same shared workspace."
         >
-          <ul className={styles.cards}>
-            {CAPABILITIES.map((capability) => (
-              <li key={capability.title} className={styles.card}>
-                <span className={styles.cardIcon} aria-hidden="true">
-                  <Icon name={capability.icon} size={18} />
-                </span>
-                <h3 className={styles.cardTitle}>{capability.title}</h3>
-                <p className={styles.cardBody}>{capability.body}</p>
+          <ul className={styles.tabIndex}>
+            {PRODUCT_TABS.map((tab) => (
+              <li key={tab.id}>
+                <a className={styles.tabIndexLink} href={`#${tab.id}`}>
+                  {tab.name}
+                </a>
               </li>
             ))}
           </ul>
         </Section>
+
+        {PRODUCT_TABS.map((tab, index) => (
+          <TabHighlight key={tab.id} tab={tab} index={index} />
+        ))}
 
         <Section
           id="trust"
@@ -220,13 +303,11 @@ export function HomePage() {
 
         <section className={styles.closing} id="start">
           <div className={styles.closingPanel}>
-            <div>
-              <h2 className={styles.sectionTitle}>Bring a question you are stuck on.</h2>
-              <p className={styles.sectionLead}>
-                Create an account and run it against the literature. We are taking design partners
-                in preclinical discovery.
-              </p>
-            </div>
+            <h2 className={styles.closingTitle}>Bring a question you are stuck on.</h2>
+            <p className={styles.closingLead}>
+              Create an account and run it against the literature. We are taking design partners in
+              preclinical discovery.
+            </p>
             <a className={[styles.cta, styles.ctaPrimary].join(' ')} href={productUrl('/login')}>
               Open the workspace
             </a>

@@ -5,6 +5,7 @@ import { expect, it } from 'vitest';
 import { isMarketingHost, PRODUCT_ORIGIN, productUrl } from '@/lib/hosts';
 
 import { MarketingSite } from './MarketingSite';
+import { PRODUCT_TABS } from './tabs';
 
 function renderSite(path = '/') {
   return render(
@@ -74,6 +75,28 @@ it('keeps the signed-in product off the public host entirely', () => {
   renderSite('/literature');
   // An unknown path on the marketing host is the homepage, not a sign-in redirect loop.
   expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+});
+
+it('gives every destination in the product its own section, screenshot and anchor', () => {
+  renderSite();
+  expect(PRODUCT_TABS).toHaveLength(9);
+  for (const tab of PRODUCT_TABS) {
+    expect(screen.getByRole('heading', { name: tab.title })).toBeInTheDocument();
+    // The anchor the index links to has to be the section itself, not a missing id.
+    const section = document.getElementById(tab.id);
+    expect(section).not.toBeNull();
+    expect(within(section as HTMLElement).getByAltText(tab.alt)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: tab.name }).getAttribute('href')).toBe(`#${tab.id}`);
+  }
+});
+
+it('plays a recording of the product rather than describing one', () => {
+  renderSite();
+  const film = document.querySelector('video');
+  expect(film?.getAttribute('src')).toBe('/demo/askgrey-literature.mp4');
+  // Silent and captionless, so it is decoration: the page must still read without it.
+  expect(film?.muted || film?.hasAttribute('muted')).toBe(true);
+  expect(film?.getAttribute('aria-label')).toBeTruthy();
 });
 
 it('treats only the marketing hostname as the marketing site', () => {

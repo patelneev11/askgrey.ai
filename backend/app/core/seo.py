@@ -13,9 +13,26 @@ from app.core.config import get_settings
 
 CACHE = "public, max-age=3600"
 
-# Only the public marketing routes. Product routes are deliberately absent: they need a session,
-# so listing them would advertise an app surface that answers nothing useful to a crawler.
-MARKETING_PATHS = ("/", "/security", "/terms")
+# Only the public marketing routes, including the page each product tab has of its own. The
+# signed-in app's routes are deliberately absent: they need a session, so listing them would
+# advertise a surface that answers nothing useful to a crawler.
+PRODUCT_TABS = (
+    "literature",
+    "screening",
+    "protocol",
+    "regulatory",
+    "grants",
+    "assistant",
+    "workspace",
+    "audit",
+    "settings",
+)
+MARKETING_PATHS = (
+    "/",
+    *(f"/product/{tab}" for tab in PRODUCT_TABS),
+    "/security",
+    "/terms",
+)
 
 
 def _is_marketing(request: Request) -> bool:

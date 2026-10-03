@@ -8,15 +8,35 @@ import screeningShot from './screens/screening.webp';
 import settingsShot from './screens/settings.webp';
 import workspaceShot from './screens/workspace.webp';
 
+export type TabGroup = 'Research' | 'Platform';
+
 export interface ProductTab {
   id: string;
   name: string;
+  group: TabGroup;
   /** The one-line claim the screenshot below it has to support. */
   title: string;
+  /** Short enough to be a meta description on the tab's own page. */
+  summary: string;
   body: string;
   points: string[];
   shot: string;
   alt: string;
+}
+
+/** The navigation subdivisions: the five tabs that do research, then the four that run it. */
+export const TAB_GROUPS: { name: TabGroup; blurb: string }[] = [
+  { name: 'Research', blurb: 'The work itself — evidence in, cited output out.' },
+  { name: 'Platform', blurb: 'What the work runs on: one assistant, one team, one trail.' },
+];
+
+/** The marketing route that belongs to a tab. */
+export function tabPath(tab: Pick<ProductTab, 'id'>): string {
+  return `/product/${tab.id}`;
+}
+
+export function tabsInGroup(group: TabGroup): ProductTab[] {
+  return PRODUCT_TABS.filter((tab) => tab.group === group);
 }
 
 /**
@@ -29,6 +49,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'literature',
     name: 'Literature',
+    group: 'Research',
+    summary:
+      'Extract the values you name from papers you upload or find on PubMed, each cell linked to the page it was read from.',
     title: 'A table of extracted values, each one opening the sentence it came from.',
     body: 'Say what you need pulled out — sample size, dosing regimen, endpoint — and upload the papers or point at PubMed. The columns are built from your goal, not from a fixed schema, and no cell is filled in from the model\u2019s memory.',
     points: [
@@ -42,6 +65,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'screening',
     name: 'Screening',
+    group: 'Research',
+    summary:
+      'Profile a compound from SMILES: descriptors, rule-set checks and ADMET estimates, led by a digest of what needs reviewing.',
     title: 'The compound opens with what needs reviewing, not with what is fine.',
     body: 'Paste SMILES and get deterministic descriptors, rule-set checks and QSAR-based ADMET estimates. The profile leads with a review digest: fired liabilities first, then borderline calls, then rule violations, then the properties we cannot ground at all.',
     points: [
@@ -55,6 +81,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'protocol',
     name: 'Protocol',
+    group: 'Research',
+    summary:
+      'Draft a protocol with materials, controls, master-mix arithmetic and version history, exportable as a notebook bundle.',
     title: 'A first-draft protocol with materials, controls and the arithmetic done.',
     body: 'Describe the experiment and get a structured draft: materials, step-by-step method, controls to include, and a master-mix calculator that shows its working. Drafts are versioned, so you can see what changed between runs.',
     points: [
@@ -68,6 +97,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'regulatory',
     name: 'Regulatory',
+    group: 'Research',
+    summary:
+      'Draft preclinical narratives and IND sections whose every number is checked back against the study record you entered.',
     title: 'Every number in the draft is checked back against your study table.',
     body: 'Enter the study record and get a preclinical narrative or IND module section. Each number in the prose is matched by exact decimal comparison against the record you submitted — no language model is involved in that check — and anything the record does not cover is listed as a stated gap.',
     points: [
@@ -81,6 +113,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'grants',
     name: 'Grants',
+    group: 'Research',
+    summary:
+      'Search live grants.gov and SBIR opportunities, check eligibility, build an SF-424 budget and run a mock review board.',
     title: 'Funding you are actually eligible for, with the budget already shaped.',
     body: 'Search live grants.gov and SBIR opportunities by topic, agency and focus, then check eligibility against federal rules you can edit, build an SF-424 (R&R) budget from R&D costs, and run a mock review-board critique before you submit.',
     points: [
@@ -94,6 +129,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'assistant',
     name: 'Assistant',
+    group: 'Platform',
+    summary:
+      'One chat across every tab, limited to sixteen typed read-only tools, with off-topic and dangerous requests refused before any model call.',
     title: 'A chat that can only reach the sixteen read-only tools it is allowed.',
     body: 'Ask across every tab in one place. The assistant shows what it is doing as it works, takes a follow-up question while it is still answering, and reads a PDF you attach by reference — the bytes never leave for the model provider.',
     points: [
@@ -107,6 +145,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'workspace',
     name: 'Workspace',
+    group: 'Platform',
+    summary:
+      'Share saved literature, protocols and drafts through workspaces with seats, server-enforced roles and single-use invitations.',
     title: 'Shared work with seats, roles and single-use invitations.',
     body: 'Saved literature, protocols, screens and drafts belong to a workspace rather than to one laptop. Invite colleagues, give them a role, and keep private work private — a member only reads what the workspace holds.',
     points: [
@@ -120,6 +161,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'audit',
     name: 'Audit',
+    group: 'Platform',
+    summary:
+      'An append-only trail of documents stored, model calls made, tools invoked, exports produced and requests refused.',
     title: 'An append-only record of what was asked, called, read and refused.',
     body: 'Every document stored, model call made, tool invoked, invitation sent and export produced is written to a trail you can read and filter — including the outcomes you would rather not advertise, like refusals and failures.',
     points: [
@@ -133,6 +177,9 @@ export const PRODUCT_TABS: ProductTab[] = [
   {
     id: 'settings',
     name: 'Settings',
+    group: 'Platform',
+    summary:
+      'What this deployment is actually configured to do — sessions, model routing, spend caps, encryption and retention — read from the server.',
     title: 'What this deployment is configured to do, read from the running server.',
     body: 'Sign-in and session lifetimes, which model is called and what it may spend, how stored papers are encrypted and how long anything is kept — reported from the server itself rather than from a page of hard-coded reassurance.',
     points: [

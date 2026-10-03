@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 
 import { isMarketingHost, PRODUCT_ORIGIN, productUrl } from '@/lib/hosts';
 
 import { MarketingSite } from './MarketingSite';
-import { PRODUCT_TABS } from './tabs';
+import { PRODUCT_TABS, tabPath } from './tabs';
 
 function renderSite(path = '/') {
   return render(
@@ -86,7 +87,10 @@ it('gives every destination in the product its own section, screenshot and ancho
     const section = document.getElementById(tab.id);
     expect(section).not.toBeNull();
     expect(within(section as HTMLElement).getByAltText(tab.alt)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: tab.name }).getAttribute('href')).toBe(`#${tab.id}`);
+    const index = document.getElementById('product') as HTMLElement;
+    expect(within(index).getByRole('link', { name: tab.name }).getAttribute('href')).toBe(
+      `#${tab.id}`,
+    );
   }
 });
 
@@ -99,6 +103,38 @@ it('plays a recording of the product rather than describing one', () => {
   expect(film?.getAttribute('aria-label')).toBeTruthy();
 });
 
+it('lists every tab under the nav, grouped, with its own page behind it', async () => {
+  renderSite();
+  const nav = within(screen.getByRole('navigation', { name: 'Site' }));
+  const control = nav.getByRole('button', { name: /product/i });
+  expect(control.getAttribute('aria-expanded')).toBe('false');
+  expect(nav.queryByText('Research')).toBeNull();
+
+  await userEvent.click(control);
+  expect(control.getAttribute('aria-expanded')).toBe('true');
+  // Grouped rather than one list of nine: research work, then what it runs on.
+  expect(nav.getByText('Research')).toBeInTheDocument();
+  expect(nav.getByText('Platform')).toBeInTheDocument();
+  for (const tab of PRODUCT_TABS) {
+    expect(nav.getByText(tab.name).closest('a')?.getAttribute('href')).toBe(tabPath(tab));
+  }
+});
+
+it('gives a tab page its own heading, screenshot and marked place in the rail', () => {
+  for (const tab of PRODUCT_TABS) {
+    const view = renderSite(tabPath(tab));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(tab.title);
+    expect(screen.getAllByAltText(tab.alt).length).toBeGreaterThan(0);
+    // The rail marks where the reader is, so a page reached from search still has a map.
+    const rail = screen.getByRole('navigation', { name: 'Product' });
+    expect(within(rail).getByRole('link', { current: 'page' }).textContent).toBe(tab.name);
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+      `https://askgrey.app${tabPath(tab)}`,
+    );
+    view.unmount();
+  }
+});
+
 it('treats only the marketing hostname as the marketing site', () => {
   expect(isMarketingHost({ hostname: 'askgrey.app', search: '' })).toBe(true);
   expect(isMarketingHost({ hostname: 'www.askgrey.app', search: '' })).toBe(true);
@@ -106,4 +142,32 @@ it('treats only the marketing hostname as the marketing site', () => {
   expect(isMarketingHost({ hostname: 'localhost', search: '' })).toBe(false);
   // A local preview of the public site, without owning the hostname.
   expect(isMarketingHost({ hostname: 'localhost', search: '?site=marketing' })).toBe(true);
+});
+
+it('opens the page a link leads to at its top, not where the last page was scrolled to', async () => {
+  const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  renderSite(tabPath(PRODUCT_TABS[0]));
+  scrollTo.mockClear();
+
+  // The card for the next tab sits at the foot of the page, so arriving mid-page is what a
+  // reader would actually see.
+  const next = PRODUCT_TABS[1];
+  const toNext = screen.getAllByRole('link', { name: next.name });
+  await userEvent.click(toNext[toNext.length - 1]);
+
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(next.title);
+  expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+  scrollTo.mockRestore();
+});
+
+it('brings the rail’s marked tab into view, since the strip scrolls sideways on a phone', () => {
+  const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+  // A tab far enough along the strip to be off a phone's right edge.
+  const tab = PRODUCT_TABS[PRODUCT_TABS.length - 2];
+  renderSite(tabPath(tab));
+
+  const rail = screen.getByRole('navigation', { name: 'Product' });
+  const active = within(rail).getByRole('link', { current: 'page' });
+  expect(scrollIntoView.mock.instances).toContain(active);
+  scrollIntoView.mockRestore();
 });

@@ -60,7 +60,8 @@ describe('the SMILES input flow', () => {
     // Values come from the response, not from anything hard-coded in the page.
     expect(screen.getAllByText('471.69 g/mol').length).toBeGreaterThan(0);
     expect(screen.getAllByText('C32H41NO2').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Lipinski's rule of five/)).toBeInTheDocument();
+    // Named twice once a rule set is violated: in the digest and on the rule-set card.
+    expect(screen.getAllByText(/Lipinski's rule of five/).length).toBeGreaterThan(0);
   });
 
   it('loads an example structure and profiles it in one click', async () => {
@@ -149,7 +150,9 @@ describe('caveats and provenance in the DOM', () => {
 
     expect(screen.getByText('Plasma protein binding')).toBeInTheDocument();
     expect(screen.getByText(/no fabricated value is shown here/i)).toBeInTheDocument();
-    expect(screen.getByText(/A validated QSAR trained on measured fu/)).toBeInTheDocument();
+    expect(screen.getAllByText(/A validated QSAR trained on measured fu/).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByText(/Binding affinity: unavailable/)).toBeInTheDocument();
   });
 });
@@ -203,6 +206,115 @@ describe('toxicity and liability visibility', () => {
 
     expect(screen.getByText(/it is not a safety assessment/i)).toBeInTheDocument();
     expect(screen.getByText('No flag from the screened list')).toBeInTheDocument();
+  });
+});
+
+describe('the review-first digest', () => {
+  it('leads the profile with everything that fired, outside a threshold or ungrounded', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first').closest('section');
+    expect(review).not.toBeNull();
+    const rows = within(review as HTMLElement).getAllByRole('listitem');
+    // 2 liability flags, 1 Lipinski violation, 2 ungrounded properties.
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toHaveTextContent(/hERG liability/);
+    expect(rows[2]).toHaveTextContent(/Lipinski's rule of five — 2 thresholds outside/);
+    expect(rows[2]).toHaveTextContent(/cLogP 6.19 \(limit <= 5\)/);
+    expect(rows[4]).toHaveTextContent(/Binding affinity — not available/);
+    expect(
+      within(review as HTMLElement).getByText(/3 items fired or sit outside a published threshold/),
+    ).toBeInTheDocument();
+  });
+
+  it('sits above the liability section and links each row to the evidence', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first');
+    const liabilities = screen.getByText('Toxicity & liability flags');
+    expect(review.compareDocumentPosition(liabilities)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const section = review.closest('section') as HTMLElement;
+    expect(within(section).getByRole('link', { name: /hERG liability/ })).toHaveAttribute(
+      'href',
+      '#screening-liabilities',
+    );
+    expect(within(section).getByRole('link', { name: /Lipinski/ })).toHaveAttribute(
+      'href',
+      '#screening-rules',
+    );
+    expect(within(section).getByRole('link', { name: /Binding affinity/ })).toHaveAttribute(
+      'href',
+      '#screening-identity',
+    );
+  });
+
+  it('orders the ADMET cards worst outcome first', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const admet = screen.getByText('ADMET prediction').closest('section') as HTMLElement;
+    const labels = within(admet)
+      .getAllByRole('heading', { level: 4 })
+      .map((heading) => heading.textContent);
+    expect(labels).toEqual(['hERG liability', 'Plasma protein binding', 'GI absorption']);
+  });
+
+  it('says a clean digest is not a safety assessment', async () => {
+    screeningDescriptors.mockResolvedValue(
+      descriptorProfile({
+        rule_sets: descriptorProfile().rule_sets.map((ruleSet) => ({
+          ...ruleSet,
+          compliant: true,
+          violations: 0,
+          checks: ruleSet.checks.map((check) => ({ ...check, passed: true })),
+        })),
+        unavailable: [],
+      }),
+    );
+    screeningAdmet.mockResolvedValue(
+      admetProfile({
+        estimates: [admetProfile().estimates[0]],
+        alerts: admetProfile().alerts.map((alert) => ({ ...alert, matched: false })),
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first').closest('section') as HTMLElement;
+    expect(within(review).queryAllByRole('listitem')).toHaveLength(0);
+    expect(within(review).getByText(/is not a\s+safety assessment/)).toBeInTheDocument();
+  });
+
+  it('folds the ungrounded properties away so the actionable rows stay on screen', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first').closest('section') as HTMLElement;
+    const folded = within(review).getByText(/2 properties this product will not estimate/);
+    const group = folded.closest('details') as HTMLDetailsElement;
+    expect(group.open).toBe(false);
+    // Only the three rows that need a decision are outside the fold.
+    const [actionable] = within(review).getAllByRole('list');
+    expect(within(actionable).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(group).getByRole('link', { name: /Binding affinity/ })).toBeInTheDocument();
+  });
+
+  it('says a profile is not a safety assessment even when something fired', async () => {
+    const user = userEvent.setup();
+    render(<ScreeningPage />);
+    await profile(user);
+
+    const review = screen.getByText('Review first').closest('section') as HTMLElement;
+    expect(within(review).getAllByRole('listitem').length).toBeGreaterThan(0);
+    expect(within(review).getByText(/is not a safety assessment/)).toBeInTheDocument();
   });
 });
 

@@ -4,8 +4,10 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AppShell } from '@/layouts/AppShell';
 import { AuthProvider } from '@/lib/auth';
 import { useAuth } from '@/lib/auth-context';
+import { isMarketingHost } from '@/lib/hosts';
 import { OnboardingProvider } from '@/lib/onboarding';
 import { WorkspaceProvider } from '@/lib/workspace';
+import { MarketingSite } from '@/marketing/MarketingSite';
 import { AuditPage } from '@/pages/AuditPage';
 import { ChatPage } from '@/pages/ChatPage';
 import { GrantsPage } from '@/pages/GrantsPage';
@@ -73,6 +75,17 @@ export function AppRoutes() {
 }
 
 export function App() {
+  // One bundle, two hostnames: the public site on the marketing host, the signed-in product on
+  // its own. The product's routes are never mounted on the public host, so there is no page
+  // there that could redirect a visitor into an auth guard.
+  if (isMarketingHost(window.location)) {
+    return (
+      <BrowserRouter>
+        <MarketingSite />
+      </BrowserRouter>
+    );
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>

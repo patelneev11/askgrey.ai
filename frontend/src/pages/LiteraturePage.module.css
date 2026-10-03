@@ -207,3 +207,40 @@
   font-size: var(--font-size-xs);
 }
 
+
+
+/* ---- phone layout ---- */
+
+@media (max-width: 820px) {
+  .composer {
+    padding: var(--space-3);
+  }
+
+  /* The goal and the source URL each get a full line, with the button under them. */
+  .goalRow,
+  .sourceRow {
+    flex-wrap: wrap;
+  }
+
+  .goalInput,
+  .urlInput {
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+
+  .goalRow > button,
+  .sourceRow > button,
+  .upload {
+    flex: 1 1 auto;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  .exports {
+    flex-wrap: wrap;
+  }
+
+  .sourceChip {
+    max-width: 100%;
+  }
+}

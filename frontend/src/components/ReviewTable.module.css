@@ -320,3 +320,31 @@
     animation: none;
   }
 }
+
+
+/* ---- phone layout ---- */
+
+/*
+ * An extraction table is columns of numbers: narrowing them to fit a phone makes them
+ * unreadable, so the paper column stays pinned and the rest scroll sideways under a thumb.
+ */
+@media (max-width: 820px) {
+  .paperHeader,
+  .paperCell {
+    width: 150px;
+    min-width: 150px;
+  }
+
+  .table th,
+  .table td {
+    padding: var(--space-2);
+  }
+
+  .scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .legend {
+    font-size: var(--font-size-2xs);
+  }
+}

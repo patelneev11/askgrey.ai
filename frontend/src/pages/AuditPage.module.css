@@ -118,3 +118,19 @@
   color: var(--color-text-tertiary);
   font-size: var(--font-size-2xs);
 }
+
+
+/* ---- phone layout ---- */
+
+@media (max-width: 820px) {
+  /* The outcome column moves under the description instead of stealing width from it. */
+  .event {
+    grid-template-columns: 68px 3px minmax(0, 1fr);
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .hash {
+    grid-column: 3;
+  }
+}

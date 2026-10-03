@@ -52,3 +52,6 @@ class SSOConfig(BaseModel):
     enabled: bool
     issuer: str
     authorize_url: str | None = None
+    # Whether "continue with Google" is configured in this deployment. The sign-in screen hides
+    # the button entirely when it is not, rather than offering a route that cannot complete.
+    google_enabled: bool = False

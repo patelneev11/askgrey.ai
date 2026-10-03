@@ -2,12 +2,28 @@
 <html lang="en" data-theme="obsidian">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0c0c0e" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>askgrey.ai — research intelligence</title>
+    <!-- Baseline tags, so a crawler that does not run scripts still has a title, a description
+         and a card to show. The marketing pages replace them per route once React mounts. -->
+    <title>askgrey — evidence-backed biomedical research workspace</title>
+    <meta
+      name="description"
+      content="askgrey searches the literature, screens compounds, drafts protocols and IND sections, and finds grants — with every claim linked to the paper and page it came from."
+    />
+    <meta property="og:site_name" content="askgrey" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="askgrey — evidence-backed biomedical research workspace" />
+    <meta
+      property="og:description"
+      content="Literature, screening, protocols, regulatory drafting and grants in one workspace, with citations on every claim."
+    />
+    <meta property="og:url" content="https://askgrey.app/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://askgrey.app/" />
   </head>
   <body>
     <div id="root"></div>

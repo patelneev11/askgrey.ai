@@ -15,7 +15,9 @@ export type IconName =
   | 'audit'
   | 'settings'
   | 'chevronLeft'
-  | 'chevronRight';
+  | 'chevronRight'
+  | 'menu'
+  | 'close';
 
 type IconProps = SVGProps<SVGSVGElement> & { name: IconName; size?: number };
 
@@ -94,6 +96,8 @@ const PATHS: Record<IconName, JSX.Element> = {
   ),
   chevronLeft: <path d="m14 6-6 6 6 6" />,
   chevronRight: <path d="m10 6 6 6-6 6" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  close: <path d="m6 6 12 12M18 6 6 18" />,
 };
 
 export function Icon({ name, size = 16, ...rest }: IconProps) {

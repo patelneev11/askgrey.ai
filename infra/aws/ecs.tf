@@ -18,7 +18,11 @@ locals {
   task_environment = [
     { name = "ENVIRONMENT", value = "production" },
     { name = "PORT", value = "8000" },
-    { name = "PUBLIC_APP_URL", value = "https://${var.hostname}" },
+    # The product's own address: where a sign-in redirect lands and what an OAuth callback
+    # returns to. Never the marketing host, which has no session.
+    { name = "PUBLIC_APP_URL", value = "https://${local.product_host}" },
+    { name = "MARKETING_HOST", value = var.hostname },
+    { name = "GOOGLE_REDIRECT_URL", value = "https://${local.product_host}/api/auth/google/callback" },
     # Empty is correct: the API serves the SPA, so every request is same-origin.
     { name = "CORS_ORIGINS", value = "" },
     { name = "FRONTEND_DIST_DIR", value = "/app/frontend-dist" },
@@ -40,6 +44,9 @@ locals {
     { name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn },
     { name = "ANTHROPIC_API_KEY", valueFrom = aws_secretsmanager_secret.anthropic_api_key.arn },
     { name = "USPTO_ODP_API_KEY", valueFrom = aws_secretsmanager_secret.uspto_api_key.arn },
+    # Unset until the OAuth client exists: the sign-in screen then simply does not offer Google.
+    { name = "GOOGLE_CLIENT_ID", valueFrom = aws_secretsmanager_secret.google_client_id.arn },
+    { name = "GOOGLE_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.google_client_secret.arn },
   ]
 }
 

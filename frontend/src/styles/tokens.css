@@ -13,6 +13,7 @@
   --color-surface-raised: #171b21; /* cards, popovers, table headers */
   --color-surface-overlay: #1d222a; /* modals, menus, hover fills */
   --color-surface-inset: #0b0e12; /* wells, code blocks, inputs */
+  --color-surface-scrim: rgb(0 0 0 / 55%); /* dims the workspace behind an open drawer */
 
   /* ---- Text ---- */
   --color-text-primary: #ffffff; /* stark white primary text */
@@ -105,6 +106,9 @@
   --duration-fast: 140ms;
   --duration-normal: 220ms;
   --easing-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  /* Long enough for a section of the public site to settle as it scrolls into view. */
+  --duration-slow: 420ms;
+  --easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
 
   /* ---- Layout ---- */
   --layout-sidebar-width: 232px;
@@ -126,5 +130,6 @@
     --duration-instant: 0ms;
     --duration-fast: 0ms;
     --duration-normal: 0ms;
+    --duration-slow: 0ms;
   }
 }

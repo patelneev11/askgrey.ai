@@ -1,6 +1,11 @@
 output "hostname" {
-  description = "Where the app will answer once DNS points at the load balancer."
+  description = "Where the public site will answer once DNS points at the load balancer."
   value       = "https://${var.hostname}"
+}
+
+output "product_url" {
+  description = "Where the signed-in product answers. Register it as the Google redirect URI's host."
+  value       = "https://${local.product_host}"
 }
 
 output "load_balancer_dns_name" {
@@ -41,8 +46,10 @@ output "database_endpoint" {
 output "secrets_to_fill_in" {
   description = "Created empty on purpose: paste the values, then redeploy."
   value = {
-    anthropic_api_key = aws_secretsmanager_secret.anthropic_api_key.name
-    uspto_odp_api_key = aws_secretsmanager_secret.uspto_api_key.name
+    anthropic_api_key    = aws_secretsmanager_secret.anthropic_api_key.name
+    uspto_odp_api_key    = aws_secretsmanager_secret.uspto_api_key.name
+    google_client_id     = aws_secretsmanager_secret.google_client_id.name
+    google_client_secret = aws_secretsmanager_secret.google_client_secret.name
   }
 }
 

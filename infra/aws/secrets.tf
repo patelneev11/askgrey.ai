@@ -65,3 +65,34 @@ resource "aws_secretsmanager_secret_version" "uspto_api_key" {
     ignore_changes = [secret_string]
   }
 }
+
+# The Google OAuth client, also set by hand once it exists in the Google Cloud console. Left
+# at the placeholder, the app treats Google as unconfigured and the sign-in screen offers only
+# email and password, rather than a button that cannot complete the exchange.
+resource "aws_secretsmanager_secret" "google_client_id" {
+  name        = "${local.name}/google-client-id"
+  description = "Set by hand. OAuth 2.0 client ID for Continue with Google."
+}
+
+resource "aws_secretsmanager_secret_version" "google_client_id" {
+  secret_id     = aws_secretsmanager_secret.google_client_id.id
+  secret_string = "unset"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+resource "aws_secretsmanager_secret" "google_client_secret" {
+  name        = "${local.name}/google-client-secret"
+  description = "Set by hand. OAuth 2.0 client secret; only the server ever reads it."
+}
+
+resource "aws_secretsmanager_secret_version" "google_client_secret" {
+  secret_id     = aws_secretsmanager_secret.google_client_secret.id
+  secret_string = "unset"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}

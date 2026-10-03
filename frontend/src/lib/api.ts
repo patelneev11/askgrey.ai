@@ -147,6 +147,8 @@ export interface SSOConfig {
   enabled: boolean;
   issuer: string;
   authorize_url: string | null;
+  /** Whether this deployment has Google sign-in configured server-side. */
+  google_enabled: boolean;
 }
 
 /* ---- Regulatory tab ----

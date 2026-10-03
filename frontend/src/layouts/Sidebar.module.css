@@ -15,6 +15,38 @@
   width: var(--layout-sidebar-width-collapsed);
 }
 
+/*
+ * Phone layout: the rail leaves the flow and slides over the page. `visibility: hidden` while
+ * closed is what keeps its links out of the tab order — a translated-away element is still
+ * focusable, and a researcher tabbing through a form would otherwise land inside it.
+ */
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  /* Above the scrim that dismisses it. */
+  z-index: calc(var(--z-overlay) + 1);
+  width: min(80vw, var(--layout-sidebar-width));
+  padding-top: max(var(--space-3), env(safe-area-inset-top));
+  padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
+  transform: translateX(-100%);
+  visibility: hidden;
+  box-shadow: var(--shadow-overlay);
+  transition:
+    transform var(--duration-normal) var(--easing-standard),
+    visibility var(--duration-normal) var(--easing-standard);
+}
+
+.drawerOpen {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.toggleHidden {
+  display: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -54,6 +86,7 @@
   align-items: center;
   gap: var(--space-3);
   height: 32px;
+  touch-action: manipulation;
   padding: 0 var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
@@ -98,6 +131,12 @@
 .collapsed .linkLabel,
 .collapsed .brandName {
   display: none;
+}
+
+/* Thumb-sized rows once the rail is a drawer rather than a pointer target. */
+.drawer .link {
+  height: 44px;
+  font-size: var(--font-size-md);
 }
 
 .toggle {

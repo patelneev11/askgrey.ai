@@ -30,6 +30,7 @@ from app.core.crypto import DocumentKeyUnavailableError
 from app.core.errors import init_error_tracking
 from app.core.headers import SecurityHeadersMiddleware
 from app.core.logging import RequestLoggingMiddleware, configure_logging
+from app.core.seo import mount_seo
 from app.core.spa import mount_spa
 from app.db.dev_schema import migrate_development_schema
 from app.db.session import engine
@@ -157,6 +158,9 @@ def health() -> dict[str, str]:
     they had reached, which is free reconnaissance for no operational benefit."""
     return {"status": "ok"}
 
+
+# Before the SPA, whose catch-all would otherwise answer these two with index.html.
+mount_seo(app)
 
 # Last, so the catch-all route it registers can never shadow an API path.
 if settings.serves_frontend:

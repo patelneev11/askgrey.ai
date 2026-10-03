@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
+import { useIsCompact } from '@/lib/useMediaQuery';
+
 import styles from './DualPaneWorkspace.module.css';
 
 const MIN_RATIO = 0.2;
@@ -39,6 +41,8 @@ export function DualPaneWorkspace({
     return clampRatio(Number.isNaN(parsed) ? defaultRatio : parsed);
   });
   const [dragging, setDragging] = useState(false);
+  const compact = useIsCompact();
+  const [shown, setShown] = useState<'left' | 'right'>('left');
 
   useEffect(() => {
     if (storageKey) {
@@ -91,6 +95,43 @@ export function DualPaneWorkspace({
       setRatio(clampRatio(defaultRatio));
     }
   };
+
+  if (compact) {
+    /*
+     * Two 320px-minimum panes cannot sit side by side on a phone, so they become one pane at a
+     * time behind a switch. Both stay mounted — `hidden` keeps the one you are not reading out
+     * of the tab order without unmounting it, so a half-typed query survives the switch.
+     */
+    return (
+      <div className={styles.stack}>
+        <div className={styles.switcher} role="tablist" aria-label="Workspace panes">
+          {(['left', 'right'] as const).map((side) => (
+            <button
+              key={side}
+              type="button"
+              role="tab"
+              aria-selected={shown === side}
+              className={[styles.switch, shown === side ? styles.switchActive : ''].join(' ')}
+              onClick={() => setShown(side)}
+            >
+              {side === 'left' ? leftLabel : rightLabel}
+            </button>
+          ))}
+        </div>
+        <div className={styles.stackPane} role="tabpanel" aria-label={leftLabel} hidden={shown !== 'left'}>
+          {left}
+        </div>
+        <div
+          className={styles.stackPane}
+          role="tabpanel"
+          aria-label={rightLabel}
+          hidden={shown !== 'right'}
+        >
+          {right}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.workspace} ref={containerRef}>

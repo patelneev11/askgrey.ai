@@ -42,11 +42,25 @@ class Settings(BaseSettings):
     # process serves the SPA as well as the API; empty when Vite serves the frontend.
     frontend_dist_dir: str = ""
 
+    # The public marketing hostname. The same image serves the marketing site and the product on
+    # two hostnames, and this is the one that may be crawled and listed in a sitemap; everything
+    # else answers "Disallow: /". Must match VITE_MARKETING_HOST in the frontend build.
+    marketing_host: str = "askgrey.app"
+
     # SSO / OIDC. Populated per corporate tenant; left empty in development.
     oidc_issuer: str = ""
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
     oidc_redirect_url: str = "http://localhost:5173/auth/callback"
+
+    # "Continue with Google". Separate from the tenant OIDC settings above: a tenant is
+    # configured per customer, Google once for the deployment. The secret comes from the
+    # environment (Secrets Manager in deployment) and never reaches the browser.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Must match the authorized redirect URI registered in the Google Cloud console exactly.
+    google_redirect_url: str = "http://localhost:8000/api/auth/google/callback"
+    google_timeout_seconds: float = 15.0
 
     # NCBI Entrez. An API key raises the rate limit from 3 to 10 requests/second.
     ncbi_api_key: str = ""
@@ -363,6 +377,23 @@ class Settings(BaseSettings):
     @property
     def sso_enabled(self) -> bool:
         return bool(self.oidc_issuer and self.oidc_client_id)
+
+    @property
+    def google_sso_enabled(self) -> bool:
+        """
+        Both halves are needed: the id alone cannot complete the code exchange.
+
+        `unset` is the value the infrastructure writes into a Secrets Manager placeholder it
+        cannot know yet, so it counts as absent rather than as a client that would fail at the
+        token exchange with the button already on the screen.
+        """
+        placeholder = "unset"
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_client_id != placeholder
+            and self.google_client_secret != placeholder
+        )
 
 
 @lru_cache

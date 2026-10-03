@@ -31,6 +31,8 @@ data "aws_iam_policy_document" "execution_secrets" {
       aws_secretsmanager_secret.database_url.arn,
       aws_secretsmanager_secret.anthropic_api_key.arn,
       aws_secretsmanager_secret.uspto_api_key.arn,
+      aws_secretsmanager_secret.google_client_id.arn,
+      aws_secretsmanager_secret.google_client_secret.arn,
     ]
   }
 }

@@ -9,6 +9,9 @@ import styles from './Sidebar.module.css';
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** On a phone the rail is an off-canvas drawer instead of a column of the layout. */
+  drawer?: boolean;
+  drawerOpen?: boolean;
 }
 
 function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
@@ -26,12 +29,19 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
   );
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, drawer = false, drawerOpen = false }: SidebarProps) {
   return (
     <nav
-      className={[styles.sidebar, collapsed ? styles.collapsed : ''].join(' ')}
+      className={[
+        styles.sidebar,
+        collapsed ? styles.collapsed : '',
+        drawer ? styles.drawer : '',
+        drawer && drawerOpen ? styles.drawerOpen : '',
+      ].join(' ')}
       aria-label="Primary"
+      aria-hidden={drawer && !drawerOpen}
       data-collapsed={collapsed}
+      data-drawer-open={drawer ? drawerOpen : undefined}
     >
       <div className={styles.brand}>
         <BrandMark className={styles.brandMark} aria-hidden="true" role="presentation" />
@@ -54,7 +64,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       <button
         type="button"
-        className={styles.toggle}
+        className={[styles.toggle, drawer ? styles.toggleHidden : ''].join(' ')}
         onClick={onToggle}
         aria-expanded={!collapsed}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

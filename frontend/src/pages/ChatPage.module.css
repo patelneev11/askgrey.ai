@@ -616,3 +616,84 @@
   padding: var(--space-2);
   line-height: var(--line-height-normal);
 }
+
+/* ---- phone layout ---- */
+
+/*
+ * The 280px conversation rail cannot sit beside the transcript on a phone, so it becomes a
+ * short scrollable strip above it: threads stay one tap away, and the transcript keeps the
+ * full width. The limits and capability notes move below the strip, where they are reference
+ * material rather than the first thing in the way.
+ */
+@media (max-width: 820px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .threads {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-subtle);
+    padding: var(--space-3);
+    gap: var(--space-3);
+    max-height: 40vh;
+  }
+
+  .threadList {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: var(--space-2);
+    padding-bottom: var(--space-1);
+    scroll-snap-type: x proximity;
+  }
+
+  .threadList li {
+    flex: 0 0 auto;
+    max-width: 70vw;
+    scroll-snap-align: start;
+  }
+
+  .thread {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    min-height: 44px;
+  }
+
+  /* Scope, spend limits and the tool list stay readable — they are what the assistant will
+     and will not do — but they scroll inside the strip rather than pushing the transcript off. */
+  .limitsFigures {
+    gap: var(--space-3);
+  }
+
+  .conversation {
+    padding: var(--space-3) var(--space-3) var(--space-2);
+  }
+
+  .head h1 {
+    font-size: var(--font-size-lg);
+  }
+
+  .composer {
+    padding: var(--space-2);
+  }
+
+  /* 16px keeps iOS Safari from zooming the page in when the textarea takes focus. */
+  .input {
+    font-size: 16px;
+    min-height: 72px;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .actions > * {
+    flex: 1 1 auto;
+    min-height: 40px;
+  }
+
+  .picker {
+    max-width: calc(100vw - 2 * var(--space-4));
+  }
+}

@@ -394,3 +394,22 @@
   letter-spacing: var(--letter-spacing-wide);
   text-transform: uppercase;
 }
+
+
+/* ---- phone layout ---- */
+
+@media (max-width: 820px) {
+  .filters,
+  .form,
+  .opportunities {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lineRow {
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  }
+
+  .opportunity {
+    padding: var(--space-4);
+  }
+}

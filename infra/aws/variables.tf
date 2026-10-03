@@ -11,7 +11,7 @@ variable "region" {
 }
 
 variable "hostname" {
-  description = "The one public hostname the app is served on, e.g. askgrey.app."
+  description = "The public marketing hostname, e.g. askgrey.app. Serves the public site only."
   type        = string
 
   validation {
@@ -20,11 +20,27 @@ variable "hostname" {
   }
 }
 
+variable "product_hostname" {
+  description = <<-EOT
+    The hostname the signed-in product is served on, e.g. lab.askgrey.app. Both names reach the
+    same container, which decides what to serve from the Host header; only this one issues
+    session cookies and is the OAuth callback's address. Empty serves the product on `hostname`
+    as well, which is what a deployment without a separate marketing site wants.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.product_hostname == "" || can(regex("^[a-z0-9.-]+\\.[a-z]{2,}$", var.product_hostname))
+    error_message = "product_hostname must be a bare domain name, without a scheme or path."
+  }
+}
+
 variable "redirect_hostnames" {
   description = <<-EOT
-    Names that must keep working but are not the app's address, e.g. the old app.askgrey.app.
-    They go on the certificate and 301 to `hostname`, so a link sent before the move still
-    lands and there is only ever one origin issuing cookies.
+    Names that must keep working but are not an address of their own, e.g. the old
+    app.askgrey.app. They go on the certificate and 301 to the product host, so a link sent
+    before the move still lands and only one name ever issues cookies.
   EOT
   type        = list(string)
   default     = []

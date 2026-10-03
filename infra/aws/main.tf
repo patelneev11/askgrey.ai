@@ -25,4 +25,9 @@ locals {
   # The tasks' subnets: private only when a NAT gateway pays for their egress.
   task_subnet_ids      = var.private_tasks_with_nat ? aws_subnet.private[*].id : aws_subnet.public[*].id
   documents_prefix_arn = "arn:aws:s3:::${var.documents_bucket}/documents/*"
+  # The signed-in address. Falls back to the marketing name for a deployment that serves both
+  # from one host.
+  product_host = var.product_hostname == "" ? var.hostname : var.product_hostname
+  # Every name the certificate must cover and DNS must answer for.
+  served_hostnames = distinct(concat([var.hostname], [local.product_host], var.redirect_hostnames))
 }

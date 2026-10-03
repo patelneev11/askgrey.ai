@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '@/lib/api';
+import { isMarketingHost, productUrl } from '@/lib/hosts';
 
 import styles from './TermsPage.module.css';
 
@@ -164,9 +165,17 @@ export function TermsPage() {
           </p>
         </section>
 
-        <Link className={styles.back} to="/login">
-          Back to sign in
-        </Link>
+        {/* The terms are also published on the marketing host, where sign-in is a different
+            hostname rather than a route of this bundle. */}
+        {isMarketingHost(window.location) ? (
+          <a className={styles.back} href={productUrl('/login')}>
+            Back to sign in
+          </a>
+        ) : (
+          <Link className={styles.back} to="/login">
+            Back to sign in
+          </Link>
+        )}
       </article>
     </div>
   );

@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { expect, it } from 'vitest';
 
 import { isMarketingHost, PRODUCT_ORIGIN, productUrl } from '@/lib/hosts';
 
 import { MarketingSite } from './MarketingSite';
-import { PRODUCT_TABS } from './tabs';
+import { PRODUCT_TABS, tabPath } from './tabs';
 
 function renderSite(path = '/') {
   return render(
@@ -86,7 +87,10 @@ it('gives every destination in the product its own section, screenshot and ancho
     const section = document.getElementById(tab.id);
     expect(section).not.toBeNull();
     expect(within(section as HTMLElement).getByAltText(tab.alt)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: tab.name }).getAttribute('href')).toBe(`#${tab.id}`);
+    const index = document.getElementById('product') as HTMLElement;
+    expect(within(index).getByRole('link', { name: tab.name }).getAttribute('href')).toBe(
+      `#${tab.id}`,
+    );
   }
 });
 
@@ -97,6 +101,38 @@ it('plays a recording of the product rather than describing one', () => {
   // Silent and captionless, so it is decoration: the page must still read without it.
   expect(film?.muted || film?.hasAttribute('muted')).toBe(true);
   expect(film?.getAttribute('aria-label')).toBeTruthy();
+});
+
+it('lists every tab under the nav, grouped, with its own page behind it', async () => {
+  renderSite();
+  const nav = within(screen.getByRole('navigation', { name: 'Site' }));
+  const control = nav.getByRole('button', { name: /product/i });
+  expect(control.getAttribute('aria-expanded')).toBe('false');
+  expect(nav.queryByText('Research')).toBeNull();
+
+  await userEvent.click(control);
+  expect(control.getAttribute('aria-expanded')).toBe('true');
+  // Grouped rather than one list of nine: research work, then what it runs on.
+  expect(nav.getByText('Research')).toBeInTheDocument();
+  expect(nav.getByText('Platform')).toBeInTheDocument();
+  for (const tab of PRODUCT_TABS) {
+    expect(nav.getByText(tab.name).closest('a')?.getAttribute('href')).toBe(tabPath(tab));
+  }
+});
+
+it('gives a tab page its own heading, screenshot and marked place in the rail', () => {
+  for (const tab of PRODUCT_TABS) {
+    const view = renderSite(tabPath(tab));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(tab.title);
+    expect(screen.getAllByAltText(tab.alt).length).toBeGreaterThan(0);
+    // The rail marks where the reader is, so a page reached from search still has a map.
+    const rail = screen.getByRole('navigation', { name: 'Product' });
+    expect(within(rail).getByRole('link', { current: 'page' }).textContent).toBe(tab.name);
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+      `https://askgrey.app${tabPath(tab)}`,
+    );
+    view.unmount();
+  }
 });
 
 it('treats only the marketing hostname as the marketing site', () => {

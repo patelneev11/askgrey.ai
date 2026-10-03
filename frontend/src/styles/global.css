@@ -1,3 +1,5 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 @import './tokens.css';
 
 *,
@@ -19,7 +21,8 @@ body {
   font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
-  letter-spacing: var(--letter-spacing-tight);
+  letter-spacing: var(--letter-spacing-normal);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -32,6 +35,7 @@ h4 {
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-dense);
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 code,

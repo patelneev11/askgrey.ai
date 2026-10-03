@@ -425,8 +425,13 @@
 }
 
 .highlightShot:hover {
-  transform: translateY(-4px);
   border-color: var(--color-border-default);
+}
+
+/* A shot can only be hovered once it has revealed, and the revealed rule above also sets
+   transform — so the lift has to be written at that selector's specificity to be reachable. */
+.highlight[data-revealed='true'] .highlightShot:hover {
+  transform: translateY(-4px);
 }
 
 .highlightShot img {
@@ -909,7 +914,7 @@
   .cta:hover,
   .tabIndexLink:hover,
   .source:hover,
-  .highlightShot:hover,
+  .highlight[data-revealed='true'] .highlightShot:hover,
   .previewFrame:hover .previewShot {
     transform: none;
   }

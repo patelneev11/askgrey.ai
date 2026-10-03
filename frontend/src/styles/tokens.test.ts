@@ -40,6 +40,27 @@ describe('design tokens', () => {
     }
   });
 
+  it('references only tokens that exist', () => {
+    const defined = new Set(readFileSync(TOKENS_FILE, 'utf8').match(/--[a-z0-9-]+(?=\s*:)/g) ?? []);
+    // A var() naming a token that was never defined makes the whole declaration invalid, so
+    // the property silently falls back — a `padding: var(--space-7) …` becomes no padding at
+    // all rather than a visible error.
+    const offenders = collectCssFiles(SRC_DIR).flatMap((file) =>
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .flatMap((line, index) =>
+          (line.match(/var\((--[a-z0-9-]+)/g) ?? [])
+            .map((match) => match.slice(4))
+            .filter((token) => !defined.has(token))
+            .map((token) => `${path.relative(SRC_DIR, file)}:${index + 1} ${token}`),
+        ),
+    );
+
+    expect(offenders, 'these var() references name a token tokens.css does not define').toEqual(
+      [],
+    );
+  });
+
   it('keeps literal colours out of component stylesheets', () => {
     const offenders = collectCssFiles(SRC_DIR)
       .filter((file) => file !== TOKENS_FILE)

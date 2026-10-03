@@ -4,7 +4,6 @@ import { productUrl } from '@/lib/hosts';
 
 import styles from './marketing.module.css';
 import { Section } from './Section';
-import { useSeo } from './useSeo';
 
 const SOURCES = [
   'PubMed',
@@ -118,13 +117,6 @@ const LIMITS = [
 ];
 
 export function HomePage() {
-  useSeo({
-    title: 'AskGrey — evidence-backed biomedical research workspace',
-    description:
-      'AskGrey searches the literature, screens compounds, drafts protocols and IND sections, and finds grants — with every claim linked to the paper and page it came from.',
-    path: '/',
-  });
-
   return (
     <>
       <header className={styles.hero}>

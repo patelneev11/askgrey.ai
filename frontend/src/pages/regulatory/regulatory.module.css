@@ -344,8 +344,14 @@
   }
 
   .tabs {
+    min-width: 0;
     overflow-x: auto;
+    scrollbar-width: none;
     padding-bottom: var(--space-1);
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .tabs > * {

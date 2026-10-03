@@ -46,3 +46,28 @@
   min-height: 0;
   overflow: auto;
 }
+
+/* ---- phone layout ---- */
+
+@media (max-width: 820px) {
+  .header {
+    gap: var(--space-3);
+  }
+
+  /*
+   * A header row narrower than its contents is clipped by the panel, so both halves have to be
+   * allowed to give way: the title to an ellipsis, the actions to whatever scrolling the control
+   * inside them provides. Without `min-width: 0` a flex item keeps its content width and the
+   * last action is simply unreachable.
+   */
+  .title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .actions {
+    min-width: 0;
+  }
+}

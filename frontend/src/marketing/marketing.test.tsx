@@ -30,6 +30,23 @@ it('canonicalises every marketing page onto the marketing host', () => {
   );
 });
 
+it('gives each public page its own title, description and canonical', () => {
+  const seen = new Map<string, string>();
+  for (const path of ['/', '/security', '/terms']) {
+    const view = renderSite(path);
+    const description = document.head
+      .querySelector('meta[name="description"]')
+      ?.getAttribute('content');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+      `https://askgrey.app${path}`,
+    );
+    expect(description).toBeTruthy();
+    seen.set(path, `${document.title}|${description ?? ''}`);
+    view.unmount();
+  }
+  expect(new Set(seen.values()).size).toBe(seen.size);
+});
+
 it('sends every call to action at the sign-in page rather than a public path', () => {
   renderSite();
   const links = screen.getAllByRole('link', { name: /sign in|open the workspace|get started/i });

@@ -18,9 +18,23 @@ function TabRail({ current }: { current: ProductTab }) {
   const activeRef = useRef<HTMLAnchorElement>(null);
 
   // The strip scrolls sideways on a phone, so a later tab's mark would sit off its right edge
-  // and the page would look like it belonged to Literature.
+  // and the page would look like it belonged to Literature. On a cold load the pills are still
+  // being laid out when the effect runs, and on a rotation they move, so it waits for the fonts
+  // and follows the width.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    let cancelled = false;
+    const show = () => {
+      if (!cancelled) activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    };
+    show();
+    const frame = requestAnimationFrame(show);
+    void document.fonts?.ready.then(show);
+    window.addEventListener('resize', show);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', show);
+    };
   }, [current.id]);
 
   return (

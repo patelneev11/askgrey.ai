@@ -23,7 +23,8 @@ from app.services.chat.models import (
     ToolSummary,
     encode_event,
 )
-from app.services.chat.scope import build_gate, get_policy
+from app.services.chat.scope import ScopeGate, build_gate, get_policy
+from app.services.chat.scope_abuse import classifier_available
 from app.services.chat.spend import TurnBudget
 from app.services.chat.spend import status as spend_status
 from app.services.chat.store import (
@@ -78,6 +79,9 @@ def get_chat_agent() -> ChatAgent:
 
 
 Agent = Annotated[ChatAgent, Depends(get_chat_agent)]
+# A dependency rather than a direct call so a test can decide whether this turn's gate has a
+# classifier, instead of that depending on whether a key happens to be in the environment.
+Gate = Annotated[ScopeGate, Depends(build_gate)]
 
 
 @router.get("/limits", response_model=AssistantLimits)
@@ -195,6 +199,7 @@ async def send_message(
     user: LlmUser,
     ip: ClientIp,
     agent: Agent,
+    gate: Gate,
     workspace: ActiveWorkspace,
 ) -> StreamingResponse:
     """
@@ -239,7 +244,9 @@ async def send_message(
         )
         return _declined(db, conversation_id=conversation_id, user_id=user_id, text=over_cap)
 
-    verdict = await build_gate().check(request.message)
+    verdict = await gate.check(
+        request.message, classifier_available=classifier_available(db, user_id)
+    )
     if not verdict.allowed:
         audit.record(
             "chat.out_of_scope",

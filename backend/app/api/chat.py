@@ -1,18 +1,33 @@
 import logging
 from collections.abc import AsyncIterator
+from functools import partial
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Path,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import ActiveWorkspace, ClientIp, DbSession, LlmUser, ThrottledUser
+from app.api.uploads import busy, parse_slots, read_pdf_upload
 from app.core import audit
 from app.core.config import get_settings
+from app.services import literature as literature_service
 from app.services.chat.agent import ChatAgent
 from app.services.chat.models import (
     MAX_MESSAGE_CHARS,
     AssistantLimits,
+    ChatAttachment,
     ConversationDetail,
     ConversationSummary,
     CreateConversationRequest,
@@ -28,6 +43,8 @@ from app.services.chat.scope_abuse import classifier_available
 from app.services.chat.spend import TurnBudget
 from app.services.chat.spend import status as spend_status
 from app.services.chat.store import (
+    MAX_DOCUMENT_CHARS,
+    MAX_DOCUMENT_PAGES,
     ChatRequestError,
     append_message,
     create_conversation,
@@ -41,6 +58,9 @@ from app.services.chat.store import (
 )
 from app.services.chat.tools import TOOLS, ToolContext, ToolRegistry
 from app.services.llm.tool_use import AnthropicToolClient
+from app.services.pdf_extraction import PdfExtractionError, parse_pdf
+from app.services.pdf_extraction.extractor import render_blocks
+from app.services.pdf_extraction.parsing import document_id_for
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -159,6 +179,66 @@ def remove_conversation(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post("/attachments", response_model=ChatAttachment)
+async def attach_file(
+    request: Request,
+    db: DbSession,
+    user: ThrottledUser,
+    ip: ClientIp,
+    workspace: ActiveWorkspace,
+    file: Annotated[UploadFile, File()],
+) -> ChatAttachment:
+    """Take a PDF for the assistant to read, on the terms the Literature tab already stores one.
+
+    The file is parsed here and kept encrypted under this account, and what comes back is an
+    id the researcher attaches to a message like any other reference — so the model only ever
+    sees a file the caller chose, re-read server-side, and nothing from the machine it runs on.
+    The bytes are untrusted: size, type and parse concurrency are capped before pdfplumber sees
+    them, and the text enters a turn as quoted material rather than as instruction.
+    """
+    data = await read_pdf_upload(request, file)
+    filename = (file.filename or "attachment.pdf")[:500]
+    if parse_slots.locked():
+        raise busy()
+    async with parse_slots:
+        try:
+            parsed = await run_in_threadpool(
+                partial(parse_pdf, data, filename=filename, max_pages=MAX_DOCUMENT_PAGES)
+            )
+        except PdfExtractionError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    text = render_blocks(parsed, max_chars=MAX_DOCUMENT_CHARS)
+    document_id = document_id_for(data)
+    literature_service.store_document(
+        db,
+        str(user.id),
+        document_id=document_id,
+        content=data,
+        filename=filename,
+        workspace=workspace,
+    )
+    audit.record(
+        "chat.file_attached",
+        actor=str(user.id),
+        client_ip=ip,
+        detail={
+            # Fingerprinted by the audit layer: a filename carries the subject of the research.
+            "filename": filename,
+            "document_id": document_id,
+            "bytes": len(data),
+            "pages": parsed.page_count,
+        },
+        db=db,
+        user_id=str(user.id),
+    )
+    return ChatAttachment(
+        document_id=document_id,
+        filename=filename,
+        pages=parsed.page_count,
+        characters=len(text),
+    )
+
+
 def _declined(
     db: Session,
     *,
@@ -211,8 +291,16 @@ async def send_message(
     """
     user_id = str(user.id)
     try:
-        reference_context = resolve_references(
-            db, user_id=user_id, references=request.references, workspace=workspace
+        # Off the event loop: an attached paper is re-parsed here, and pdfplumber would
+        # otherwise block every other request in the process while it reads.
+        reference_context = await run_in_threadpool(
+            partial(
+                resolve_references,
+                db,
+                user_id=user_id,
+                references=request.references,
+                workspace=workspace,
+            )
         )
     except ChatRequestError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc

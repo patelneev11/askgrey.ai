@@ -29,6 +29,7 @@ from app.services.chat.tools import ToolRegistry
 from app.services.llm.tool_use import AnthropicToolClient
 from tests.chat.test_scope import classifier as scope_classifier
 from tests.chat.test_tool_use import sse
+from tests.pdf_extraction.conftest import fixture_bytes
 from tests.test_library_api import descriptors, save
 
 OWNER = {"email": "chatter@askgrey.ai", "password": "obsidian-workspace-1"}
@@ -581,3 +582,87 @@ def test_chat_requires_authentication(client: TestClient) -> None:
         client.post("/api/chat/conversations/anything/messages", json={"message": "x"}).status_code
         == 401
     )
+
+
+def attach(client: TestClient, headers: dict[str, str], name: str = "trial.pdf") -> dict[str, Any]:
+    response = client.post(
+        "/api/chat/attachments",
+        files={"file": (name, fixture_bytes("trial_ziprasidone"), "application/pdf")},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    attachment: dict[str, Any] = response.json()
+    return attachment
+
+
+def test_an_attached_pdf_comes_back_as_an_id_the_turn_can_reference(
+    client: TestClient, script: list[bytes]
+) -> None:
+    headers = auth(client, OWNER)
+    conversation_id = new_conversation(client, headers)
+    script.append(text_turn("The trial reports QTc change."))
+
+    attachment = attach(client, headers)
+    assert attachment["pages"] > 0
+    assert attachment["characters"] > 0
+
+    events = send(
+        client,
+        headers,
+        conversation_id,
+        "What does the attached trial report?",
+        references=[{"kind": "document", "id": attachment["document_id"]}],
+    )
+
+    assert events[-1]["type"] == "done"
+
+
+def test_a_file_belonging_to_another_account_is_not_readable_by_reference(
+    client: TestClient, script: list[bytes]
+) -> None:
+    headers = auth(client, OWNER)
+    intruder = auth(client, OTHER)
+    attachment = attach(client, headers)
+    conversation_id = new_conversation(client, intruder)
+
+    response = client.post(
+        f"/api/chat/conversations/{conversation_id}/messages",
+        json={
+            "message": "Read this",
+            "references": [{"kind": "document", "id": attachment["document_id"]}],
+        },
+        headers=intruder,
+    )
+
+    assert response.status_code == 422
+    assert "no attached file" in response.text
+
+
+def test_an_upload_that_is_not_a_pdf_is_refused_before_it_is_parsed(client: TestClient) -> None:
+    headers = auth(client, OWNER)
+
+    response = client.post(
+        "/api/chat/attachments",
+        files={"file": ("notes.pdf", b"not a pdf at all", "application/pdf")},
+        headers=headers,
+    )
+
+    assert response.status_code == 415
+
+
+def test_attaching_a_file_is_audited_without_saying_what_it_is_called(client: TestClient) -> None:
+    headers = auth(client, OWNER)
+
+    attach(client, headers, name="ziprasidone-qtc-trial.pdf")
+
+    feed = client.get("/api/audit/events", headers=headers).json()
+    event = next(item for item in feed["events"] if item["event"] == "chat.file_attached")
+    assert event["detail"]["pages"] > 0
+    assert "ziprasidone" not in json.dumps(feed)
+
+
+def test_attachments_require_authentication(client: TestClient) -> None:
+    response = client.post(
+        "/api/chat/attachments", files={"file": ("x.pdf", b"%PDF-1.7", "application/pdf")}
+    )
+    assert response.status_code == 401

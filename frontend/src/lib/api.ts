@@ -1,5 +1,6 @@
 import type {
   AssistantLimits,
+  ChatAttachment,
   ChatReference,
   ChatToolSummary,
   ConversationDetail,
@@ -1144,6 +1145,24 @@ export const api = {
       throw new ApiError('The assistant sent no reply stream.', 502);
     }
     return response.body;
+  },
+
+  /**
+   * Hand the assistant a PDF to read, stored encrypted under this account.
+   *
+   * What comes back is an id the composer attaches to a message like any other reference: the
+   * file's text is re-read server-side when the turn runs, so the browser never ships it to the
+   * model itself.
+   */
+  attachChatFile: (file: File, token?: string) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<ChatAttachment>(
+      '/chat/attachments',
+      { method: 'POST', body },
+      token,
+      EXTRACTION_TIMEOUT_MS,
+    );
   },
 
   reviewSection: (review: ReviewBoardRequest, token?: string) =>

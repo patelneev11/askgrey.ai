@@ -11,12 +11,29 @@ variable "region" {
 }
 
 variable "hostname" {
-  description = "Public hostname the certificate is issued for, e.g. app.askgrey.ai."
+  description = "The one public hostname the app is served on, e.g. askgrey.app."
   type        = string
 
   validation {
     condition     = can(regex("^[a-z0-9.-]+\\.[a-z]{2,}$", var.hostname))
     error_message = "hostname must be a bare domain name, without a scheme or path."
+  }
+}
+
+variable "redirect_hostnames" {
+  description = <<-EOT
+    Names that must keep working but are not the app's address, e.g. the old app.askgrey.app.
+    They go on the certificate and 301 to `hostname`, so a link sent before the move still
+    lands and there is only ever one origin issuing cookies.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for name in var.redirect_hostnames : can(regex("^[a-z0-9.-]+\\.[a-z]{2,}$", name))
+    ])
+    error_message = "each redirect hostname must be a bare domain name, without a scheme or path."
   }
 }
 

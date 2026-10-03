@@ -6,7 +6,7 @@
  * an answer checkable, so they are first-class here rather than debug output.
  */
 
-export type ChatReferenceKind = 'saved_work' | 'protocol' | 'literature_workspace';
+export type ChatReferenceKind = 'saved_work' | 'protocol' | 'literature_workspace' | 'document';
 
 export interface ChatReference {
   kind: ChatReferenceKind;
@@ -88,7 +88,15 @@ export function spendLabel(spent: number, cap: number): string {
 
 export type ChatEvent =
   | { type: 'text'; text: string }
-  | { type: 'tool_start'; id: string; tool: string; title: string; arguments: Record<string, unknown> }
+  | {
+      type: 'tool_start';
+      id: string;
+      tool: string;
+      title: string;
+      /** The same work said as it happens, for the status line. Older servers omit it. */
+      working?: string;
+      arguments: Record<string, unknown>;
+    }
   | { type: 'tool_result'; step: ChatToolStep }
   | { type: 'notice'; message: string }
   | { type: 'done'; conversation_id: string; message_id: string }
@@ -144,4 +152,28 @@ export const REFERENCE_LABELS: Record<ChatReferenceKind, string> = {
   saved_work: 'Saved work',
   protocol: 'Protocol',
   literature_workspace: 'Literature workspace',
+  document: 'Attached file',
 };
+
+/** A PDF attached to the thread, as `POST /api/chat/attachments` reports it back. */
+export interface ChatAttachment {
+  document_id: string;
+  filename: string;
+  pages: number;
+  characters: number;
+}
+
+/** What the status line says while a turn is open and no tool has started yet. */
+export const THINKING_LABEL = 'Thinking';
+export const WRITING_LABEL = 'Writing the answer';
+
+/**
+ * What the assistant is doing right now, in the researcher's words.
+ *
+ * A running tool names itself; before the first one there is only the model reading the question,
+ * and once prose is arriving the work is the answer itself.
+ */
+export function statusLabel(running: { working?: string; title: string } | null, text: string): string {
+  if (running) return running.working?.trim() || running.title;
+  return text.trim() ? WRITING_LABEL : THINKING_LABEL;
+}

@@ -18,7 +18,8 @@ which deliberately cannot create anything):
 ```
 terraform init
 terraform apply \
-  -var hostname=app.askgrey.ai \
+  -var hostname=askgrey.app \
+  -var 'redirect_hostnames=["app.askgrey.app"]' \
   -var documents_kms_key_arn=arn:aws:kms:us-east-2:<account>:key/<key-id>
 ```
 
@@ -26,7 +27,8 @@ What the variables decide, in order of how much they matter:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `hostname` | — | the name the certificate is issued for and the app is reached at |
+| `hostname` | — | the one name the app is reached at; cookies, CORS and the certificate all belong to it |
+| `redirect_hostnames` | empty | older names kept alive on the same certificate, answered with a 301 to `hostname` so no second origin exists |
 | `documents_kms_key_arn` | — | the existing `askgrey-documents` key; must be in `region` |
 | `route53_zone_id` | empty | given a zone, Terraform writes the validation record and the alias itself and the apply waits for the certificate. Empty, it prints the record for your registrar and the HTTPS listener needs a second apply once it validates |
 | `private_tasks_with_nat` | `false` | `false` puts the task in a public subnet with a public address and inbound from the load balancer's security group only. `true` moves it to a private subnet behind a NAT gateway — no public address anywhere, for about **$33/month** more |

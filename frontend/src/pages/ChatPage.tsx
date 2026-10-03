@@ -13,7 +13,7 @@ import type {
   ChatToolSummary,
   ConversationSummary,
 } from '@/lib/chat';
-import { readEventStream, spendLabel } from '@/lib/chat';
+import { readEventStream, spendLabel, statusLabel } from '@/lib/chat';
 import type { SavedArtifactSummary } from '@/lib/library';
 import type { SavedProtocolSummary } from '@/lib/protocols';
 import { getAccessToken } from '@/lib/session';
@@ -45,11 +45,37 @@ interface Turn extends ChatMessage {
 interface Pending {
   text: string;
   steps: ChatToolStep[];
-  running: { id: string; title: string } | null;
+  running: { id: string; title: string; working?: string } | null;
   notices: string[];
 }
 
 const EMPTY_PENDING: Pending = { text: '', steps: [], running: null, notices: [] };
+
+/**
+ * A question typed while the previous one was still being answered.
+ *
+ * It carries the references that were attached when it was written, not the ones attached when it
+ * eventually runs: the researcher chose them for this question.
+ */
+interface Queued {
+  id: string;
+  text: string;
+  mentions: Mention[];
+}
+
+/** The assistant working, said once and animated rather than repeated per line. */
+function Thinking({ label }: { label: string }) {
+  return (
+    <p className={styles.thinking} role="status" aria-live="polite">
+      <span className={styles.thinkingDots} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span className={styles.thinkingLabel}>{label}</span>
+    </p>
+  );
+}
 
 function errorFrom(cause: unknown): string {
   if (cause instanceof ApiError) {
@@ -158,10 +184,16 @@ export function ChatPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
+  const [queue, setQueue] = useState<Queued[]>([]);
+  const [attaching, setAttaching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [limits, setLimits] = useState<AssistantLimits | null>(null);
   const transcript = useRef<HTMLDivElement>(null);
+  const filePicker = useRef<HTMLInputElement>(null);
+  // Set before `pending` has rendered, so the drain effect cannot start a second turn in the gap
+  // between a turn beginning and React flushing it.
+  const running = useRef(false);
 
   const token = getAccessToken();
 
@@ -207,7 +239,7 @@ export function ChatPage() {
   useEffect(() => {
     const pane = transcript.current;
     if (pane) pane.scrollTop = pane.scrollHeight;
-  }, [messages, pending]);
+  }, [messages, pending, queue]);
 
   const openThread = useCallback(
     (id: string) => {
@@ -227,6 +259,7 @@ export function ChatPage() {
     setConversationId(null);
     setMessages([]);
     setChosen([]);
+    setQueue([]);
     setError(null);
   }, []);
 
@@ -242,83 +275,136 @@ export function ChatPage() {
   const exhausted = Boolean(limits?.exhausted_cap);
   const tooLong = Boolean(limits && draft.length > limits.max_message_chars);
 
-  const ask = useCallback(async () => {
+  const runTurn = useCallback(
+    async (question: string, references: ChatReference[]) => {
+      running.current = true;
+      setError(null);
+      setPending(EMPTY_PENDING);
+      const asked: Turn = {
+        id: `local-${Date.now()}`,
+        role: 'user',
+        text: question,
+        steps: [],
+        notices: [],
+        created_at: new Date().toISOString(),
+      };
+      setMessages((current) => [...current, asked]);
+
+      try {
+        let threadId = conversationId;
+        if (!threadId) {
+          const created = await api.startConversation(token);
+          threadId = created.id;
+          setConversationId(created.id);
+        }
+        const body = await api.sendChatMessage(threadId, question, references, token);
+        // The turn is accumulated here, not read back out of React state, so nothing streamed is
+        // lost to a render that has not flushed yet.
+        const turn: Pending = { ...EMPTY_PENDING };
+        await readEventStream(body, (event: ChatEvent) => {
+          switch (event.type) {
+            case 'text':
+              turn.text += event.text;
+              break;
+            case 'tool_start':
+              turn.running = { id: event.id, title: event.title, working: event.working };
+              break;
+            case 'tool_result':
+              turn.running = null;
+              turn.steps = [...turn.steps, event.step];
+              break;
+            case 'notice':
+              turn.notices = [...turn.notices, event.message];
+              break;
+            case 'error':
+              setError(event.message);
+              break;
+            default:
+              break;
+          }
+          setPending({ ...turn });
+        });
+        setPending(null);
+        if (turn.text || turn.steps.length || turn.notices.length) {
+          setMessages((current) => [
+            ...current,
+            {
+              id: `answer-${Date.now()}`,
+              role: 'assistant',
+              text: turn.text,
+              steps: turn.steps,
+              notices: turn.notices,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        }
+        api.listConversations(token).then(setConversations).catch(() => undefined);
+        // Re-read after the turn, so the strip shows what this answer cost rather than the figure
+        // it started with.
+        api.chatLimits(token).then(setLimits).catch(() => undefined);
+      } catch (cause: unknown) {
+        setError(errorFrom(cause));
+        setPending(null);
+      } finally {
+        running.current = false;
+      }
+    },
+    [conversationId, token],
+  );
+
+  const ask = useCallback(() => {
     const question = draft.trim();
     // Guarded here rather than only on the button: Enter sends too, and a rejected request
     // would surface the server's own validation string in the thread.
-    if (!question || pending || exhausted || tooLong) return;
-    setError(null);
+    if (!question || exhausted || tooLong) return;
+    const mentions = chosen;
     setDraft('');
-    setPending(EMPTY_PENDING);
-    const asked: Turn = {
-      id: `local-${Date.now()}`,
-      role: 'user',
-      text: question,
-      steps: [],
-      notices: [],
-      created_at: new Date().toISOString(),
-    };
-    setMessages((current) => [...current, asked]);
-
-    try {
-      let threadId = conversationId;
-      if (!threadId) {
-        const created = await api.startConversation(token);
-        threadId = created.id;
-        setConversationId(created.id);
-      }
-      const references = chosen.map((mention) => mention.reference);
-      const body = await api.sendChatMessage(threadId, question, references, token);
-      // The turn is accumulated here, not read back out of React state, so nothing streamed is
-      // lost to a render that has not flushed yet.
-      const turn: Pending = { ...EMPTY_PENDING };
-      await readEventStream(body, (event: ChatEvent) => {
-        switch (event.type) {
-          case 'text':
-            turn.text += event.text;
-            break;
-          case 'tool_start':
-            turn.running = { id: event.id, title: event.title };
-            break;
-          case 'tool_result':
-            turn.running = null;
-            turn.steps = [...turn.steps, event.step];
-            break;
-          case 'notice':
-            turn.notices = [...turn.notices, event.message];
-            break;
-          case 'error':
-            setError(event.message);
-            break;
-          default:
-            break;
-        }
-        setPending({ ...turn });
-      });
-      setPending(null);
-      if (turn.text || turn.steps.length || turn.notices.length) {
-        setMessages((current) => [
-          ...current,
-          {
-            id: `answer-${Date.now()}`,
-            role: 'assistant',
-            text: turn.text,
-            steps: turn.steps,
-            notices: turn.notices,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-      }
-      setChosen([]);
-      api.listConversations(token).then(setConversations).catch(() => undefined);
-      // Re-read after the turn, so the strip shows what this answer cost rather than the figure
-      // it started with.
-      api.chatLimits(token).then(setLimits).catch(() => undefined);
-    } catch (cause: unknown) {
-      setError(errorFrom(cause));
-      setPending(null);
+    setChosen([]);
+    // A question asked while the previous answer is still being written waits its turn instead of
+    // being refused: the thinking is the assistant's to finish, not the researcher's to wait for.
+    if (pending || running.current) {
+      setQueue((current) => [...current, { id: `queued-${Date.now()}`, text: question, mentions }]);
+      return;
     }
-  }, [chosen, conversationId, draft, exhausted, pending, token, tooLong]);
+    void runTurn(question, mentions.map((mention) => mention.reference));
+  }, [chosen, draft, exhausted, pending, runTurn, tooLong]);
+
+  useEffect(() => {
+    if (pending || running.current || queue.length === 0) return;
+    const [next, ...rest] = queue;
+    setQueue(rest);
+    void runTurn(next.text, next.mentions.map((mention) => mention.reference));
+  }, [pending, queue, runTurn]);
+
+  const attach = useCallback(
+    async (file: File) => {
+      setAttaching(true);
+      setError(null);
+      try {
+        const attachment = await api.attachChatFile(file, token);
+        const mention: Mention = {
+          reference: { kind: 'document', id: attachment.document_id },
+          label: attachment.filename,
+          detail: `${attachment.pages} page${attachment.pages === 1 ? '' : 's'}`,
+        };
+        setMentions((current) =>
+          current.some((item) => item.reference.id === mention.reference.id)
+            ? current
+            : [...current, mention],
+        );
+        setChosen((current) =>
+          current.some((item) => item.reference.id === mention.reference.id)
+            ? current
+            : [...current, mention],
+        );
+      } catch (cause: unknown) {
+        setError(errorFrom(cause));
+      } finally {
+        setAttaching(false);
+      }
+    },
+    [token],
+  );
 
   const grouped = useMemo(() => {
     const byTab = new Map<string, ChatToolSummary[]>();
@@ -455,13 +541,7 @@ export function ChatPage() {
                   ))}
                 </div>
               )}
-              {pending.running && (
-                <p className={styles.running}>
-                  <StatusPill tone="running" pulse>
-                    {pending.running.title}
-                  </StatusPill>
-                </p>
-              )}
+              <Thinking label={statusLabel(pending.running, pending.text)} />
               <div className={styles.prose}>
                 {pending.text.split('\n').map((line, index) => (
                   <p key={index}>{line}</p>
@@ -474,6 +554,25 @@ export function ChatPage() {
               ))}
             </article>
           )}
+          {queue.length > 0 && (
+            <ul className={styles.queue} aria-label="Queued messages">
+              {queue.map((queued) => (
+                <li key={queued.id}>
+                  <span className={styles.queueText}>{queued.text}</span>
+                  <span className={styles.queueMeta}>queued</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove queued message ${queued.text}`}
+                    onClick={() =>
+                      setQueue((current) => current.filter((item) => item.id !== queued.id))
+                    }
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {error && (
             <p className={styles.error} role="alert">
               {error}
@@ -485,7 +584,7 @@ export function ChatPage() {
           className={styles.composer}
           onSubmit={(event) => {
             event.preventDefault();
-            void ask();
+            ask();
           }}
         >
           {chosen.length > 0 && (
@@ -544,7 +643,9 @@ export function ChatPage() {
             placeholder={
               exhausted
                 ? 'The assistant budget for this account is used up.'
-                : 'Ask about a compound, a paper, a protocol, a filing or a grant…'
+                : pending
+                  ? 'Type the next question — it is sent when this answer finishes…'
+                  : 'Ask about a compound, a paper, a protocol, a filing or a grant…'
             }
             value={draft}
             rows={3}
@@ -553,7 +654,7 @@ export function ChatPage() {
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
-                void ask();
+                ask();
               }
               if (event.key === '@') setPickerOpen(true);
             }}
@@ -573,11 +674,28 @@ export function ChatPage() {
             >
               Reference
             </Button>
+            <input
+              ref={filePicker}
+              className={styles.file}
+              type="file"
+              accept="application/pdf,.pdf"
+              aria-label="Attach a PDF"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // Cleared so re-picking the same file fires `change` again.
+                event.target.value = '';
+                if (file) void attach(file);
+              }}
+            />
             <Button
-              type="submit"
-              disabled={!draft.trim() || pending !== null || exhausted || tooLong}
+              variant="secondary"
+              disabled={attaching || exhausted}
+              onClick={() => filePicker.current?.click()}
             >
-              {pending ? 'Working…' : 'Ask'}
+              {attaching ? 'Reading…' : 'Attach PDF'}
+            </Button>
+            <Button type="submit" disabled={!draft.trim() || exhausted || tooLong}>
+              {pending ? 'Queue' : 'Ask'}
             </Button>
           </div>
         </form>

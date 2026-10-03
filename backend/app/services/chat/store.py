@@ -28,7 +28,9 @@ from app.services.chat.models import (
     ToolStep,
 )
 from app.services.library import LibraryRequestError, get_artifact
-from app.services.literature import get_workspace
+from app.services.literature import get_document, get_workspace
+from app.services.pdf_extraction import PdfExtractionError, parse_pdf
+from app.services.pdf_extraction.extractor import render_blocks
 from app.services.protocols import ProtocolRequestError
 from app.services.protocols.history import get_protocol
 from app.services.workspaces import Access
@@ -38,6 +40,10 @@ from app.services.workspaces import Access
 HISTORY_TURNS = 20
 MAX_HISTORY_CHARS = 6000
 MAX_REFERENCE_CHARS = 20000
+# How much of an attached PDF is replayed, and how far into it the parser reads. A paper is
+# larger than a turn can afford, so an attachment is the front of the document, not all of it.
+MAX_DOCUMENT_CHARS = 8000
+MAX_DOCUMENT_PAGES = 20
 # How many of the previous answer's cursors are restated. One search per answer is the norm.
 MAX_CURSORS = 4
 
@@ -232,6 +238,8 @@ def _reference_block(
         return (
             f"Saved {artifact.kind} — {artifact.title}:\n{_json(artifact.model_dump(mode='json'))}"
         )
+    if reference.kind is ReferenceKind.DOCUMENT:
+        return _document_block(db, user_id=user_id, document_id=reference.id, workspace=workspace)
     try:
         protocol = get_protocol(db, protocol_id=reference.id, user_id=user_id, workspace=workspace)
     except ProtocolRequestError as exc:
@@ -239,6 +247,35 @@ def _reference_block(
     return (
         f"Saved protocol — {protocol.protocol.title} (version {protocol.version}):\n"
         f"{_json(protocol.model_dump(mode='json'))}"
+    )
+
+
+def _document_block(
+    db: Session, *, user_id: str, document_id: str, workspace: Access | None
+) -> str:
+    """The text of an attached paper, re-read from the stored bytes under this caller's id.
+
+    Re-parsed per turn rather than kept as text: the bytes are encrypted at rest and the
+    extracted prose is not, so there is nothing to leak from a table of its own. The text is
+    the researcher's file talking, so it is labelled as quoted material and never as instruction.
+    """
+    document = get_document(db, user_id, document_id, workspace)
+    if document is None:
+        raise ChatRequestError("no attached file with that id")
+    try:
+        parsed = parse_pdf(
+            document.content,
+            filename=document.filename,
+            source_url=document.source_url,
+            max_pages=MAX_DOCUMENT_PAGES,
+        )
+    except PdfExtractionError as exc:
+        raise ChatRequestError(f"that file could not be read: {exc}") from exc
+    name = document.filename or document_id
+    text = render_blocks(parsed, max_chars=MAX_DOCUMENT_CHARS)
+    return (
+        f"Attached file — {name} ({parsed.page_count} pages, first "
+        f"{min(parsed.page_count, MAX_DOCUMENT_PAGES)} read):\n{text}"
     )
 
 

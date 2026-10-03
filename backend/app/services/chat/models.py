@@ -22,6 +22,7 @@ class ReferenceKind(str, Enum):
     SAVED_WORK = "saved_work"
     PROTOCOL = "protocol"
     LITERATURE_WORKSPACE = "literature_workspace"
+    DOCUMENT = "document"
 
 
 class ChatReference(BaseModel):
@@ -96,6 +97,20 @@ class SendMessageRequest(BaseModel):
     references: list[ChatReference] = Field(default_factory=list, max_length=MAX_REFERENCES)
 
 
+class ChatAttachment(BaseModel):
+    """A PDF the researcher attached to the thread, as the composer shows it back to them.
+
+    The id is the stored paper's id, so an attachment is the same object the Literature tab
+    holds: encrypted, retained for the same window, and readable only by the accounts that
+    could already read it.
+    """
+
+    document_id: str
+    filename: str
+    pages: int
+    characters: int
+
+
 class ToolSummary(BaseModel):
     """A tool as the tab lists it, so the UI can say what the chat is able to do."""
 
@@ -134,6 +149,8 @@ class ToolStartEvent(BaseModel):
     id: str
     tool: str
     title: str
+    #: What the tool is doing, phrased for the status line while the turn is still open.
+    working: str = ""
     arguments: dict[str, JsonValue] = Field(default_factory=dict)
 
 

@@ -60,7 +60,13 @@ function MarketingPage({
 
 function MarketingChrome({ children }: { children: React.ReactNode }) {
   return (
-    <div className={styles.site}>
+    <div className={styles.site} data-theme="paper">
+      <p className={styles.banner}>
+        Taking design partners in preclinical discovery.{' '}
+        <a className={styles.bannerLink} href={productUrl('/login')}>
+          Open the workspace
+        </a>
+      </p>
       <nav className={styles.nav} aria-label="Site">
         <Link to="/" className={styles.brand}>
           <BrandMark size={26} />
@@ -72,6 +78,9 @@ function MarketingChrome({ children }: { children: React.ReactNode }) {
           </a>
           <a className={styles.navLink} href="/#how-it-works">
             How it works
+          </a>
+          <a className={styles.navLink} href="/#trust">
+            Trust
           </a>
           <Link className={styles.navLink} to="/security">
             Security
@@ -87,10 +96,29 @@ function MarketingChrome({ children }: { children: React.ReactNode }) {
       {children}
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          <span>
-            © {YEAR} askgrey · {MARKETING_HOST}
-          </span>
-          <div className={styles.footerLinks}>
+          <div>
+            <Link to="/" className={styles.brand}>
+              <BrandMark size={26} />
+              askgrey
+            </Link>
+            <p className={styles.footerTagline}>
+              An evidence-backed research workspace for preclinical biotech and academic labs.
+            </p>
+          </div>
+          <div className={styles.footerColumn}>
+            <span className={styles.footerHeading}>Product</span>
+            <a className={styles.navLink} href="/#product">
+              What is inside
+            </a>
+            <a className={styles.navLink} href="/#how-it-works">
+              How it works
+            </a>
+            <a className={styles.navLink} href="/#limits">
+              What it does not do
+            </a>
+          </div>
+          <div className={styles.footerColumn}>
+            <span className={styles.footerHeading}>Trust</span>
             <Link className={styles.navLink} to="/security">
               Security
             </Link>
@@ -100,11 +128,17 @@ function MarketingChrome({ children }: { children: React.ReactNode }) {
             <a className={styles.navLink} href="/sitemap.xml">
               Sitemap
             </a>
+          </div>
+          <div className={styles.footerColumn}>
+            <span className={styles.footerHeading}>Workspace</span>
             <a className={styles.navLink} href={productUrl('/login')}>
               Sign in
             </a>
           </div>
         </div>
+        <p className={styles.footerLegal}>
+          © {YEAR} askgrey · {MARKETING_HOST}
+        </p>
       </footer>
     </div>
   );

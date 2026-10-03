@@ -4,6 +4,7 @@ import { productUrl } from '@/lib/hosts';
 
 import styles from './marketing.module.css';
 import { Section } from './Section';
+import { useReveal } from './useReveal';
 
 const SOURCES = [
   'PubMed',
@@ -13,6 +14,20 @@ const SOURCES = [
   'SBIR.gov',
   'USPTO',
   'your own PDFs',
+];
+
+/** Counts of what is built — no usage, customer or performance number appears on this page. */
+const FIGURES = [
+  { value: '9', label: 'tabs, each a job a preclinical team already has' },
+  {
+    value: '6',
+    label: 'public databases queried directly, plus the PDFs you upload',
+  },
+  {
+    value: '16',
+    label: 'typed, read-only tools the assistant may call — and nothing else',
+  },
+  { value: '0', label: 'model API keys for you to buy, rotate or expose' },
 ];
 
 const STEPS = [
@@ -116,38 +131,118 @@ const LIMITS = [
   },
 ];
 
+const PREVIEW_COLUMNS = ['Paper', 'Target', 'Model', 'Source'];
+const PREVIEW_ROWS = [0, 1, 2, 3];
+
+/**
+ * A drawing of the Literature extraction table in the product's own palette.
+ *
+ * It is deliberately not a screenshot and carries no values: a marketing page showing invented
+ * IC50s would be the exact failure the product exists to avoid. What it shows is the shape —
+ * a row per paper, a citation chip per cell.
+ */
+function InterfacePreview() {
+  return (
+    <figure className={styles.preview} data-theme="obsidian">
+      <div className={styles.previewFrame}>
+        <div className={styles.previewBar}>
+          <span className={styles.previewTabActive}>Literature</span>
+          <span className={styles.previewTab}>Screening</span>
+          <span className={styles.previewTab}>Protocol</span>
+          <span className={styles.previewTab}>Regulatory</span>
+          <span className={styles.previewTab}>Grants</span>
+        </div>
+        <div className={styles.previewBody}>
+          <p className={styles.previewQuestion}>
+            Which papers report selectivity for this target, and at what concentration?
+          </p>
+          <div className={styles.previewTable}>
+            <div className={[styles.previewRow, styles.previewHead].join(' ')}>
+              {PREVIEW_COLUMNS.map((column) => (
+                <span key={column}>{column}</span>
+              ))}
+            </div>
+            {PREVIEW_ROWS.map((row) => (
+              <div key={row} className={styles.previewRow}>
+                <span className={styles.previewLine} />
+                <span className={[styles.previewLine, styles.previewLineShort].join(' ')} />
+                <span className={[styles.previewLine, styles.previewLineShort].join(' ')} />
+                <span className={styles.previewChip}>p. {row + 2}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <figcaption className={styles.previewCaption}>
+        The extraction table, drawn rather than screenshotted — values stay in the product, where
+        each one opens the sentence it was read from.
+      </figcaption>
+    </figure>
+  );
+}
+
+function Figures() {
+  const ref = useReveal<HTMLElement>();
+
+  return (
+    <section className={styles.figures} data-theme="obsidian" ref={ref}>
+      <div className={styles.figuresInner}>
+        {FIGURES.map((figure) => (
+          <div key={figure.label} className={styles.figure}>
+            <span className={styles.figureValue}>{figure.value}</span>
+            <span className={styles.figureLabel}>{figure.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function HomePage() {
   return (
     <>
       <header className={styles.hero}>
-        <h1 className={styles.heroTitle}>
-          Biomedical answers you can <span className={styles.heroAccent}>check</span>.
-        </h1>
-        <p className={styles.heroLead}>
-          AskGrey is a research workspace for preclinical teams: it searches the literature,
-          screens compounds, drafts protocols and IND sections, and finds funding — and every
-          number it gives you links back to the paper and page it was read from. When the sources
-          cannot answer, it says so.
-        </p>
-        <div className={styles.heroActions}>
-          <a className={[styles.cta, styles.ctaPrimary].join(' ')} href={productUrl('/login')}>
-            Open the workspace
-          </a>
-          <a className={[styles.cta, styles.ctaSecondary].join(' ')} href="#how-it-works">
-            See how it works
-          </a>
+        <div className={styles.heroGrid}>
+          <h1 className={styles.heroTitle}>
+            Biomedical answers you can <span className={styles.heroAccent}>check</span>.
+          </h1>
+          <div>
+            <p className={styles.heroLead}>
+              AskGrey is a research workspace for preclinical teams: it searches the literature,
+              screens compounds, drafts protocols and IND sections, and finds funding — and every
+              number it gives you links back to the paper and page it was read from. When the
+              sources cannot answer, it says so.
+            </p>
+            <div className={styles.heroActions}>
+              <a className={[styles.cta, styles.ctaPrimary].join(' ')} href={productUrl('/login')}>
+                Open the workspace
+              </a>
+              <a className={[styles.cta, styles.ctaSecondary].join(' ')} href="#how-it-works">
+                See how it works
+              </a>
+            </div>
+            <p className={styles.heroNote}>
+              Built for preclinical biotech and academic labs. No model API key of your own
+              required.
+            </p>
+          </div>
         </div>
-        <ul className={styles.sources}>
-          {SOURCES.map((source) => (
-            <li key={source} className={styles.source}>
-              {source}
-            </li>
-          ))}
-        </ul>
-        <p className={styles.heroNote}>
-          Built for preclinical biotech and academic labs. No model API key of your own required.
-        </p>
       </header>
+
+      <InterfacePreview />
+
+      <div className={styles.sourcesBand}>
+        <div className={styles.sourcesInner}>
+          <p className={styles.sourcesLabel}>Reads from</p>
+          <ul className={styles.sources}>
+            {SOURCES.map((source) => (
+              <li key={source} className={styles.source}>
+                {source}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
 
       <main className={styles.main}>
         <Section
@@ -167,6 +262,8 @@ export function HomePage() {
           </ol>
         </Section>
 
+        <Figures />
+
         <Section
           id="product"
           eyebrow="What is inside"
@@ -177,7 +274,7 @@ export function HomePage() {
             {CAPABILITIES.map((capability) => (
               <li key={capability.title} className={styles.card}>
                 <span className={styles.cardIcon} aria-hidden="true">
-                  <Icon name={capability.icon} size={18} />
+                  <Icon name={capability.icon} size={20} />
                 </span>
                 <h3 className={styles.cardTitle}>{capability.title}</h3>
                 <p className={styles.cardBody}>{capability.body}</p>
@@ -220,13 +317,11 @@ export function HomePage() {
 
         <section className={styles.closing} id="start">
           <div className={styles.closingPanel}>
-            <div>
-              <h2 className={styles.sectionTitle}>Bring a question you are stuck on.</h2>
-              <p className={styles.sectionLead}>
-                Create an account and run it against the literature. We are taking design partners
-                in preclinical discovery.
-              </p>
-            </div>
+            <h2 className={styles.closingTitle}>Bring a question you are stuck on.</h2>
+            <p className={styles.closingLead}>
+              Create an account and run it against the literature. We are taking design partners in
+              preclinical discovery.
+            </p>
             <a className={[styles.cta, styles.ctaPrimary].join(' ')} href={productUrl('/login')}>
               Open the workspace
             </a>

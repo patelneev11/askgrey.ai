@@ -7,8 +7,56 @@ import { TermsPage } from '@/pages/TermsPage';
 import { HomePage } from './HomePage';
 import styles from './marketing.module.css';
 import { SecurityPage } from './SecurityPage';
+import { useSeo } from './useSeo';
 
 const YEAR = new Date().getFullYear();
+
+/**
+ * A public route and the metadata a crawler or a shared link sees for it.
+ *
+ * The metadata lives with the route rather than inside each page, because one of these pages is
+ * the product's own terms screen: left to set its own tags it would ship none, and a
+ * client-side visit would keep the previous route's title and canonical.
+ */
+const ROUTES = [
+  {
+    path: '/',
+    element: <HomePage />,
+    title: 'AskGrey — evidence-backed biomedical research workspace',
+    description:
+      'AskGrey searches the literature, screens compounds, drafts protocols and IND sections, and finds grants — with every claim linked to the paper and page it came from.',
+  },
+  {
+    path: '/security',
+    element: <SecurityPage />,
+    title: 'Security and data handling — AskGrey',
+    description:
+      'How AskGrey stores documents, what the model provider receives, what is written to the audit trail, and which security claims we do not make.',
+  },
+  {
+    // The accepted terms are public: a visitor can read them before there is an account.
+    path: '/terms',
+    element: <TermsPage />,
+    title: 'Terms of agreement — AskGrey',
+    description:
+      'What AskGrey does with your documents, what it does not claim about its scientific output, and the limits every account accepts.',
+  },
+];
+
+function MarketingPage({
+  title,
+  description,
+  path,
+  children,
+}: {
+  title: string;
+  description: string;
+  path: string;
+  children: React.ReactNode;
+}) {
+  useSeo({ title, description, path });
+  return <>{children}</>;
+}
 
 function MarketingChrome({ children }: { children: React.ReactNode }) {
   return (
@@ -72,10 +120,17 @@ export function MarketingSite() {
   return (
     <MarketingChrome>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/security" element={<SecurityPage />} />
-        {/* The accepted terms are public: a visitor can read them before there is an account. */}
-        <Route path="/terms" element={<TermsPage />} />
+        {ROUTES.map(({ path, element, title, description }) => (
+          <Route
+            key={path}
+            path={path}
+            element={
+              <MarketingPage title={title} description={description} path={path}>
+                {element}
+              </MarketingPage>
+            }
+          />
+        ))}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </MarketingChrome>

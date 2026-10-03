@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { productUrl } from '@/lib/hosts';
 
 import styles from './marketing.module.css';
-import { useSeo } from './useSeo';
 
 /**
  * How the product handles data, written for the person at a biotech who has to sign off on it.
@@ -12,13 +11,6 @@ import { useSeo } from './useSeo';
  * as gaps — an unverifiable security claim on a public page is worse than no page.
  */
 export function SecurityPage() {
-  useSeo({
-    title: 'Security and data handling — AskGrey',
-    description:
-      'How AskGrey stores documents, what the model provider receives, what is written to the audit trail, and which security claims we do not make.',
-    path: '/security',
-  });
-
   return (
     <article className={styles.prose}>
       <h1 className={styles.sectionTitle}>Security and data handling</h1>

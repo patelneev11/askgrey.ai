@@ -18,7 +18,9 @@
   /* ---- Text ---- */
   --color-text-primary: #ffffff; /* stark white primary text */
   --color-text-secondary: #a8b1bd;
-  --color-text-tertiary: #6b7684;
+  /* Dim, but still 4.5:1 against every surface above: this carries captions, eyebrows,
+     field labels and footer copy, all of it normal-sized text. */
+  --color-text-tertiary: #828d9c;
   --color-text-inverse: #07090c;
 
   /* ---- Slate gray borders ---- */

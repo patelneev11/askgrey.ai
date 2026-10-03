@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 
 import { isMarketingHost, PRODUCT_ORIGIN, productUrl } from '@/lib/hosts';
 
@@ -142,4 +142,32 @@ it('treats only the marketing hostname as the marketing site', () => {
   expect(isMarketingHost({ hostname: 'localhost', search: '' })).toBe(false);
   // A local preview of the public site, without owning the hostname.
   expect(isMarketingHost({ hostname: 'localhost', search: '?site=marketing' })).toBe(true);
+});
+
+it('opens the page a link leads to at its top, not where the last page was scrolled to', async () => {
+  const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  renderSite(tabPath(PRODUCT_TABS[0]));
+  scrollTo.mockClear();
+
+  // The card for the next tab sits at the foot of the page, so arriving mid-page is what a
+  // reader would actually see.
+  const next = PRODUCT_TABS[1];
+  const toNext = screen.getAllByRole('link', { name: next.name });
+  await userEvent.click(toNext[toNext.length - 1]);
+
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(next.title);
+  expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+  scrollTo.mockRestore();
+});
+
+it('brings the rail’s marked tab into view, since the strip scrolls sideways on a phone', () => {
+  const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {});
+  // A tab far enough along the strip to be off a phone's right edge.
+  const tab = PRODUCT_TABS[PRODUCT_TABS.length - 2];
+  renderSite(tabPath(tab));
+
+  const rail = screen.getByRole('navigation', { name: 'Product' });
+  const active = within(rail).getByRole('link', { current: 'page' });
+  expect(scrollIntoView.mock.instances).toContain(active);
+  scrollIntoView.mockRestore();
 });

@@ -52,6 +52,26 @@ const ROUTES = [
   },
 ];
 
+/**
+ * Puts a client-side navigation where the visitor expects it: the top of the new page, or the
+ * section a link's hash names. Without it a link at the foot of a tab page — which is where the
+ * next tab's card lives — opens the next page already scrolled past its own heading.
+ */
+function ScrollToDestination() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    const target = hash ? document.getElementById(hash.slice(1)) : null;
+    if (target) {
+      target.scrollIntoView();
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname, hash]);
+
+  return null;
+}
+
 function MarketingPage({
   title,
   description,
@@ -257,6 +277,7 @@ function MarketingChrome({ children }: { children: React.ReactNode }) {
 export function MarketingSite() {
   return (
     <MarketingChrome>
+      <ScrollToDestination />
       <Routes>
         {ROUTES.map(({ path, element, title, description }) => (
           <Route

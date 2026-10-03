@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 import { productUrl } from '@/lib/hosts';
@@ -14,6 +15,14 @@ import { useReveal } from './useReveal';
  * the homepage index, and this is the only place that says what else the product does.
  */
 function TabRail({ current }: { current: ProductTab }) {
+  const activeRef = useRef<HTMLAnchorElement>(null);
+
+  // The strip scrolls sideways on a phone, so a later tab's mark would sit off its right edge
+  // and the page would look like it belonged to Literature.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [current.id]);
+
   return (
     <nav className={styles.tabRail} aria-label="Product">
       {PRODUCT_TABS.map((tab) => {
@@ -21,6 +30,7 @@ function TabRail({ current }: { current: ProductTab }) {
         return (
           <Link
             key={tab.id}
+            ref={active ? activeRef : undefined}
             to={tabPath(tab)}
             className={[styles.tabRailLink, active ? styles.tabRailLinkActive : '']
               .filter(Boolean)

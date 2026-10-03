@@ -60,7 +60,7 @@ function MarketingPage({
 
 function MarketingChrome({ children }: { children: React.ReactNode }) {
   return (
-    <div className={styles.site} data-theme="paper">
+    <div className={styles.site}>
       <p className={styles.banner}>
         Taking design partners in preclinical discovery.{' '}
         <a className={styles.bannerLink} href={productUrl('/login')}>

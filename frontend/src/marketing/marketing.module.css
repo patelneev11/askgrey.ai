@@ -1,9 +1,9 @@
 /*
- * The public site: ink on paper, editorial type, hairlines instead of boxes.
+ * The public site: the product's obsidian palette, editorial type, hairlines instead of boxes.
  *
- * The product stays obsidian — the two places this page shows the product (the interface
- * illustration and the figures band) switch back to it with data-theme, so the visitor sees
- * the app's real palette before signing in.
+ * The page runs on the same tokens as the workspace, so the screenshots sit in the ground they
+ * were taken in rather than on a lighter page that makes every one of them a cut-out. Depth
+ * comes from the panel surfaces and hairlines, not from shadow, which is nearly invisible here.
  */
 
 .site {
@@ -20,8 +20,9 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  background: var(--color-text-primary);
-  color: var(--color-text-inverse);
+  background: var(--color-surface-panel);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   text-align: center;
 }
@@ -70,14 +71,38 @@
   text-decoration: none;
 }
 
+.navLink {
+  position: relative;
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+/* A rule that draws itself under the link rather than appearing under it. */
+.navLink::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: currentcolor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
 .navLink:hover {
   color: var(--color-text-primary);
+}
+
+.navLink:hover::after {
+  transform: scaleX(1);
 }
 
 /* Calls to action are links, not buttons — they cross to the product host — so they borrow the
    button shape rather than the Button component. */
 .cta {
   display: inline-flex;
+  will-change: transform;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
@@ -93,7 +118,16 @@
   transition:
     background var(--duration-fast) var(--easing-standard),
     border-color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard),
     color var(--duration-fast) var(--easing-standard);
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+}
+
+.cta:active {
+  transform: translateY(0);
 }
 
 .ctaPrimary {
@@ -137,19 +171,40 @@
   scroll-margin-top: 80px;
 }
 
+/* Reveals are short and shallow on purpose: the page is long, so motion that announces itself
+   would be read nine times over. Children stagger behind their section by one step each. */
 .section[data-reveal='pending'],
-.figures[data-reveal='pending'] {
+.figures[data-reveal='pending'],
+.preview[data-reveal='pending'],
+.film[data-reveal='pending'],
+.highlight[data-reveal='pending'] {
   opacity: 0;
-  transform: translateY(18px);
+  transform: translateY(12px);
 }
 
 .section[data-revealed='true'],
-.figures[data-revealed='true'] {
+.figures[data-revealed='true'],
+.preview[data-revealed='true'],
+.film[data-revealed='true'],
+.highlight[data-revealed='true'] {
   opacity: 1;
   transform: none;
   transition:
     opacity var(--duration-slow) var(--easing-decelerate),
     transform var(--duration-slow) var(--easing-decelerate);
+}
+
+.highlight[data-reveal='pending'] .highlightShot {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+}
+
+.highlight[data-revealed='true'] .highlightShot {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--duration-slow) var(--easing-decelerate) 90ms,
+    transform var(--duration-slow) var(--easing-decelerate) 90ms;
 }
 
 .eyebrow {
@@ -230,8 +285,7 @@
 
 /* ---- Interface illustration ---- */
 
-/* A drawing of the Literature table, not a screenshot: the layout and the citation chips are
-   the product's, and no value is shown, so nothing here can be read as a finding. */
+/* The product itself, captured running against the repository's fixture papers. */
 .preview {
   max-width: 1180px;
   margin: 0 auto;
@@ -244,87 +298,24 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-raised);
+  transition: border-color var(--duration-slow) var(--easing-standard);
 }
 
-.previewBar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface-panel);
-  border-bottom: 1px solid var(--color-border-subtle);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
+.previewFrame:hover {
+  border-color: var(--color-border-default);
 }
 
-.previewTab {
-  color: var(--color-text-tertiary);
+/* A barely-there push in on hover: the shot is the subject of the page, and it should answer
+   the cursor the way the product's own cards do. */
+.previewShot {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform var(--duration-slow) var(--easing-standard);
 }
 
-.previewTabActive {
-  color: var(--color-text-primary);
-}
-
-.previewBody {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-6);
-}
-
-.previewQuestion {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
-}
-
-.previewTable {
-  display: grid;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.previewRow {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.previewRow:last-child {
-  border-bottom: none;
-}
-
-.previewHead {
-  background: var(--color-surface-panel);
-  color: var(--color-text-tertiary);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--letter-spacing-wide);
-  text-transform: uppercase;
-}
-
-.previewLine {
-  height: 8px;
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-full);
-}
-
-.previewLineShort {
-  width: 60%;
-}
-
-.previewChip {
-  justify-self: start;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-accent-pipeline-muted);
-  border-radius: var(--radius-full);
-  color: var(--color-accent-pipeline);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-2xs);
+.previewFrame:hover .previewShot {
+  transform: scale(1.012);
 }
 
 .previewCaption {
@@ -332,6 +323,149 @@
   color: var(--color-text-tertiary);
   font-size: var(--font-size-xs);
   text-align: center;
+}
+
+/* ---- The film ---- */
+
+.film {
+  border-top: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-panel);
+  scroll-margin-top: 80px;
+}
+
+.filmInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: calc(var(--space-12) * 1.5) var(--space-8);
+}
+
+.filmFrame {
+  overflow: hidden;
+  margin-top: var(--space-8);
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+}
+
+.filmVideo {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---- Per-tab highlights ---- */
+
+/* One row per destination in the product: the claim on one side, the tab itself on the other,
+   sides alternating so a long page keeps a rhythm instead of a column of cards. */
+.highlight {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--space-10);
+  align-items: center;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-8);
+  border-top: 1px solid var(--color-border-subtle);
+  scroll-margin-top: 80px;
+}
+
+.highlightFlip .highlightText {
+  order: 2;
+}
+
+.highlightTitle {
+  max-width: 24ch;
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-family-serif);
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: 1.15;
+}
+
+.highlightPoints {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.highlightPoints li {
+  padding-left: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  position: relative;
+}
+
+.highlightPoints li::before {
+  content: '';
+  position: absolute;
+  top: 0.65em;
+  left: 0;
+  width: 10px;
+  height: 1px;
+  background: var(--color-accent-pipeline);
+}
+
+.highlightShot {
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-surface-workspace);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  transition:
+    transform var(--duration-slow) var(--easing-standard),
+    border-color var(--duration-slow) var(--easing-standard);
+}
+
+.highlightShot:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-border-default);
+}
+
+.highlightShot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---- Tab index ---- */
+
+.tabIndex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tabIndexLink {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+
+.tabIndexLink:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ---- Sources strip ---- */
@@ -371,6 +505,14 @@
   font-family: var(--font-family-serif);
   font-size: var(--font-size-xl);
   letter-spacing: var(--letter-spacing-tight);
+  transition:
+    color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+.source:hover {
+  color: var(--color-text-primary);
+  transform: translateY(-2px);
 }
 
 /* ---- Grids ---- */
@@ -412,6 +554,11 @@
   gap: var(--space-3);
   padding-top: var(--space-5);
   border-top: 1px solid var(--color-border-subtle);
+  transition: border-color var(--duration-fast) var(--easing-standard);
+}
+
+.card:hover {
+  border-top-color: var(--color-text-primary);
 }
 
 .cardIcon {
@@ -438,12 +585,13 @@
 
 /* ---- Figures band ---- */
 
-/* Counts of what is built, in the product's own palette. Nothing here is a usage or customer
-   number: we have none to show, and inventing them is the one thing a research tool cannot do. */
-/* Full bleed, so the product's own palette reads as a band across the page. */
+/* Counts of what is built. Nothing here is a usage or customer number: we have none to show,
+   and inventing them is the one thing a research tool cannot do. */
+/* Full bleed, one step lighter than the page, so the band reads without a rule around it. */
 .figures {
-  background: var(--color-surface-workspace);
-  color: var(--color-text-primary);
+  background: var(--color-surface-panel);
+  border-top: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
   scroll-margin-top: 80px;
 }
 
@@ -685,25 +833,31 @@
     padding: 0 var(--space-4) var(--space-10);
   }
 
-  .previewBody {
-    padding: var(--space-4);
+  /* A desktop screenshot shrunk to phone width is unreadable, so the frame scrolls sideways
+     at its own scale instead of being squeezed. */
+  .previewFrame,
+  .highlightShot {
+    overflow-x: auto;
   }
 
-  /* Four columns of eight-pixel bars is noise on a phone; the row keeps its label and its
-     citation, which is the point being made. */
-  .previewRow {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-3);
+  .previewShot,
+  .highlightShot img {
+    width: 720px;
+    max-width: none;
   }
 
-  .previewRow > :nth-child(2),
-  .previewRow > :nth-child(3) {
-    display: none;
+  .highlight {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+    padding: var(--space-10) var(--space-4);
   }
 
-  .previewBar {
-    flex-wrap: wrap;
-    gap: var(--space-3);
+  .highlightFlip .highlightText {
+    order: 0;
+  }
+
+  .filmInner {
+    padding: var(--space-10) var(--space-4);
   }
 
   .sourcesInner {
@@ -749,5 +903,14 @@
 @media (prefers-reduced-motion: reduce) {
   .site {
     scroll-behavior: auto;
+  }
+
+  /* Hover still reads as hover, but nothing moves. */
+  .cta:hover,
+  .tabIndexLink:hover,
+  .source:hover,
+  .highlightShot:hover,
+  .previewFrame:hover .previewShot {
+    transform: none;
   }
 }

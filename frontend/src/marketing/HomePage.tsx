@@ -1,9 +1,10 @@
-import type { IconName } from '@/components/icons';
-import { Icon } from '@/components/icons';
 import { productUrl } from '@/lib/hosts';
 
+import heroShot from './screens/literature.webp';
 import styles from './marketing.module.css';
 import { Section } from './Section';
+import type { ProductTab } from './tabs';
+import { PRODUCT_TABS } from './tabs';
 import { useReveal } from './useReveal';
 
 const SOURCES = [
@@ -45,53 +46,6 @@ const STEPS = [
   },
 ];
 
-const CAPABILITIES: { icon: IconName; title: string; body: string }[] = [
-  {
-    icon: 'assistant',
-    title: 'Assistant',
-    body: 'A biomedical research chat with read-only tools over every other tab. Off-topic questions are refused before a model is ever called, so the credits go to research.',
-  },
-  {
-    icon: 'literature',
-    title: 'Literature',
-    body: 'Search PubMed, upload PDFs, and pull a goal-driven table of extracted values out of them — each cell clicking through to the sentence and page it was read from. Export to Excel or CSV with a linked sources sheet.',
-  },
-  {
-    icon: 'screening',
-    title: 'Screening',
-    body: 'Descriptors, rule sets and QSAR-based ADMET estimates for a SMILES string, opening with what needs reviewing: fired liabilities, borderline calls, rule violations. Estimates, not a safety assessment.',
-  },
-  {
-    icon: 'protocol',
-    title: 'Protocol',
-    body: 'Draft a protocol with controls and a master-mix calculator, keep its version history, and export a notebook bundle any ELN can import.',
-  },
-  {
-    icon: 'regulatory',
-    title: 'Regulatory',
-    body: 'Preclinical package and IND section drafting with a guideline checker that says which requirement each statement answers, and which are still unaddressed.',
-  },
-  {
-    icon: 'grants',
-    title: 'Grants',
-    body: 'Find NIH/SBIR opportunities matched to your work, check eligibility against editable federal rules, build an SF-424 (R&R) budget, and get a mock review-board critique before you submit.',
-  },
-  {
-    icon: 'workspace',
-    title: 'Workspace',
-    body: 'Share saved literature, protocols and screens with your team through workspaces with seats, roles and single-use invitations.',
-  },
-  {
-    icon: 'audit',
-    title: 'Audit',
-    body: 'Every document, model call, invitation and export is written to an append-only trail you can read, with outcomes — including refusals and failures.',
-  },
-  {
-    icon: 'settings',
-    title: 'Settings',
-    body: 'Retention windows, spend and rate limits, storage and encryption state, read from the account itself rather than hard-coded.',
-  },
-];
 
 const PROOFS = [
   {
@@ -131,53 +85,80 @@ const LIMITS = [
   },
 ];
 
-const PREVIEW_COLUMNS = ['Paper', 'Target', 'Model', 'Source'];
-const PREVIEW_ROWS = [0, 1, 2, 3];
-
-/**
- * A drawing of the Literature extraction table in the product's own palette.
- *
- * It is deliberately not a screenshot and carries no values: a marketing page showing invented
- * IC50s would be the exact failure the product exists to avoid. What it shows is the shape —
- * a row per paper, a citation chip per cell.
- */
+/** The product's own Literature tab, captured against the repository's fixture papers. */
 function InterfacePreview() {
+  const ref = useReveal<HTMLElement>();
+
   return (
-    <figure className={styles.preview} data-theme="obsidian">
+    <figure className={styles.preview} ref={ref}>
       <div className={styles.previewFrame}>
-        <div className={styles.previewBar}>
-          <span className={styles.previewTabActive}>Literature</span>
-          <span className={styles.previewTab}>Screening</span>
-          <span className={styles.previewTab}>Protocol</span>
-          <span className={styles.previewTab}>Regulatory</span>
-          <span className={styles.previewTab}>Grants</span>
-        </div>
-        <div className={styles.previewBody}>
-          <p className={styles.previewQuestion}>
-            Which papers report selectivity for this target, and at what concentration?
-          </p>
-          <div className={styles.previewTable}>
-            <div className={[styles.previewRow, styles.previewHead].join(' ')}>
-              {PREVIEW_COLUMNS.map((column) => (
-                <span key={column}>{column}</span>
-              ))}
-            </div>
-            {PREVIEW_ROWS.map((row) => (
-              <div key={row} className={styles.previewRow}>
-                <span className={styles.previewLine} />
-                <span className={[styles.previewLine, styles.previewLineShort].join(' ')} />
-                <span className={[styles.previewLine, styles.previewLineShort].join(' ')} />
-                <span className={styles.previewChip}>p. {row + 2}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <img className={styles.previewShot} src={heroShot} alt={PRODUCT_TABS[0].alt} />
       </div>
       <figcaption className={styles.previewCaption}>
-        The extraction table, drawn rather than screenshotted — values stay in the product, where
-        each one opens the sentence it was read from.
+        The Literature tab, running. Every extracted value opens the page it was read from.
       </figcaption>
     </figure>
+  );
+}
+
+/** A silent screen capture of one run through the product, looped like a diagram. */
+function DemoFilm() {
+  const ref = useReveal<HTMLElement>();
+
+  return (
+    <section className={styles.film} id="watch" ref={ref}>
+      <div className={styles.filmInner}>
+        <p className={styles.eyebrow}>Thirty seconds</p>
+        <h2 className={styles.sectionTitle}>Watch a question become a cited table.</h2>
+        <p className={styles.sectionLead}>
+          One unedited run: two papers uploaded, the columns asked for in plain English, then a
+          value clicked to open the sentence it was read from.
+        </p>
+        <div className={styles.filmFrame}>
+          <video
+            className={styles.filmVideo}
+            src="/demo/askgrey-literature.mp4"
+            poster={heroShot}
+            controls
+            muted
+            loop
+            autoPlay
+            playsInline
+            preload="metadata"
+            aria-label="Screen recording of AskGrey extracting cited values from two uploaded papers"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** One tab, told once: what it is for, then the tab itself. */
+function TabHighlight({ tab, index }: { tab: ProductTab; index: number }) {
+  const ref = useReveal<HTMLElement>();
+
+  const className = [styles.highlight, index % 2 === 1 ? styles.highlightFlip : '']
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <section className={className} id={tab.id} ref={ref}>
+      <div className={styles.highlightText}>
+        <p className={styles.eyebrow}>
+          {String(index + 1).padStart(2, '0')} · {tab.name}
+        </p>
+        <h3 className={styles.highlightTitle}>{tab.title}</h3>
+        <p className={styles.cardBody}>{tab.body}</p>
+        <ul className={styles.highlightPoints}>
+          {tab.points.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </div>
+      <figure className={styles.highlightShot}>
+        <img src={tab.shot} alt={tab.alt} loading="lazy" decoding="async" />
+      </figure>
+    </section>
   );
 }
 
@@ -185,7 +166,7 @@ function Figures() {
   const ref = useReveal<HTMLElement>();
 
   return (
-    <section className={styles.figures} data-theme="obsidian" ref={ref}>
+    <section className={styles.figures} ref={ref}>
       <div className={styles.figuresInner}>
         {FIGURES.map((figure) => (
           <div key={figure.label} className={styles.figure}>
@@ -231,6 +212,7 @@ export function HomePage() {
 
       <InterfacePreview />
 
+
       <div className={styles.sourcesBand}>
         <div className={styles.sourcesInner}>
           <p className={styles.sourcesLabel}>Reads from</p>
@@ -262,26 +244,30 @@ export function HomePage() {
           </ol>
         </Section>
 
+        <DemoFilm />
+
         <Figures />
 
         <Section
           id="product"
           eyebrow="What is inside"
           title="Nine tabs, one evidence trail."
-          lead="Each tab is a job a preclinical team actually has, and each writes to the same audit trail and the same shared workspace."
+          lead="Each tab is a job a preclinical team already has, and each writes to the same audit trail and the same shared workspace."
         >
-          <ul className={styles.cards}>
-            {CAPABILITIES.map((capability) => (
-              <li key={capability.title} className={styles.card}>
-                <span className={styles.cardIcon} aria-hidden="true">
-                  <Icon name={capability.icon} size={20} />
-                </span>
-                <h3 className={styles.cardTitle}>{capability.title}</h3>
-                <p className={styles.cardBody}>{capability.body}</p>
+          <ul className={styles.tabIndex}>
+            {PRODUCT_TABS.map((tab) => (
+              <li key={tab.id}>
+                <a className={styles.tabIndexLink} href={`#${tab.id}`}>
+                  {tab.name}
+                </a>
               </li>
             ))}
           </ul>
         </Section>
+
+        {PRODUCT_TABS.map((tab, index) => (
+          <TabHighlight key={tab.id} tab={tab} index={index} />
+        ))}
 
         <Section
           id="trust"

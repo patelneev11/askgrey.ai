@@ -22,6 +22,7 @@ from .layout import (
     match_wording,
     paper_name,
     refs_by_cell,
+    safe_hyperlink,
     validate,
 )
 from .models import XLSX_MEDIA_TYPE, ExportFile, ExportOptions
@@ -83,9 +84,10 @@ def _write_sources(sheet: Worksheet, entries: list[CitationEntry]) -> None:
             else:
                 _text_cell(sheet, row, column, value)
         sheet.cell(row=row, column=7).alignment = Alignment(wrap_text=True, vertical="top")
-        if entry.source_url:
+        target = safe_hyperlink(entry.source_url)
+        if target:
             link = sheet.cell(row=row, column=len(SOURCES_HEADERS))
-            link.hyperlink = entry.source_url
+            link.hyperlink = target
             link.font = LINK_FONT
 
 
@@ -129,9 +131,10 @@ def write_xlsx(table: ExtractionTable, options: ExportOptions | None = None) -> 
             _text_cell(data, excel_row, 2, row.source_url)
             data.cell(row=excel_row, column=3).value = row.page_count
             _text_cell(data, excel_row, 4, row.status.value)
-            if row.source_url:
+            target = safe_hyperlink(row.source_url)
+            if target:
                 link = data.cell(row=excel_row, column=2)
-                link.hyperlink = row.source_url
+                link.hyperlink = target
                 link.font = LINK_FONT
 
         for offset, column in enumerate(table.columns):

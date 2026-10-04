@@ -12,6 +12,7 @@ import {
   type SnapshotFreshness,
 } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
+import { safeHref } from '@/lib/links';
 
 import { errorMessage } from './errors';
 import { SelectField, TextAreaField, TextField } from './fields';
@@ -274,7 +275,12 @@ function Finding({ finding }: { finding: RequirementFinding }) {
       </span>
       <p className={styles.flagBody}>{finding.expectation}</p>
       <p className={styles.hint}>{finding.explanation}</p>
-      <a className={styles.link} href={finding.citation.url} target="_blank" rel="noreferrer">
+      <a
+        className={styles.link}
+        href={safeHref(finding.citation.url)}
+        target="_blank"
+        rel="noreferrer"
+      >
         {finding.citation.document} ({finding.citation.document_date})
       </a>
     </li>

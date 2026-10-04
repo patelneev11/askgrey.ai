@@ -57,6 +57,19 @@ def mount_spa(app: FastAPI, dist_dir: str) -> None:
         if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
 
+        # `/.env`, `/.git/config` and the rest of a scanner's list are not client routes, and
+        # answering them with the app means a 200 for a path that should read as absent. The
+        # build contains no dotfiles, so refusing every one of them costs nothing —
+        # `/.well-known/...` excepted, which a build may legitimately publish as a real file.
+        segments = path.split("/")
+        hidden = [
+            segment
+            for index, segment in enumerate(segments)
+            if segment.startswith(".") and not (index == 0 and segment == ".well-known")
+        ]
+        if hidden:
+            raise HTTPException(status_code=404, detail="Not found")
+
         # A real file in the build root (favicon, manifest, the pdf.js worker) is served as
         # itself; anything else is a client route. `resolve` plus the containment check is
         # what keeps `..` inside the build directory.

@@ -55,6 +55,20 @@ def clean(text: str, *, limit: int = MAX_CELL_CHARS) -> str:
     return stripped
 
 
+def safe_hyperlink(url: str) -> str | None:
+    """The URL to attach to a cell, or None when it is not one a reader should be able to click.
+
+    A source URL reaches the export from an uploaded workspace, so it is caller-supplied text.
+    A spreadsheet follows `file:` and other schemes a browser would refuse, so only the two
+    schemes a paper is ever fetched over become links; the text stays in the cell either way.
+    """
+    candidate = url.strip()
+    scheme = candidate.split(":", 1)[0].lower() if ":" in candidate else ""
+    if scheme in {"http", "https"}:
+        return candidate
+    return None
+
+
 def escape_formula(text: str) -> str:
     """
     Neutralize CSV formula injection by prefixing a quote.

@@ -10,6 +10,7 @@ import {
 } from "@/lib/extraction";
 
 import styles from "./CitationViewer.module.css";
+import { safeHref } from '@/lib/links';
 
 export interface CitationTarget {
   row: PaperRow;
@@ -210,7 +211,7 @@ function QuoteFallback({ citation }: { citation: Citation }) {
       {citation.source_url && (
         <a
           className={styles.sourceLink}
-          href={`${citation.source_url}#page=${citation.page_number}`}
+          href={safeHref(`${citation.source_url}#page=${citation.page_number}`)}
           target="_blank"
           rel="noreferrer"
         >

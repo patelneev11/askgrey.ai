@@ -17,6 +17,7 @@ import { readEventStream, spendLabel, statusLabel } from '@/lib/chat';
 import type { SavedArtifactSummary } from '@/lib/library';
 import type { SavedProtocolSummary } from '@/lib/protocols';
 import { getAccessToken } from '@/lib/session';
+import { safeHref } from '@/lib/links';
 
 import styles from './ChatPage.module.css';
 
@@ -96,7 +97,7 @@ function CitationLink({ label, source, identifier, url }: ChatToolStep['citation
     <li className={styles.citation}>
       <span className={styles.citationSource}>{source}</span>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer noopener">
+        <a href={safeHref(url)} target="_blank" rel="noreferrer noopener">
           {text}
         </a>
       ) : (

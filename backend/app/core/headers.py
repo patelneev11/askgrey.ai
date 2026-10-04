@@ -21,12 +21,26 @@ APP_CSP = (
     "form-action 'self'"
 )
 HSTS = "max-age=31536000; includeSubDomains"
+# Nothing in the product asks for a camera, a microphone, a location or a payment handler, so
+# every delegated capability is denied rather than left at the browser's default.
+PERMISSIONS_POLICY = (
+    "accelerometer=(), ambient-light-sensor=(), autoplay=(self), camera=(), "
+    "display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), "
+    "microphone=(), midi=(), payment=(), usb=(), xr-spatial-tracking=()"
+)
 
 BASE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
     "Content-Security-Policy": API_CSP,
+    "Permissions-Policy": PERMISSIONS_POLICY,
+    # Severs the window reference a page opened from here keeps, so an export or a cited paper
+    # opened in a new tab cannot reach back into the session that opened it.
+    "Cross-Origin-Opener-Policy": "same-origin",
+    # Another site embedding an extracted table or a stored paper as a subresource reads as a
+    # cross-origin load, which this refuses.
+    "Cross-Origin-Resource-Policy": "same-origin",
     # An export or an extracted table should never sit in a shared cache.
     "Cache-Control": "no-store",
 }

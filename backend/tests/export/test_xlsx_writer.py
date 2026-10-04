@@ -186,3 +186,14 @@ def test_citations_can_be_dropped_entirely() -> None:
 
     assert workbook.sheetnames == [DATA_SHEET]
     assert workbook[DATA_SHEET]["E2"].hyperlink is None
+
+
+def test_a_source_url_a_browser_would_refuse_is_not_made_clickable() -> None:
+    # The URL travels with a shared workspace, and a spreadsheet opens schemes a browser will
+    # not. The text stays in the cell; only the click is withheld.
+    hostile = paper(source_url="file:///etc/passwd", cells={"sample_size": ungrounded("12")})
+
+    data, _ = sheets(write_xlsx(table(hostile)).content)
+
+    assert data["B2"].value == "file:///etc/passwd"
+    assert data["B2"].hyperlink is None

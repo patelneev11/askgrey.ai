@@ -215,6 +215,18 @@ count elements still pending *and* check nothing is transparent:
 
 Expect 0 stuck-pending and 0 with opacity near 0. Screenshot each section too — the DOM numbers are
 the tie-breaker, never the substitute, since a painted-but-wrong layout passes the DOM check.
+
+**Scroll *gradually*, or you will report a false "stuck reveal".** The observer only fires for
+sections that actually intersect the viewport. Pressing `End`, dragging the scrollbar, or landing
+via an `#anchor` *skips over* intermediate sections, which then legitimately sit at
+`opacity: 0 / translateY(12px)` with no `data-revealed`. That is **not** a defect: the observer is
+not once-only and not direction-bound, so those sections reveal normally when the user scrolls
+back through them (verified by scrolling up from the footer — every skipped section recovered).
+Before filing a stuck reveal, re-test with many small `scroll` steps (e.g. 16 × 5 clicks with ~1s
+between) and only call it a defect if a section stays transparent *after being brought into view*.
+Note also that `data-reveal` keeps the literal value `pending` even once revealed — the authoritative
+signal is `data-revealed === 'true'` plus computed opacity, so a probe keyed on `data-reveal` alone
+reports 100% stuck and reads as a catastrophic failure.
 A hero/section with `padding: 0` at phone width is invisible to overflow checks (nothing overflows,
 it is just flush against both edges) — compare each block's `getBoundingClientRect().x` against the
 page gutter the other sections use, e.g. 16px.
@@ -280,6 +292,66 @@ login form's `role="alert"` paragraph. No Google call is involved, so this is al
 If you are already signed in, `/login` redirects to a product tab — **sign out through the UI**
 before testing the login screen, or you will screenshot `/literature` and think navigation broke.
 
+## Reveal-on-scroll vs hover: the specificity trap that silently kills hover affordances
+
+The marketing site animates sections in with `useReveal` (`frontend/src/marketing/useReveal.ts`),
+which stamps `data-reveal="pending"` then `data-revealed="true"` on a reveal root. The settled state
+is written by a **descendant** selector in `marketing.module.css`:
+
+```css
+.highlight[data-revealed='true'] .highlightShot { transform: none; }  /* 0-3-0 */
+.highlightShot:hover                            { transform: translateY(-4px); }  /* 0-2-0 */
+```
+
+The revealed rule outranks the hover rule, so **once a section has revealed, its hover lift can
+never apply** — and the element is only hoverable *after* it has revealed. Any hover transform on a
+descendant of a reveal root is suspect. A `border-color` change in the same hover rule still works,
+which is what makes this easy to pass by eye: the border visibly reacts, so the hover "looks alive"
+while the specified movement never happens.
+
+**Oracle — read the computed transform, never the screenshot.** A 4px lift is near-invisible in a
+screenshot, and a reduced-motion emulation left on makes it legitimately `none`:
+
+```js
+const el = document.querySelector('#literature [class*=highlightShot]');
+// real mouse over it first (Input.dispatchMouseEvent / computer-use mouse_move), then:
+getComputedStyle(el).transform   // 'none' => defect; 'matrix(1,0,0,1,0,-4)' => ok
+```
+
+**Confirm it is specificity and not a missing rule** before reporting, with a DOM experiment that
+neutralises only the reveal attributes and re-hovers; if the lift appears, the hover rule is fine and
+the revealed-state selector is the cause. Compare against a control that is *not* under a reveal root
+(the hero preview shot lifts correctly) — that contrast is what makes the report actionable, and it
+points at the fix: raise the hover selector's specificity or scope it under `[data-revealed]`.
+
+## Reduced motion over CDP: the override dies with the websocket
+
+`Emulation.setEmulatedMedia` is **per-connection**. A helper that sets the override, disconnects, and
+lets a later script measure will find normal motion — pending reveals, smooth scrolling — and you will
+wrongly report that reduced motion is ignored. Set the media, **reload** (the hook only takes the
+reduced branch at mount), measure, and screenshot **all on one held connection**, then restore the
+default and assert the normal branch returns so the rest of the run is not silently reduced-motion.
+
+What to assert, *without scrolling*, so you prove the JS branch and not the observer: every reveal
+root is `data-revealed="true"` with **no** `data-reveal="pending"`, computed `opacity` 1 and
+`transform: none`, **including sections far below the fold**. Note the CSS
+`@media (prefers-reduced-motion: reduce)` block only zeroes hover transforms and sets
+`scroll-behavior: auto`; it does **not** force reveal opacity, so visibility depends entirely on the
+`useReveal` early-return. If that branch regresses, the whole page below the fold stays at opacity 0
+for reduced-motion users while the DOM still contains every word — a DOM-only check passes.
+
+## Dark theme: measure contrast, and expect muted text to be the finding
+
+Since the site moved to the dark `obsidian` tokens, the recurring defect class is not
+white-on-white but **muted text that is merely dim**. Compute WCAG ratios rather than eyeballing:
+the muted grey (`rgb(107,118,132)`) lands around **4.3:1** on the page background and ~**4.0:1** on a
+card surface — above the 3:1 "is it visible" bar but below the **4.5:1** AA floor for normal-sized
+text. Report those as real accessibility findings with the ratio and the class names, and check the
+muted role everywhere it is reused (eyebrows, captions, notes, step indices, footer headings/legal,
+and the Terms version line) — they share one token, so one fix moves all of them. Also assert each
+band's background luminance is low (catches a light-theme leftover band) and that borders differ from
+their surface (catches invisible borders).
+
 ## Picking the CDP target: filter by URL, and beware non-`page` targets
 
 Helper scripts that grab `pages[0]` from `/json/list` will intermittently attach to the wrong
@@ -296,3 +368,110 @@ need fixing.
 
 Defects on these surfaces must name the **exact viewport and the exact element** — the same page is
 fine at 1440 and broken at 390, so a defect without a viewport is not actionable.
+
+## Per-tab product pages (`/product/<id>`) and the grouped nav
+
+Added with the nine `/product/<id>` marketing pages (`ProductTabPage.tsx`, `tabs.ts`,
+grouped `ProductMenu` in `MarketingSite.tsx`).
+
+### Oracles that actually discriminate
+
+- **Title vs h1 are deliberately different strings.** The route title is `` `${tab.name} — AskGrey` ``
+  (short name) while the **h1 is `tab.title`** (the long claim). Asserting only one of them cannot
+  catch a page that merely inherited the route's metadata — assert both.
+- **Walk the pages via the next-tab card, not by typing URLs.** Clicking through
+  literature → … → settings → literature proves `tabPath`, each `group`, and the modulo wrap in one
+  pass; a wrong `next` index shows up as landing on the wrong page instead of hiding behind a
+  URL you typed yourself.
+- Expect **exactly one** pill with `aria-current="page"`; 0 or >1 is the defect signature.
+- Canonicals must be asserted on a server **without** `VITE_MARKETING_HOST` (see the two-server
+  section) or every one reads `https://localhost/product/<id>`.
+
+### `.tabRail` scrolls horizontally — measure the active pill per tab AND per entry path
+
+`.tabRail` is `overflow-x: auto` with `flex: none` pills. That internal
+`scrollWidth > clientWidth` is **intended** and must not be counted as document overflow — always
+measure page overflow as `documentElement.scrollWidth - clientWidth`, and separately report the
+rail. At phone width the rail is ~380px visible (310px at 320) against ~888px of content, so for
+later tabs (audit, settings) the active pill is only visible if something scrolls it into view.
+`TabRail` now does this via `activeRef.current?.scrollIntoView({block:'nearest', inline:'center'})`
+keyed on `[current.id]`.
+
+```js
+const rail = document.querySelector('nav[aria-label="Product"]');
+const a = rail.querySelector('[aria-current="page"]');
+const rr = rail.getBoundingClientRect(), ar = a.getBoundingClientRect();
+const railRight = rr.left + rail.clientWidth;   // NOT rr.right — see below
+({scrollLeft: rail.scrollLeft, maxScroll: rail.scrollWidth - rail.clientWidth,
+  clippedRightPx: ar.right - railRight,
+  visible: ar.left >= rr.left - 1 && ar.right <= railRight + 1,
+  pageScrollY: window.scrollY})
+```
+
+Three traps that each produce a wrong verdict:
+
+- **Use `rr.left + rail.clientWidth`, not `rr.right`, as the rail's visible right edge.** On a
+  scrolled overflow container the bounding rect and the client box can disagree, which turns a
+  clipped pill into a false pass.
+- **Cold load, refresh, deep link and resize are separate code paths from client-side nav — test
+  them explicitly (type the URL / F5 / drive the viewport), never just in-app navigation.** The
+  deps are still `[current.id]`, so a cold load mounts with that id *already current* and only the
+  mount-time work runs; a resize changes no id at all. Both paths once failed here while
+  client-side nav passed, which is exactly what masked the bug. `TabRail` now covers them by
+  calling `scrollIntoView` immediately, again on `requestAnimationFrame`, again on
+  `document.fonts.ready`, and on every `window` resize (cleanup cancels the frame, removes the
+  listener, guards with a `cancelled` flag). Verified green at `0eb0dd0`: cold load / typed URL /
+  F5 of `/product/settings` reaches `scrollLeft` 509 of a 508 max at 390 (579/578 at 320) with
+  `clippedRightPx -16`. Do **not** re-report the old 13px clip.
+- **Because the fix deliberately re-fires on `rAF` and `fonts.ready`, let the page settle and
+  sample twice until the value is stable.** A single early read catches a legitimate intermediate
+  state and mis-reports it as a clip. Conversely, if you ever do see a shortfall, check whether it
+  is stable across repeated reads before calling it a transient — `document.fonts.status` can
+  already read `loaded` while layout is still settling.
+- **Also assert `pageScrollY === 0` on arrival.** `block:'nearest'` can drag the page vertically as
+  a side effect, which would silently undo the scroll-to-top fix below. `ScrollToDestination`'s
+  effect runs *before* `TabRail`'s, so the rail call lands last and could in principle win.
+
+Pick the tab deliberately: check **Settings (last)** and **Audit (8th)** plus **Literature (1st)**.
+Early tabs fit trivially and hide any clipping; Audit clamps to the rail end so it stays visible
+even when broken; only the final pill is truly exposed. Literature is the **over-correction**
+control — it must stay at `scrollLeft === 0`, since a non-zero value means the rail is being
+dragged when pill 1 already fits. At 1440 all nine pills fit, so assert `maxScroll === 0` **and**
+`scrollLeft === 0` to catch a resize handler that scrolls the rail oddly on desktop.
+
+### Marketing SPA route changes and the scroll-to-top / hash tension
+
+`ScrollToDestination` in `MarketingSite.tsx` (rendered inside `MarketingChrome` above `<Routes>`)
+runs on `[pathname, hash]`: if the hash names a live element it calls `target.scrollIntoView()`,
+otherwise `window.scrollTo({top: 0, behavior: 'instant'})`. Before this existed, navigating from
+the **bottom** of a product page kept the old `scrollY` and the destination opened at its footer.
+
+Testing this needs both halves, because a blanket scroll-to-top passes the first and fails the
+second:
+
+1. Scroll to the **bottom** first (mandatory — from the top the defect is invisible), then navigate
+   by next-tab card, footer product link **and** the desktop Product dropdown. Expect settled
+   `scrollY === 0` exactly (the top branch is `instant`) and a positive on-screen `h1` rect top.
+2. From a tab page click `/#product`: expect `scrollY` emphatically **> 1000**, not 0, and the
+   `#product` rect top ≈ **80** — `.section/.film/.highlight/.figures` carry
+   `scroll-margin-top: 80px`, so a rect top near 0 means it landed hidden under the sticky nav.
+
+`.site` sets `scroll-behavior: smooth`, so the hash branch animates while the top branch is forced
+instant. **Sample `scrollY` twice ~1s apart and only accept a stable value**, or you measure
+mid-animation and mis-report.
+
+### Phone screenshot legibility is a judgement call, so quantify it
+
+The ≤820px rule is `width/max-width: 100%` (it replaced `width: 720px; max-width: none`, which was
+the sideways-scroll bug). The images are 1280px natural, so state the **downscale factor**:
+~346px rendered at 390px wide (3.7×) and ~276px at 320px (4.6×), putting embedded UI text near
+3px. Report them as usable visual previews but not readable UI documentation, rather than
+pass/fail.
+
+## Chrome's address bar silently rewrites bare-host URLs
+
+Typing `localhost:5180/` and pressing Enter can commit `localhost:5180/?site=marketing` from
+history autocomplete — which inverts a host-split test into a false pass (marketing renders at the
+"bare" host). Type the URL, press **Delete** to drop the inline completion, confirm the omnibox
+text, *then* Enter — and verify `location.search === ''` in the assertion itself. Screenshots taken
+mid-autocomplete are not valid host-split evidence.

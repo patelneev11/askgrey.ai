@@ -59,8 +59,45 @@ function TabRail({ current }: { current: ProductTab }) {
   );
 }
 
+/**
+ * The tab's own take, and the only video on the page.
+ *
+ * It plays muted on loop like a figure rather than a film: no soundtrack, no narration, and the
+ * controls stay available for the one person who wants to scrub back to the moment named above
+ * it. Each tab points at its own file, so no two pages show the same recording.
+ */
+function TabFilm({ tab }: { tab: ProductTab }) {
+  const filmRef = useReveal<HTMLElement>();
+
+  return (
+    <section className={styles.film} id="film" ref={filmRef}>
+      <div className={styles.filmInner}>
+        <p className={styles.eyebrow}>{tab.name} in one take</p>
+        <h2 className={styles.sectionTitle}>{tab.clip.moment}</h2>
+        <div className={styles.filmFrame}>
+          <video
+            className={styles.filmVideo}
+            src={tab.clip.src}
+            poster={tab.shot}
+            controls
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-label={tab.clip.label}
+          />
+        </div>
+        <p className={styles.previewCaption}>{tab.clip.label}</p>
+      </div>
+    </section>
+  );
+}
+
 export function ProductTabPage({ tab }: { tab: ProductTab }) {
   const shotRef = useReveal<HTMLElement>();
+  const stepsRef = useReveal<HTMLElement>();
+  const outputsRef = useReveal<HTMLElement>();
+  const limitsRef = useReveal<HTMLElement>();
   const index = PRODUCT_TABS.findIndex((candidate) => candidate.id === tab.id);
   const next = PRODUCT_TABS[(index + 1) % PRODUCT_TABS.length];
 
@@ -91,11 +128,43 @@ export function ProductTabPage({ tab }: { tab: ProductTab }) {
         <figcaption className={styles.previewCaption}>{tab.alt}</figcaption>
       </figure>
 
-      <section className={styles.section}>
-        <p className={styles.eyebrow}>What you get</p>
-        <ul className={styles.highlightPoints}>
-          {tab.points.map((point) => (
-            <li key={point}>{point}</li>
+      <TabFilm tab={tab} />
+
+      <section className={styles.section} id="how" ref={stepsRef}>
+        <p className={styles.eyebrow}>How a run goes</p>
+        <h2 className={styles.sectionTitle}>What you hand it, and what comes back.</h2>
+        <ol className={styles.steps}>
+          {tab.steps.map((step, position) => (
+            <li className={styles.step} key={step.title}>
+              <span className={styles.stepIndex}>{String(position + 1).padStart(2, '0')}</span>
+              <h3 className={styles.stepTitle}>{step.title}</h3>
+              <p className={styles.cardBody}>{step.detail}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className={styles.section} id="outputs" ref={outputsRef}>
+        <p className={styles.eyebrow}>What it leaves behind</p>
+        <h2 className={styles.sectionTitle}>Work you can hand to someone else.</h2>
+        <dl className={styles.proofs}>
+          {tab.outputs.map((output) => (
+            <div className={styles.proof} key={output.label}>
+              <dt>{output.label}</dt>
+              <dd>{output.detail}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className={styles.section} id="limits" ref={limitsRef}>
+        <p className={styles.eyebrow}>Where it stops</p>
+        <h2 className={styles.sectionTitle}>What {tab.name.toLowerCase()} will not do for you.</h2>
+        <ul className={styles.limits}>
+          {tab.limits.map((limit) => (
+            <li className={styles.limit} key={limit}>
+              {limit}
+            </li>
           ))}
         </ul>
       </section>

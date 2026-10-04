@@ -779,6 +779,14 @@
   font-size: var(--font-size-2xs);
 }
 
+.stepTitle {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-family-serif);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.2;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

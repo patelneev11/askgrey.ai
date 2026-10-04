@@ -171,3 +171,36 @@ it('brings the rail’s marked tab into view, since the strip scrolls sideways o
   expect(scrollIntoView.mock.instances).toContain(active);
   scrollIntoView.mockRestore();
 });
+
+it('gives each tab page its own recording rather than one clip nine times', () => {
+  const sources = new Map<string, string>();
+  for (const tab of PRODUCT_TABS) {
+    const view = renderSite(tabPath(tab));
+    const film = screen.getByLabelText(tab.clip.label);
+    const src = film.getAttribute('src') ?? '';
+    expect(src, `${tab.name} has no clip`).toBeTruthy();
+    const owner = sources.get(src);
+    expect(owner, `${tab.name} reuses ${owner ?? ''}’s clip`).toBeUndefined();
+    sources.set(src, tab.name);
+    view.unmount();
+  }
+  expect(sources.size).toBe(PRODUCT_TABS.length);
+});
+
+it('says how a tab runs and where it stops, not only what the homepage already said', () => {
+  for (const tab of PRODUCT_TABS) {
+    const view = renderSite(tabPath(tab));
+    // Depth the index cannot carry: the steps of a run, what it leaves behind, and its limits.
+    for (const step of tab.steps) expect(screen.getByText(step.title)).toBeInTheDocument();
+    for (const step of tab.steps) expect(screen.getByText(step.detail)).toBeInTheDocument();
+    for (const output of tab.outputs) expect(screen.getByText(output.detail)).toBeInTheDocument();
+    for (const limit of tab.limits) expect(screen.getByText(limit)).toBeInTheDocument();
+    view.unmount();
+  }
+
+  // The homepage stays an index: none of that detail is repeated there.
+  renderSite('/');
+  for (const tab of PRODUCT_TABS) {
+    expect(screen.queryByText(tab.steps[0].detail)).toBeNull();
+  }
+});

@@ -25,7 +25,8 @@ def dist(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def served(dist: Path) -> Iterator[TestClient]:
-    app = FastAPI()
+    # Shaped like a deployment, which publishes no schema of its own.
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(SecurityHeadersMiddleware)
 
     @app.get("/api/health")
@@ -113,6 +114,13 @@ def test_a_dotfile_path_reads_as_absent_rather_than_as_the_app(served: TestClien
     # A scanner walking /.env, /.git/config and friends gets a 200 full of HTML otherwise,
     # which reads as a hit and invites a closer look at a path that holds nothing.
     for path in ("/.env", "/.git/config", "/.aws/credentials", "/app/.env.production"):
+        assert served.get(path).status_code == 404, path
+
+
+def test_a_schema_path_reads_as_absent_rather_than_as_the_app(served: TestClient) -> None:
+    # A deployment publishes no docs, so these are nobody's route; serving the app there
+    # answers /openapi.json with a 200 and tells a scanner the schema is worth retrying.
+    for path in ("/openapi.json", "/docs", "/redoc"):
         assert served.get(path).status_code == 404, path
 
 

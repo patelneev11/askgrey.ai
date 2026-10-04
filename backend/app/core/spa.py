@@ -19,6 +19,12 @@ IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 # has already removed.
 INDEX_CACHE = "no-store"
 
+# Where the interactive docs live when they are published. A deployment does not publish them,
+# and they are not client routes either, so without this the catch-all answers a scanner's
+# `/openapi.json` with the app and a 200 — a hit, where the path should read as absent. In
+# development FastAPI owns these routes and is matched first.
+SCHEMA_PATHS = frozenset({"docs", "docs/oauth2-redirect", "redoc", "openapi.json"})
+
 
 class HashedAssets(StaticFiles):
     """`assets/` only, served with an immutable cache since every name carries a digest."""
@@ -55,6 +61,9 @@ def mount_spa(app: FastAPI, dist_dir: str) -> None:
         JSON 404, or a typo in a fetch URL comes back as HTML with a 200.
         """
         if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        if path in SCHEMA_PATHS:
             raise HTTPException(status_code=404, detail="Not found")
 
         # `/.env`, `/.git/config` and the rest of a scanner's list are not client routes, and

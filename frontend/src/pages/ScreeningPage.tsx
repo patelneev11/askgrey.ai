@@ -28,6 +28,7 @@ import {
   type SuggestionSet,
 } from '@/lib/screening';
 import { getAccessToken } from '@/lib/session';
+import { safeHref } from '@/lib/links';
 
 import styles from './ScreeningPage.module.css';
 
@@ -595,10 +596,10 @@ export function ScreeningPage() {
                                   {hit.applicants.join(', ')}
                                 </span>
                               )}
-                              {hit.url && (
+                              {safeHref(hit.url) && (
                                 <a
                                   className={styles.hitLink}
-                                  href={hit.url}
+                                  href={safeHref(hit.url)}
                                   target="_blank"
                                   rel="noreferrer noopener"
                                 >

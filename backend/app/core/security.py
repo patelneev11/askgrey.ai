@@ -24,6 +24,17 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+# A hash of a value nothing can present, compared against when there is no account to check so
+# that both answers cost the same bcrypt work. Minted once per process: generating it per call
+# would be a second bcrypt round and make the unknown-address path the slower one.
+_ABSENT_ACCOUNT_HASH = hash_password("no account holds this password")
+
+
+def waste_a_password_comparison(password: str) -> None:
+    """Spend one password verification whose result is discarded, to level response time."""
+    verify_password(password, _ABSENT_ACCOUNT_HASH)
+
+
 def create_token(subject: str, token_type: TokenType = "access", *, jti: str | None = None) -> str:
     settings = get_settings()
     now = datetime.now(timezone.utc)

@@ -1,3 +1,5 @@
+import time
+
 from fastapi.testclient import TestClient
 
 from app.core.terms import TERMS_VERSION
@@ -234,3 +236,30 @@ def test_sso_disabled_by_default(client: TestClient) -> None:
     response = client.get("/api/auth/sso")
     assert response.status_code == 200
     assert response.json()["enabled"] is False
+
+
+def test_an_unknown_address_costs_what_a_known_one_does(client: TestClient) -> None:
+    # Answering "no such account" without hashing anything returns in a millisecond where a
+    # real account takes a hundred, which tells an attacker which addresses exist however
+    # carefully the error message is worded.
+    client.post(
+        "/api/auth/register",
+        json={
+            "email": "known@example.com",
+            "password": "correct horse battery",
+            "accepted_terms_version": TERMS_VERSION,
+        },
+    )
+
+    def attempt(email: str) -> float:
+        start = time.perf_counter()
+        response = client.post(
+            "/api/auth/login", json={"email": email, "password": "wrong password here"}
+        )
+        assert response.status_code == 401
+        return time.perf_counter() - start
+
+    known = attempt("known@example.com")
+    unknown = attempt("nobody@example.com")
+
+    assert unknown > known / 2

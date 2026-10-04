@@ -19,6 +19,7 @@ import {
 import { getAccessToken } from "@/lib/session";
 
 import styles from "./grants.module.css";
+import { safeHref } from '@/lib/links';
 
 const EMPTY_QUERY: GrantSearchQuery = {
   keyword: "",
@@ -130,8 +131,8 @@ function OpportunityCard({
         )}
       </div>
       <h3 className={styles.opportunityTitle}>
-        {opportunity.url ? (
-          <a href={opportunity.url} target="_blank" rel="noreferrer">
+        {safeHref(opportunity.url) ? (
+          <a href={safeHref(opportunity.url)} target="_blank" rel="noreferrer">
             {opportunity.title}
           </a>
         ) : (

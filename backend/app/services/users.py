@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password, verify_password, waste_a_password_comparison
 from app.models.user import AuthProvider, User, UserRole
 
 
@@ -100,6 +100,10 @@ def upsert_federated_user(
 def authenticate(db: Session, email: str, password: str) -> User | None:
     user = get_by_email(db, email)
     if user is None or user.password_hash is None:
+        # Spend the same bcrypt work an existing account costs. Returning immediately answers an
+        # unknown address in a millisecond and a known one in a hundred, which tells an attacker
+        # which addresses hold accounts however carefully the error message is worded.
+        waste_a_password_comparison(password)
         return None
     if not verify_password(password, user.password_hash):
         return None

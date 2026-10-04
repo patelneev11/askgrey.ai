@@ -12,6 +12,7 @@ import {
   type IndStructure,
 } from '@/lib/api';
 import { getAccessToken } from '@/lib/session';
+import { safeHref } from '@/lib/links';
 
 import { errorMessage } from './errors';
 import { Row, RowGroup, SelectField, TextField } from './fields';
@@ -447,7 +448,12 @@ export function IndOutput({ controller }: { controller: IndController }) {
         <ul className={styles.list}>
           {draft.reference.sources.map((source) => (
             <li key={source.id}>
-              <a className={styles.link} href={source.url} target="_blank" rel="noreferrer">
+              <a
+                className={styles.link}
+                href={safeHref(source.url)}
+                target="_blank"
+                rel="noreferrer"
+              >
                 {source.id} — {source.title} ({source.document_date})
               </a>
             </li>

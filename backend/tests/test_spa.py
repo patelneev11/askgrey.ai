@@ -107,3 +107,20 @@ def test_a_traversal_attempt_cannot_read_outside_the_build(served: TestClient, d
 def test_an_unbuilt_directory_fails_at_boot_rather_than_404ing_every_page(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="FRONTEND_DIST_DIR"):
         mount_spa(FastAPI(), str(tmp_path))
+
+
+def test_a_dotfile_path_reads_as_absent_rather_than_as_the_app(served: TestClient) -> None:
+    # A scanner walking /.env, /.git/config and friends gets a 200 full of HTML otherwise,
+    # which reads as a hit and invites a closer look at a path that holds nothing.
+    for path in ("/.env", "/.git/config", "/.aws/credentials", "/app/.env.production"):
+        assert served.get(path).status_code == 404, path
+
+
+def test_a_published_well_known_file_is_still_reachable(served: TestClient, dist: Path) -> None:
+    (dist / ".well-known").mkdir()
+    (dist / ".well-known" / "security.txt").write_text("Contact: mailto:security@askgrey.app\n")
+
+    response = served.get("/.well-known/security.txt")
+
+    assert response.status_code == 200
+    assert "security@askgrey.app" in response.text

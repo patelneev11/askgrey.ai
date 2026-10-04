@@ -89,18 +89,37 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+def docs_path(path: str, environment: str) -> str | None:
+    """Where the interactive docs live, or None where they should not be published.
+
+    The docs and the schema behind them are a development tool. Served from a deployment they
+    hand anyone who asks every route, parameter and model of a private API, and the browser
+    running the SPA never reads them.
+    """
+    return path if environment == "development" else None
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=docs_path("/docs", settings.environment),
+    redoc_url=docs_path("/redoc", settings.environment),
+    openapi_url=docs_path("/openapi.json", settings.environment),
+)
 
 app.add_middleware(SecurityHeadersMiddleware)
 # Outermost, so the request id is set before anything else can log and is still attached
 # when an exception unwinds past the routers.
 app.add_middleware(RequestLoggingMiddleware)
+# Named methods and headers rather than `*`: the browser only ever sends these, and a wildcard
+# reply to a credentialed preflight is a policy nobody has read.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
 
 app.include_router(auth_router, prefix="/api")

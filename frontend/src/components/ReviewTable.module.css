@@ -5,13 +5,16 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
+  /* The legend cannot shrink, so the box is never flexed below the grid plus the legend. */
+  min-height: min-content;
 }
 
 .scroll {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 0;
+  /* Enough for the header row and two rows of values; below that the grid tells you nothing
+     and the panel should scroll instead. */
+  min-height: 9rem;
   /* Sideways scrolling belongs to the grid alone, so the scrollbar sits under the last row
      rather than under the legend at the bottom of the panel. */
   overflow: auto;
@@ -106,6 +109,11 @@
 .cited {
   display: inline-flex;
   align-items: baseline;
+  /* The columns are a fixed width, so a value and its never-wrapping page reference have to
+     be allowed onto two lines — side by side they ran out of the cell and printed over the
+     next column's value. */
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: var(--space-2);
   padding: 2px var(--space-2);
   margin: -2px calc(-1 * var(--space-2));

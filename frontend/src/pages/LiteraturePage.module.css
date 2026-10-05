@@ -1,9 +1,15 @@
+/*
+ * The table owns whatever height is left over, but only down to a floor: on a short panel
+ * the whole canvas scrolls instead of the grid being squeezed until its legend spills out
+ * of its box and prints over the export row.
+ */
 .canvas {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-width: 0;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .actions {
